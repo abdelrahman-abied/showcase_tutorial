@@ -357,18 +357,13 @@ class _ShowcaseState extends State<Showcase> {
   bool _enableShowcase = true;
   Timer? timer;
   GetPosition? position;
-  GetPosition? child_position;
 
   ShowCaseWidgetState get showCaseWidgetState => ShowCaseWidget.of(context);
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // if ((widget.keys?.isNotEmpty ?? false) && context.mounted) {
-    //   _showOverlay(context, widget.keys![1]);
-    // }
     _enableShowcase = showCaseWidgetState.enableShowcase;
-    debugPrint("===: ${widget.keys?.length}");
     if (_enableShowcase) {
       position ??= GetPosition(
         key: widget.key,
@@ -384,7 +379,7 @@ class _ShowcaseState extends State<Showcase> {
   void showOverlay() {
     final activeStep = ShowCaseWidget.activeTargetWidget(context);
     setState(() {
-      _showShowCase = activeStep == (widget.key ?? widget.keys![0]);
+      _showShowCase = activeStep == (widget.key);
     });
 
     if (activeStep == (widget.key)) {
@@ -425,16 +420,6 @@ class _ShowcaseState extends State<Showcase> {
             screenWidth: size.width,
             screenHeight: size.height,
           );
-          // * Build the target
-          if (widget.keys?.isNotEmpty ?? false) {
-            child_position = GetPosition(
-              key: widget.keys![1],
-              padding: widget.targetPadding,
-              screenWidth: size.width,
-              screenHeight: size.height,
-            );
-            return buildOverlayOnTarget(offset, rectBound.size, rectBound, size);
-          }
 
           return buildOverlayOnTarget(offset, rectBound.size, rectBound, size);
         },
@@ -444,29 +429,6 @@ class _ShowcaseState extends State<Showcase> {
     }
     return widget.child;
   }
-
-  // void _showOverlay(BuildContext context, GlobalKey key) {
-  //   OverlayState overlayState = Overlay.of(context);
-  //   OverlayEntry overlayEntry = OverlayEntry(
-  //     builder: (BuildContext context) {
-  //       RenderBox? renderBox = key.currentContext!.findRenderObject() as RenderBox?;
-  //       if (renderBox == null) return const SizedBox.shrink();
-  //       Offset offset = renderBox.localToGlobal(Offset.zero);
-  //       return Positioned(
-  //         left: offset.dx,
-  //         top: offset.dy,
-  //         child: Container(
-  //           width: renderBox.size.width,
-  //           height: renderBox.size.height,
-  //           color: Colors.black.withOpacity(0.1),
-  //         ),
-  //       );
-  //     },
-  //   );
-  //   SchedulerBinding.instance!.addPostFrameCallback((_) {
-  //     overlayState.insert(overlayEntry);
-  //   });
-  // }
 
   Future<void> _nextIfAny() async {
     if (timer != null && timer!.isActive) {
@@ -478,7 +440,7 @@ class _ShowcaseState extends State<Showcase> {
       timer = null;
     }
     await _reverseAnimateTooltip();
-    showCaseWidgetState.completed(widget.key ?? widget.keys![0]);
+    showCaseWidgetState.completed(widget.key);
   }
 
   Future<void> _getOnTargetTap() async {
@@ -496,14 +458,12 @@ class _ShowcaseState extends State<Showcase> {
       if (widget.keys?.isNotEmpty ?? false) {
         RenderRepaintBoundary? boundary =
             widget.keys![1].currentContext!.findRenderObject() as RenderRepaintBoundary?;
-        if (boundary == null) return SizedBox.shrink();
+        if (boundary == null) return const SizedBox.shrink();
         ui.Image image = await boundary.toImage(pixelRatio: 1.0);
         final BuildContext context = widget.keys![1].currentContext!;
         RenderBox? renderBox;
         if (context.mounted) renderBox = context.findRenderObject() as RenderBox?;
-
         Offset offset = renderBox!.localToGlobal(Offset.zero);
-        debugPrint("===: ${offset.dx}");
         return Positioned(
           left: offset.dx,
           top: offset.dy,
@@ -522,17 +482,11 @@ class _ShowcaseState extends State<Showcase> {
             ),
           ),
         );
-      } else {
-        return Container(
-          color: Colors.red,
-        );
       }
+      return const SizedBox.shrink();
     } catch (e) {
       debugPrint("===: ${e.toString()}");
-      return Container(
-        color: Colors.black,
-        child: Text(e.toString(), style: TextStyle(color: Colors.white, fontSize: 15)),
-      );
+      return const SizedBox.shrink();
     }
   }
 
@@ -658,7 +612,6 @@ class _ShowcaseState extends State<Showcase> {
                     FutureBuilder(
                         future: _buildCopy(context),
                         builder: (context, AsyncSnapshot<Widget?> snapshot) {
-                          debugPrint("== snapshot: ${snapshot.hasData}");
                           if (snapshot.hasData) {
                             return Positioned(
                               top: offset.dy,
@@ -667,24 +620,9 @@ class _ShowcaseState extends State<Showcase> {
                             );
                           } else {
                             debugPrint("== 2 snapshot: ${snapshot.error}");
-
-                            return Container(
-                              color: Colors.amber,
-                              width: 10,
-                              height: 10,
-                            );
+                            return const SizedBox.shrink();
                           }
                         }),
-                  // _TargetWidget(
-                  //   offset: offset!,
-                  //   size: size!,
-                  //   onTap: _getOnTargetTap,
-                  //   radius: widget.targetBorderRadius,
-                  //   onDoubleTap: widget.onTargetDoubleTap,
-                  //   onLongPress: widget.onTargetLongPress,
-                  //   shapeBorder: widget.targetShapeBorder,
-                  //   disableDefaultChildGestures: widget.disableDefaultTargetGestures,
-                  // ),
                   ToolTipWidget(
                     position: position,
                     offset: offset,
