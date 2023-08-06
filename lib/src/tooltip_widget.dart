@@ -24,7 +24,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import 'enum.dart';
 import '../showcaseview.dart';
 import 'get_position.dart';
 import 'measure_size.dart';
@@ -180,12 +179,12 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
     final titleStyle = widget.titleTextStyle ??
         Theme.of(context)
             .textTheme
-            .headline6!
+            .titleLarge!
             .merge(TextStyle(color: widget.textColor));
     final descriptionStyle = widget.descTextStyle ??
         Theme.of(context)
             .textTheme
-            .subtitle2!
+            .titleSmall!
             .merge(TextStyle(color: widget.textColor));
     final titleLength = widget.title == null
         ? 0

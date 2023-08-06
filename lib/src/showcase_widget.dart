@@ -21,7 +21,6 @@
  */
 
 import 'package:flutter/material.dart';
-
 import '../showcaseview.dart';
 
 class ShowCaseWidget extends StatefulWidget {

@@ -21,7 +21,6 @@
  */
 
 import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
 
 class RRectClipper extends CustomClipper<ui.Path> {

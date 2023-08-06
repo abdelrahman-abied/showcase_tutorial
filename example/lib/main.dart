@@ -56,7 +56,7 @@ class _MailPageState extends State<MailPage> {
   final GlobalKey _two = GlobalKey();
   final GlobalKey _three = GlobalKey();
   final GlobalKey _four = GlobalKey();
-  final GlobalKey _five = GlobalKey();
+  // final GlobalKey _five = GlobalKey();
   List<Mail> mails = [];
 
   final scrollController = ScrollController();
@@ -68,8 +68,7 @@ class _MailPageState extends State<MailPage> {
     //NOTE: remove ambiguate function if you are using
     //flutter version greater than 3.x and direct use WidgetsBinding.instance
     ambiguate(WidgetsBinding.instance)?.addPostFrameCallback(
-      (_) => ShowCaseWidget.of(context)
-          .startShowCase([_one, _two, _three, _four, _five]),
+      (_) => ShowCaseWidget.of(context).startShowCase([_one, _two, _three, _four]),
     );
     mails = [
       Mail(
@@ -183,8 +182,7 @@ class _MailPageState extends State<MailPage> {
                                       description: 'Tap to see menu options',
                                       disableDefaultTargetGestures: true,
                                       child: GestureDetector(
-                                        onTap: () =>
-                                            debugPrint('menu button clicked'),
+                                        onTap: () => debugPrint('menu button clicked'),
                                         child: Icon(
                                           Icons.menu,
                                           color: Theme.of(context).primaryColor,
@@ -194,16 +192,14 @@ class _MailPageState extends State<MailPage> {
                                         previous: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/left.png',
-                                            color:
-                                                Theme.of(context).primaryColor,
+                                            color: Theme.of(context).primaryColor,
                                           ),
-                                            buttonTextVisible: false,
+                                          buttonTextVisible: false,
                                         ),
                                         next: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/right.png',
-                                            color:
-                                                Theme.of(context).primaryColor,
+                                            color: Theme.of(context).primaryColor,
                                           ),
                                           textDirection: TextDirection.rtl,
                                           buttonTextVisible: false,
@@ -211,8 +207,7 @@ class _MailPageState extends State<MailPage> {
                                         stop: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/close.png',
-                                            color:
-                                                Theme.of(context).primaryColor,
+                                            color: Theme.of(context).primaryColor,
                                           ),
                                           buttonTextVisible: false,
                                         ),
@@ -313,9 +308,10 @@ class _MailPageState extends State<MailPage> {
                 physics: const BouncingScrollPhysics(),
                 itemBuilder: (context, index) {
                   if (index == 0) {
-                    return showcaseMailTile(_three, true, context, mails.first);
+                    return showcaseMailTile([_three, _five], true, context, mails.first);
                   }
                   return MailTile(
+                    key: index == 2 ? _five : null,
                     mail: mails[index % mails.length],
                   );
                 },
@@ -324,11 +320,8 @@ class _MailPageState extends State<MailPage> {
           ],
         ),
       ),
-      floatingActionButton: Showcase(
-        key: _five,
-        title: 'Compose Mail',
-        description: 'Click here to compose mail',
-        targetShapeBorder: const CircleBorder(),
+      floatingActionButton: RepaintBoundary(
+        // key: _five,
         child: FloatingActionButton(
           backgroundColor: Theme.of(context).primaryColor,
           onPressed: () {
@@ -337,49 +330,19 @@ class _MailPageState extends State<MailPage> {
                * currently rendered so the showcased keys are available in the
                * render tree. */
               scrollController.jumpTo(0);
-              ShowCaseWidget.of(context)
-                  .startShowCase([_one, _two, _three, _four, _five]);
+              ShowCaseWidget.of(context).startShowCase([_one, _two, _three, _four, _five]);
             });
           },
           child: const Icon(
             Icons.add,
           ),
         ),
-        actions: Row(
-          children: [
-            ElevatedButton(
-              onPressed: () {
-                if (ShowCaseWidget.of(context).ids != null) {
-                  ShowCaseWidget.of(context).previous();
-                }
-              },
-              child: const Text('Prev'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (ShowCaseWidget.of(context).ids != null) {
-                  ShowCaseWidget.of(context).dismiss();
-                }
-              },
-              child: const Text('Stop'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (ShowCaseWidget.of(context).ids != null) {
-                  ShowCaseWidget.of(context).next();
-                }
-              },
-              child: const Text('Next'),
-            ),
-          ],
-        ),
-        actionButtonsPosition: const ActionButtonsPosition(),
       ),
     );
   }
 
-  GestureDetector showcaseMailTile(GlobalKey<State<StatefulWidget>> key,
-      bool showCaseDetail, BuildContext context, Mail mail) {
+  GestureDetector showcaseMailTile(List<GlobalKey<State<StatefulWidget>>> keys, bool showCaseDetail,
+      BuildContext context, Mail mail) {
     return GestureDetector(
       onTap: () {
         Navigator.push<void>(
@@ -392,7 +355,8 @@ class _MailPageState extends State<MailPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Showcase(
-          key: key,
+          key: keys[0],
+          keys: keys,
           description: 'Tap to check mail',
           tooltipPosition: TooltipPosition.top,
           disposeOnTap: true,
@@ -403,9 +367,9 @@ class _MailPageState extends State<MailPage> {
                 builder: (_) => const Detail(),
               ),
             ).then((_) {
-              setState(() {
-                ShowCaseWidget.of(context).startShowCase([_four, _five]);
-              });
+              // setState(() {
+              //   ShowCaseWidget.of(context).startShowCase([_four, _five]);
+              // });
             });
           },
           child: MailTile(
@@ -491,11 +455,7 @@ class Mail {
 }
 
 class MailTile extends StatelessWidget {
-  const MailTile(
-      {required this.mail,
-      this.showCaseDetail = false,
-      this.showCaseKey,
-      Key? key})
+  const MailTile({required this.mail, this.showCaseDetail = false, this.showCaseKey, Key? key})
       : super(key: key);
   final bool showCaseDetail;
   final GlobalKey<State<StatefulWidget>>? showCaseKey;
@@ -503,148 +463,196 @@ class MailTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.only(left: 6, right: 16, top: 8, bottom: 8),
-      color: mail.isUnread ? const Color(0xffFFF6F7) : Colors.white,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                if (showCaseDetail)
-                  Showcase.withWidget(
-                    key: showCaseKey!,
-                    height: 50,
-                    width: 140,
-                    targetShapeBorder: const CircleBorder(),
-                    targetBorderRadius: const BorderRadius.all(
-                      Radius.circular(150),
-                    ),
-                    container: Column(
+    return RepaintBoundary(
+      key: key,
+      child: Container(
+        padding: const EdgeInsets.only(left: 6, right: 16, top: 8, bottom: 8),
+        color: mail.isUnread ? const Color(0xffFFF6F7) : Colors.white,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  if (showCaseDetail)
+                    Showcase.withWidget(
+                      key: showCaseKey!,
+                      height: 150,
+                      width: 140,
+                      targetShapeBorder: const CircleBorder(),
+                      targetBorderRadius: const BorderRadius.all(
+                        Radius.circular(150),
+                      ),
+                      container: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Container(
+                            color: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                            child: Column(children: [
+                              Container(
+                                width: 45,
+                                height: 45,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xffFCD8DC),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'S',
+                                    style: TextStyle(
+                                      color: Theme.of(context).primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(
+                                height: 10,
+                              ),
+                              NewWidget(parentContext: context),
+                            ]),
+                          ),
+                        ],
+                      ),
+                      child: const SAvatarExampleChild(),
+                      actionButtonsPosition: const ActionButtonsPosition(),
+                    )
+                  else
+                    const SAvatarExampleChild(),
+                  const Padding(padding: EdgeInsets.only(left: 8)),
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Container(
-                          width: 45,
-                          height: 45,
-                          decoration: const BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Color(0xffFCD8DC),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'S',
-                              style: TextStyle(
-                                color: Theme.of(context).primaryColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
+                        Text(
+                          mail.sender,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: mail.isUnread ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 17,
                           ),
                         ),
-                        const SizedBox(
-                          height: 10,
+                        Text(
+                          mail.sub,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.normal,
+                            fontSize: 16,
+                          ),
                         ),
-                        const Text(
-                          "Your sender's profile ",
-                          style: TextStyle(color: Colors.white),
-                        )
+                        Text(
+                          mail.msg,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.normal,
+                            color: mail.isUnread ? Theme.of(context).primaryColor : Colors.black,
+                            fontSize: 15,
+                          ),
+                        ),
                       ],
                     ),
-                    child: const SAvatarExampleChild(),
-                    actions: ShowCaseDefaultActions(
-                      previous: ActionButtonConfig(
-                        icon: Image.asset(
-                          'assets/left.png',
-                          color: Theme.of(context).primaryColor,
-                        ),
-                      ),
-                      next: ActionButtonConfig(
-                        icon: Image.asset(
-                          'assets/right.png',
-                          color: Theme.of(context).primaryColor,
-                        ),
-                        textDirection: TextDirection.rtl,
-                      ),
-                      stop: ActionButtonConfig(
-                        icon: Image.asset(
-                          'assets/close.png',
-                          color: Theme.of(context).primaryColor,
-                        ),
-                      ),
-                    ),
-                    actionButtonsPosition: const ActionButtonsPosition(),
                   )
-                else
-                  const SAvatarExampleChild(),
-                const Padding(padding: EdgeInsets.only(left: 8)),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        mail.sender,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: mail.isUnread
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          fontSize: 17,
-                        ),
-                      ),
-                      Text(
-                        mail.sub,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.normal,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        mail.msg,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.normal,
-                          color: mail.isUnread
-                              ? Theme.of(context).primaryColor
-                              : Colors.black,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              ],
+                ],
+              ),
             ),
-          ),
-          SizedBox(
-            width: 50,
-            child: Column(
-              children: <Widget>[
-                const SizedBox(
-                  height: 5,
-                ),
-                Text(
-                  mail.date,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.normal,
-                    fontSize: 12,
-                    color: Colors.grey,
+            SizedBox(
+              width: 50,
+              child: Column(
+                children: <Widget>[
+                  const SizedBox(
+                    height: 5,
                   ),
-                ),
-                const SizedBox(
-                  height: 10,
-                ),
-                Icon(
-                  mail.isUnread ? Icons.star : Icons.star_border,
-                  color: mail.isUnread ? const Color(0xffFBC800) : Colors.grey,
-                ),
-              ],
+                  Text(
+                    mail.date,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.normal,
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(
+                    height: 10,
+                  ),
+                  Icon(
+                    mail.isUnread ? Icons.star : Icons.star_border,
+                    color: mail.isUnread ? const Color(0xffFBC800) : Colors.grey,
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class NewWidget extends StatelessWidget {
+  final BuildContext parentContext;
+  const NewWidget({
+    Key? key,
+    required this.parentContext,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    print(parentContext.widget.runtimeType.toString());
+    print(parentContext?.findAncestorWidgetOfExactType<MailTile>());
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: () {
+            ShowCaseWidget.of(parentContext).dismiss();
+          },
+          child: const Text(
+            "Skip ",
+            style: TextStyle(color: Colors.black),
+          ),
+        ),
+        const SizedBox(width: 100),
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+              border: Border.all(color: Colors.black, width: 2),
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(50.0)),
+          alignment: Alignment.center,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            onPressed: () {
+              ShowCaseWidget.of(parentContext).previous();
+            },
+            icon: const Icon(
+              Icons.arrow_back_outlined,
+              size: 21,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+              border: Border.all(color: Colors.black, width: 2),
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(50.0)),
+          alignment: Alignment.center,
+          child: IconButton(
+            padding: EdgeInsets.zero,
+            onPressed: () {
+              ShowCaseWidget.of(parentContext).next();
+            },
+            icon: const Icon(
+              Icons.arrow_forward_outlined,
+              size: 21,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

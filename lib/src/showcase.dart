@@ -22,17 +22,18 @@
 
 import 'dart:async';
 import 'dart:ui';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:showcaseview/src/tooltip_widget.dart';
 
-import 'enum.dart';
 import '../showcaseview.dart';
 import 'extension.dart';
 import 'get_position.dart';
 import 'layout_overlays.dart';
 import 'shape_clipper.dart';
-import 'tooltip_widget.dart';
 import 'utilities/_showcase_context_provider.dart';
 
 class Showcase extends StatefulWidget {
@@ -43,6 +44,7 @@ class Showcase extends StatefulWidget {
   /// target widget while showcasing.
   @override
   final GlobalKey key;
+  final List<GlobalKey>? keys;
 
   /// Target widget that will be showcased or highlighted
   final Widget child;
@@ -240,6 +242,7 @@ class Showcase extends StatefulWidget {
 
   const Showcase({
     required this.key,
+    this.keys,
     required this.child,
     this.title,
     this.titleAlignment = TextAlign.start,
@@ -263,8 +266,7 @@ class Showcase extends StatefulWidget {
     this.movingAnimationDuration = const Duration(milliseconds: 2000),
     this.disableMovingAnimation,
     this.disableScaleAnimation,
-    this.tooltipPadding =
-        const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+    this.tooltipPadding = const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
     this.onToolTipClick,
     this.targetPadding = EdgeInsets.zero,
     this.blurValue,
@@ -289,15 +291,13 @@ class Showcase extends StatefulWidget {
             "overlay opacity must be between 0 and 1."),
         assert(onTargetClick == null || disposeOnTap != null,
             "disposeOnTap is required if you're using onTargetClick"),
-        assert(
-            disposeOnTap == null
-                ? true
-                : (onTargetClick == null ? false : true),
+        assert(disposeOnTap == null ? true : (onTargetClick == null ? false : true),
             "onTargetClick is required if you're using disposeOnTap"),
         super(key: key);
 
   const Showcase.withWidget({
     required this.key,
+    this.keys,
     required this.child,
     required this.container,
     required this.height,
@@ -310,8 +310,8 @@ class Showcase extends StatefulWidget {
     this.overlayColor = Colors.black45,
     this.targetBorderRadius,
     this.overlayOpacity = 0.75,
-    this.scrollLoadingWidget = const CircularProgressIndicator(
-        valueColor: AlwaysStoppedAnimation(Colors.white)),
+    this.scrollLoadingWidget =
+        const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.white)),
     this.onTargetClick,
     this.disposeOnTap,
     this.movingAnimationDuration = const Duration(milliseconds: 2000),
@@ -357,14 +357,18 @@ class _ShowcaseState extends State<Showcase> {
   bool _enableShowcase = true;
   Timer? timer;
   GetPosition? position;
+  GetPosition? child_position;
 
   ShowCaseWidgetState get showCaseWidgetState => ShowCaseWidget.of(context);
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // if ((widget.keys?.isNotEmpty ?? false) && context.mounted) {
+    //   _showOverlay(context, widget.keys![1]);
+    // }
     _enableShowcase = showCaseWidgetState.enableShowcase;
-
+    debugPrint("===: ${widget.keys?.length}");
     if (_enableShowcase) {
       position ??= GetPosition(
         key: widget.key,
@@ -380,18 +384,16 @@ class _ShowcaseState extends State<Showcase> {
   void showOverlay() {
     final activeStep = ShowCaseWidget.activeTargetWidget(context);
     setState(() {
-      _showShowCase = activeStep == widget.key;
+      _showShowCase = activeStep == (widget.key ?? widget.keys![0]);
     });
 
-    if (activeStep == widget.key) {
+    if (activeStep == (widget.key)) {
       if (showCaseWidgetState.enableAutoScroll) {
         _scrollIntoView();
       }
 
       if (showCaseWidgetState.autoPlay) {
-        timer = Timer(
-            Duration(seconds: showCaseWidgetState.autoPlayDelay.inSeconds),
-            _nextIfAny);
+        timer = Timer(Duration(seconds: showCaseWidgetState.autoPlayDelay.inSeconds), _nextIfAny);
       }
     }
   }
@@ -400,7 +402,8 @@ class _ShowcaseState extends State<Showcase> {
     ambiguate(WidgetsBinding.instance)?.addPostFrameCallback((timeStamp) async {
       setState(() => _isScrollRunning = true);
       await Scrollable.ensureVisible(
-        widget.key.currentContext!,
+        widget.key.currentContext! // ?? widget.keys![0].currentContext!,
+        ,
         duration: showCaseWidgetState.widget.scrollDuration,
         alignment: 0.5,
       );
@@ -414,12 +417,25 @@ class _ShowcaseState extends State<Showcase> {
       return AnchoredOverlay(
         overlayBuilder: (context, rectBound, offset) {
           final size = MediaQuery.of(context).size;
+          debugPrint("===: ${size.width}");
+          debugPrint("===: ${size.width}");
           position = GetPosition(
             key: widget.key,
             padding: widget.targetPadding,
             screenWidth: size.width,
             screenHeight: size.height,
           );
+          // * Build the target
+          if (widget.keys?.isNotEmpty ?? false) {
+            child_position = GetPosition(
+              key: widget.keys![1],
+              padding: widget.targetPadding,
+              screenWidth: size.width,
+              screenHeight: size.height,
+            );
+            return buildOverlayOnTarget(offset, rectBound.size, rectBound, size);
+          }
+
           return buildOverlayOnTarget(offset, rectBound.size, rectBound, size);
         },
         showOverlay: true,
@@ -428,6 +444,29 @@ class _ShowcaseState extends State<Showcase> {
     }
     return widget.child;
   }
+
+  // void _showOverlay(BuildContext context, GlobalKey key) {
+  //   OverlayState overlayState = Overlay.of(context);
+  //   OverlayEntry overlayEntry = OverlayEntry(
+  //     builder: (BuildContext context) {
+  //       RenderBox? renderBox = key.currentContext!.findRenderObject() as RenderBox?;
+  //       if (renderBox == null) return const SizedBox.shrink();
+  //       Offset offset = renderBox.localToGlobal(Offset.zero);
+  //       return Positioned(
+  //         left: offset.dx,
+  //         top: offset.dy,
+  //         child: Container(
+  //           width: renderBox.size.width,
+  //           height: renderBox.size.height,
+  //           color: Colors.black.withOpacity(0.1),
+  //         ),
+  //       );
+  //     },
+  //   );
+  //   SchedulerBinding.instance!.addPostFrameCallback((_) {
+  //     overlayState.insert(overlayEntry);
+  //   });
+  // }
 
   Future<void> _nextIfAny() async {
     if (timer != null && timer!.isActive) {
@@ -439,7 +478,7 @@ class _ShowcaseState extends State<Showcase> {
       timer = null;
     }
     await _reverseAnimateTooltip();
-    showCaseWidgetState.completed(widget.key);
+    showCaseWidgetState.completed(widget.key ?? widget.keys![0]);
   }
 
   Future<void> _getOnTargetTap() async {
@@ -449,6 +488,51 @@ class _ShowcaseState extends State<Showcase> {
       widget.onTargetClick!();
     } else {
       (widget.onTargetClick ?? _nextIfAny).call();
+    }
+  }
+
+  Future<Widget> _buildCopy(BuildContext context) async {
+    try {
+      if (widget.keys?.isNotEmpty ?? false) {
+        RenderRepaintBoundary? boundary =
+            widget.keys![1].currentContext!.findRenderObject() as RenderRepaintBoundary?;
+        if (boundary == null) return SizedBox.shrink();
+        ui.Image image = await boundary.toImage(pixelRatio: 1.0);
+        final BuildContext context = widget.keys![1].currentContext!;
+        RenderBox? renderBox;
+        if (context.mounted) renderBox = context.findRenderObject() as RenderBox?;
+
+        Offset offset = renderBox!.localToGlobal(Offset.zero);
+        debugPrint("===: ${offset.dx}");
+        return Positioned(
+          left: offset.dx,
+          top: offset.dy,
+          child: Container(
+            width: boundary.size.width,
+            height: boundary.size.height,
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: MemoryImage(
+                  Uint8List.fromList(
+                    (await image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List(),
+                  ),
+                ),
+                fit: BoxFit.fill,
+              ),
+            ),
+          ),
+        );
+      } else {
+        return Container(
+          color: Colors.red,
+        );
+      }
+    } catch (e) {
+      debugPrint("===: ${e.toString()}");
+      return Container(
+        color: Colors.black,
+        child: Text(e.toString(), style: TextStyle(color: Colors.white, fontSize: 15)),
+      );
     }
   }
 
@@ -472,8 +556,10 @@ class _ShowcaseState extends State<Showcase> {
     Offset offset,
     Size size,
     Rect rectBound,
-    Size screenSize,
-  ) {
+    Size screenSize, {
+    Offset? offset_child,
+    Size? size_child,
+  }) {
     var blur = 0.0;
     if (_showShowCase) {
       blur = widget.blurValue ?? showCaseWidgetState.blurValue;
@@ -499,25 +585,18 @@ class _ShowcaseState extends State<Showcase> {
                   child: ClipPath(
                     clipper: RRectClipper(
                       area: _isScrollRunning ? Rect.zero : rectBound,
-                      isCircle:
-                      widget.targetShapeBorder is CircleBorder,
-                      radius: _isScrollRunning
-                          ? BorderRadius.zero
-                          : widget.targetBorderRadius,
-                      overlayPadding: _isScrollRunning
-                          ? EdgeInsets.zero
-                          : widget.targetPadding,
+                      isCircle: widget.targetShapeBorder is CircleBorder,
+                      radius: _isScrollRunning ? BorderRadius.zero : widget.targetBorderRadius,
+                      overlayPadding: _isScrollRunning ? EdgeInsets.zero : widget.targetPadding,
                     ),
                     child: blur != 0
                         ? BackdropFilter(
-                            filter:
-                                ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
                             child: Container(
                               width: MediaQuery.of(context).size.width,
                               height: MediaQuery.of(context).size.height,
                               decoration: BoxDecoration(
-                                color: widget.overlayColor
-                                    .withOpacity(widget.overlayOpacity),
+                                color: widget.overlayColor.withOpacity(widget.overlayOpacity),
                               ),
                             ),
                           )
@@ -525,8 +604,40 @@ class _ShowcaseState extends State<Showcase> {
                             width: MediaQuery.of(context).size.width,
                             height: MediaQuery.of(context).size.height,
                             decoration: BoxDecoration(
-                              color: widget.overlayColor
-                                  .withOpacity(widget.overlayOpacity),
+                              color: widget.overlayColor.withOpacity(widget.overlayOpacity),
+                            ),
+                          ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    if (!showCaseWidgetState.disableBarrierInteraction) {
+                      _nextIfAny();
+                    }
+                  },
+                  child: ClipPath(
+                    clipper: RRectClipper(
+                      area: _isScrollRunning ? Rect.zero : rectBound,
+                      isCircle: widget.targetShapeBorder is CircleBorder,
+                      radius: _isScrollRunning ? BorderRadius.zero : widget.targetBorderRadius,
+                      overlayPadding: _isScrollRunning ? EdgeInsets.zero : widget.targetPadding,
+                    ),
+                    child: blur != 0
+                        ? BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                            child: Container(
+                              width: MediaQuery.of(context).size.width,
+                              height: MediaQuery.of(context).size.height,
+                              decoration: BoxDecoration(
+                                color: widget.overlayColor.withOpacity(0.1),
+                              ),
+                            ),
+                          )
+                        : Container(
+                            width: MediaQuery.of(context).size.width,
+                            height: MediaQuery.of(context).size.height,
+                            decoration: BoxDecoration(
+                              color: widget.overlayColor.withOpacity(widget.overlayOpacity),
                             ),
                           ),
                   ),
@@ -541,9 +652,39 @@ class _ShowcaseState extends State<Showcase> {
                     onDoubleTap: widget.onTargetDoubleTap,
                     onLongPress: widget.onTargetLongPress,
                     shapeBorder: widget.targetShapeBorder,
-                    disableDefaultChildGestures:
-                        widget.disableDefaultTargetGestures,
+                    disableDefaultChildGestures: widget.disableDefaultTargetGestures,
                   ),
+                  if (widget.keys?.isNotEmpty ?? false)
+                    FutureBuilder(
+                        future: _buildCopy(context),
+                        builder: (context, AsyncSnapshot<Widget?> snapshot) {
+                          debugPrint("== snapshot: ${snapshot.hasData}");
+                          if (snapshot.hasData) {
+                            return Positioned(
+                              top: offset.dy,
+                              left: offset.dx,
+                              child: snapshot.data as Widget,
+                            );
+                          } else {
+                            debugPrint("== 2 snapshot: ${snapshot.error}");
+
+                            return Container(
+                              color: Colors.amber,
+                              width: 10,
+                              height: 10,
+                            );
+                          }
+                        }),
+                  // _TargetWidget(
+                  //   offset: offset!,
+                  //   size: size!,
+                  //   onTap: _getOnTargetTap,
+                  //   radius: widget.targetBorderRadius,
+                  //   onDoubleTap: widget.onTargetDoubleTap,
+                  //   onLongPress: widget.onTargetLongPress,
+                  //   shapeBorder: widget.targetShapeBorder,
+                  //   disableDefaultChildGestures: widget.disableDefaultTargetGestures,
+                  // ),
                   ToolTipWidget(
                     position: position,
                     offset: offset,
@@ -562,10 +703,10 @@ class _ShowcaseState extends State<Showcase> {
                     contentWidth: widget.width,
                     onTooltipTap: _getOnTooltipTap,
                     tooltipPadding: widget.tooltipPadding,
-                    disableMovingAnimation: widget.disableMovingAnimation ??
-                        showCaseWidgetState.disableMovingAnimation,
-                    disableScaleAnimation: widget.disableScaleAnimation ??
-                        showCaseWidgetState.disableScaleAnimation,
+                    disableMovingAnimation:
+                        widget.disableMovingAnimation ?? showCaseWidgetState.disableMovingAnimation,
+                    disableScaleAnimation:
+                        widget.disableScaleAnimation ?? showCaseWidgetState.disableScaleAnimation,
                     movingAnimationDuration: widget.movingAnimationDuration,
                     tooltipBorderRadius: widget.tooltipBorderRadius,
                     scaleAnimationDuration: widget.scaleAnimationDuration,
@@ -579,7 +720,7 @@ class _ShowcaseState extends State<Showcase> {
                     actionSettings: widget.actionSettings,
                     actionButtonsPosition: widget.actionButtonsPosition,
                   ),
-  ],
+                ],
               ],
             ),
           )

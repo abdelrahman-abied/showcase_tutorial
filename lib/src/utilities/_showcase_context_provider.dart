@@ -40,5 +40,5 @@ class ShowcaseContextProvider extends InheritedWidget {
   }
 
   @override
-  bool updateShouldNotify(ShowcaseContextProvider old) => false;
+  bool updateShouldNotify(ShowcaseContextProvider oldWidget) => false;
 }
