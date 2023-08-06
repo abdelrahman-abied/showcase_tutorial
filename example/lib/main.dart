@@ -56,7 +56,8 @@ class _MailPageState extends State<MailPage> {
   final GlobalKey _two = GlobalKey();
   final GlobalKey _three = GlobalKey();
   final GlobalKey _four = GlobalKey();
-  // final GlobalKey _five = GlobalKey();
+  final GlobalKey _five = GlobalKey();
+  final GlobalKey twoWidgetKey = GlobalKey();
   List<Mail> mails = [];
 
   final scrollController = ScrollController();
@@ -308,10 +309,10 @@ class _MailPageState extends State<MailPage> {
                 physics: const BouncingScrollPhysics(),
                 itemBuilder: (context, index) {
                   if (index == 0) {
-                    return showcaseMailTile([_three, _five], true, context, mails.first);
+                    return showcaseMailTile([_three, twoWidgetKey], true, context, mails.first);
                   }
                   return MailTile(
-                    key: index == 2 ? _five : null,
+                    key: index == 2 ? twoWidgetKey : null,
                     mail: mails[index % mails.length],
                   );
                 },
@@ -599,8 +600,6 @@ class NewWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print(parentContext.widget.runtimeType.toString());
-    print(parentContext?.findAncestorWidgetOfExactType<MailTile>());
     return Row(
       children: [
         GestureDetector(
