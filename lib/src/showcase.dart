@@ -457,10 +457,10 @@ class _ShowcaseState extends State<Showcase> {
     try {
       if (widget.keys?.isNotEmpty ?? false) {
         RenderRepaintBoundary? boundary =
-            widget.keys![1].currentContext!.findRenderObject() as RenderRepaintBoundary?;
+            widget.keys!.last.currentContext!.findRenderObject() as RenderRepaintBoundary?;
         if (boundary == null) return const SizedBox.shrink();
         ui.Image image = await boundary.toImage(pixelRatio: 1.0);
-        final BuildContext context = widget.keys![1].currentContext!;
+        final BuildContext context = widget.keys!.last.currentContext!;
         RenderBox? renderBox;
         if (context.mounted) renderBox = context.findRenderObject() as RenderBox?;
         Offset offset = renderBox!.localToGlobal(Offset.zero);
