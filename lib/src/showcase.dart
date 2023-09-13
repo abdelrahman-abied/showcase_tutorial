@@ -27,13 +27,12 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:showcaseview/src/tooltip_widget.dart';
 
 import '../showcaseview.dart';
-import 'extension.dart';
 import 'get_position.dart';
 import 'layout_overlays.dart';
 import 'shape_clipper.dart';
+import 'tooltip_widget.dart';
 import 'utilities/_showcase_context_provider.dart';
 
 class Showcase extends StatefulWidget {
@@ -394,7 +393,7 @@ class _ShowcaseState extends State<Showcase> {
   }
 
   void _scrollIntoView() {
-    ambiguate(WidgetsBinding.instance)?.addPostFrameCallback((timeStamp) async {
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
       setState(() => _isScrollRunning = true);
       await Scrollable.ensureVisible(
         widget.key.currentContext! // ?? widget.keys![0].currentContext!,
@@ -451,39 +450,47 @@ class _ShowcaseState extends State<Showcase> {
     }
   }
 
-  Future<Widget> _buildCopy(BuildContext context) async {
+  Future<List<Widget>> _buildCopys(BuildContext context) async {
     try {
-      if (widget.keys?.isNotEmpty ?? false) {
-        RenderRepaintBoundary? boundary =
-            widget.keys![1].currentContext!.findRenderObject() as RenderRepaintBoundary?;
-        if (boundary == null) return const SizedBox.shrink();
-        ui.Image image = await boundary.toImage(pixelRatio: 1.0);
-        final BuildContext context = widget.keys![1].currentContext!;
-        RenderBox? renderBox;
-        if (context.mounted) renderBox = context.findRenderObject() as RenderBox?;
-        Offset offset = renderBox!.localToGlobal(Offset.zero);
-        return Positioned(
-          left: offset.dx,
-          top: offset.dy,
-          child: Container(
-            width: boundary.size.width,
-            height: boundary.size.height,
-            decoration: BoxDecoration(
-              image: DecorationImage(
-                image: MemoryImage(
-                  Uint8List.fromList(
-                    (await image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List(),
+      List<Widget> list = [];
+      if (widget.keys != null && widget.keys!.isNotEmpty) {
+        // loop through all keys and build a list of widgets to be displayed
+        for (final element in widget.keys!) {
+          RenderRepaintBoundary? boundary =
+              element.currentContext!.findRenderObject() as RenderRepaintBoundary?;
+          // if (boundary == null) return await const SizedBox.shrink();
+          ui.Image image = await boundary!.toImage(pixelRatio: 1.0);
+          final BuildContext context = element.currentContext!;
+          RenderBox? renderBox;
+          if (context.mounted) renderBox = context.findRenderObject() as RenderBox?;
+          Offset offset = renderBox!.localToGlobal(Offset.zero);
+          list.add(
+            Positioned(
+              left: offset.dx,
+              top: offset.dy,
+              child: Container(
+                width: boundary.size.width,
+                height: boundary.size.height,
+                decoration: BoxDecoration(
+                  image: DecorationImage(
+                    image: MemoryImage(
+                      Uint8List.fromList(
+                        (await image.toByteData(format: ui.ImageByteFormat.png))!
+                            .buffer
+                            .asUint8List(),
+                      ),
+                    ),
+                    fit: BoxFit.fill,
                   ),
                 ),
-                fit: BoxFit.fill,
               ),
             ),
-          ),
-        );
+          );
+        }
       }
-      return const SizedBox.shrink();
+      return list;
     } catch (e) {
-      return const SizedBox.shrink();
+      return const [];
     }
   }
 
@@ -508,8 +515,8 @@ class _ShowcaseState extends State<Showcase> {
     Size size,
     Rect rectBound,
     Size screenSize, {
-    Offset? offset_child,
-    Size? size_child,
+    Offset? offsetChild,
+    Size? sizeChild,
   }) {
     var blur = 0.0;
     if (_showShowCase) {
@@ -605,16 +612,21 @@ class _ShowcaseState extends State<Showcase> {
                     shapeBorder: widget.targetShapeBorder,
                     disableDefaultChildGestures: widget.disableDefaultTargetGestures,
                   ),
-                  if (widget.keys?.isNotEmpty ?? false)
-                    FutureBuilder(
-                        future: _buildCopy(context),
-                        builder: (context, AsyncSnapshot<Widget?> snapshot) {
-                          if (snapshot.hasData && snapshot.data != null) {
-                            return snapshot.data as Widget;
+                  if (widget.keys != null && widget.keys!.isNotEmpty) ...[
+                    FutureBuilder<List<Widget>>(
+                        future: _buildCopys(context),
+                        builder: (context, AsyncSnapshot<List<Widget>> snapshot) {
+                          if (snapshot.hasData &&
+                              snapshot.data != null &&
+                              snapshot.data!.isNotEmpty) {
+                            return Stack(
+                              children: snapshot.data!,
+                            );
                           } else {
                             return const SizedBox.shrink();
                           }
-                        }),
+                        })
+                  ],
                   ToolTipWidget(
                     position: position,
                     offset: offset,

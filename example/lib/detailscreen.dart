@@ -1,4 +1,3 @@
-import 'package:example/helper.dart';
 import 'package:flutter/material.dart';
 import 'package:showcaseview/showcaseview.dart';
 
@@ -18,7 +17,7 @@ class _DetailState extends State<Detail> {
     super.initState();
     //NOTE: remove ambiguate function if you are using
     //flutter version greater than 3.x and direct use WidgetsBinding.instance
-    ambiguate(WidgetsBinding.instance)?.addPostFrameCallback(
+    WidgetsBinding.instance.addPostFrameCallback(
       (_) => Future.delayed(const Duration(milliseconds: 200), () {
         ShowCaseWidget.of(myContext!).startShowCase([_one]);
       }),
@@ -84,8 +83,7 @@ class _DetailState extends State<Detail> {
                       children: [
                         TextSpan(text: 'Hi team,\n\n'),
                         TextSpan(
-                          text:
-                              'As some of you know, we’re moving to Slack for '
+                          text: 'As some of you know, we’re moving to Slack for '
                               'our internal team communications. Slack is a '
                               'messaging app where we can talk, share files, '
                               'and work together. It also connects with tools '
@@ -100,8 +98,7 @@ class _DetailState extends State<Detail> {
                           ),
                         ),
                         TextSpan(
-                          text:
-                              'We want to use the best communication tools to '
+                          text: 'We want to use the best communication tools to '
                               'make our lives easier and be more productive. '
                               'Having everything in one place will help us '
                               'work together better and faster, rather than '

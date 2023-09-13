@@ -126,8 +126,8 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     final bottomPosition = position.dy + ((widget.position?.getHeight() ?? 0) / 2);
     final topPosition = position.dy - ((widget.position?.getHeight() ?? 0) / 2);
     final hasSpaceInTop = topPosition >= height;
-    final EdgeInsets viewInsets = EdgeInsets.fromWindowPadding(
-        WidgetsBinding.instance.window.viewInsets, WidgetsBinding.instance.window.devicePixelRatio);
+    final EdgeInsets viewInsets =
+        EdgeInsets.fromViewPadding(View.of(context).viewInsets, View.of(context).devicePixelRatio);
     final double actualVisibleScreenHeight =
         (widget.screenSize?.height ?? MediaQuery.of(context).size.height) - viewInsets.bottom;
     final hasSpaceInBottom = (actualVisibleScreenHeight - bottomPosition) >= height;
@@ -262,8 +262,6 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
       if (widget.container != null &&
           _customContainerKey.currentContext != null &&
           _customContainerKey.currentContext?.size != null) {
-        // TODO: Is it wise to call setState here? All it is doing is setting
-        // a value in ValueNotifier which does not require a setState to refresh anyway.
         setState(() {
           _customContainerWidth.value = _customContainerKey.currentContext!.size!.width;
         });
@@ -332,7 +330,6 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    // TODO: maybe all this calculation doesn't need to run here. Maybe all or some of it can be moved outside?
     position = widget.offset;
     final contentOrientation = findPositionForContent(position!);
     final contentOffsetMultiplier = contentOrientation == TooltipPosition.bottom ? 1.0 : -1.0;
@@ -490,7 +487,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
               width: tooltipWidth,
               child: Container(
                 height: 200,
-                color: Colors.yellowAccent,
+                color: Colors.white,
                 child: widget.actions,
               ),
             ),

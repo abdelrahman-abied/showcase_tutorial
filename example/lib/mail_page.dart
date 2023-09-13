@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:example/detailscreen.dart';
 import 'package:example/helper.dart';
 import 'package:flutter/material.dart';
@@ -18,10 +16,10 @@ class MailPage extends StatefulWidget {
 class _MailPageState extends State<MailPage> {
   final GlobalKey _one = GlobalKey();
   final GlobalKey _two = GlobalKey();
-  final GlobalKey _three = GlobalKey();
-  // final GlobalKey _four = GlobalKey();
-  final GlobalKey _five = GlobalKey();
-  final GlobalKey twoWidgetKey = GlobalKey();
+  final GlobalKey firstMutliWidgetKey = GlobalKey();
+  final GlobalKey secondMutliWidgetKey = GlobalKey();
+  final GlobalKey thirdMutliWidgetKey = GlobalKey();
+
   List<Mail> mails = [];
 
   final scrollController = ScrollController();
@@ -33,7 +31,7 @@ class _MailPageState extends State<MailPage> {
     //NOTE: remove ambiguate function if you are using
     //flutter version greater than 3.x and direct use WidgetsBinding.instance
     ambiguate(WidgetsBinding.instance)?.addPostFrameCallback(
-      (_) => ShowCaseWidget.of(context).startShowCase([_one, _two, _three]),
+      (_) => ShowCaseWidget.of(context).startShowCase([_one, _two, firstMutliWidgetKey]),
     );
     mails = [
       Mail(
@@ -213,11 +211,10 @@ class _MailPageState extends State<MailPage> {
                       targetShapeBorder: const CircleBorder(),
                       child: Container(
                         padding: const EdgeInsets.all(5),
-                        width: 45,
-                        height: 45,
-                        decoration: BoxDecoration(
+                        width: 50,
+                        height: 50,
+                        decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Theme.of(context).primaryColor,
                         ),
                         child: Image.asset('assets/simform.png'),
                       ),
@@ -272,12 +269,17 @@ class _MailPageState extends State<MailPage> {
                 controller: scrollController,
                 physics: const BouncingScrollPhysics(),
                 itemBuilder: (context, index) {
-                  log('index: $index $twoWidgetKey');
                   if (index == 0) {
-                    return showcaseMailTile([_three, twoWidgetKey], true, context, mails[index]);
+                    return showcaseMailTile(
+                      firstMutliWidgetKey,
+                      [secondMutliWidgetKey, thirdMutliWidgetKey],
+                      false,
+                      context,
+                      mails[index],
+                    );
                   }
                   return MailTile(
-                    twoWidgetKey: index == 2 ? twoWidgetKey : null,
+                    key: index == 2 ? secondMutliWidgetKey : null,
                     mail: mails[index % mails.length],
                   );
                 },
@@ -286,9 +288,8 @@ class _MailPageState extends State<MailPage> {
           ],
         ),
       ),
-      floatingActionButton: Showcase(
-        description: 'Floating action button',
-        key: _five,
+      floatingActionButton: MultiView(
+        key: thirdMutliWidgetKey,
         child: FloatingActionButton(
           backgroundColor: Theme.of(context).primaryColor,
           onPressed: () {
@@ -297,7 +298,6 @@ class _MailPageState extends State<MailPage> {
                * currently rendered so the showcased keys are available in the
                * render tree. */
               scrollController.jumpTo(0);
-              ShowCaseWidget.of(context).startShowCase([_one, _two, _three, _five]);
             });
           },
           child: const Icon(
@@ -309,6 +309,7 @@ class _MailPageState extends State<MailPage> {
   }
 
   GestureDetector showcaseMailTile(
+    GlobalKey showCaseKey,
     List<GlobalKey<State<StatefulWidget>>> keys,
     bool showCaseDetail,
     BuildContext context,
@@ -326,26 +327,14 @@ class _MailPageState extends State<MailPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Showcase(
-          key: keys.first,
+          key: showCaseKey,
           keys: keys,
           description: 'Tap to check mail',
           tooltipPosition: TooltipPosition.top,
           disposeOnTap: true,
-          onTargetClick: () {
-            Navigator.push<void>(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => const Detail(),
-              ),
-            ).then((_) {
-              // setState(() {
-              //   ShowCaseWidget.of(context).startShowCase([_four, _five]);
-              // });
-            });
-          },
+          onTargetClick: () {},
           child: MailTile(
             mail: mail,
-            showCaseKey: twoWidgetKey,
             showCaseDetail: showCaseDetail,
           ),
           actions: ShowCaseDefaultActions(

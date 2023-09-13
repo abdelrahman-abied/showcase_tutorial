@@ -1,30 +1,25 @@
-import 'package:example/widget/skip_tool_tip.dart';
 import 'package:flutter/material.dart';
-import 'package:showcaseview/showcaseview.dart';
 
 import '../mail_model.dart';
 import 'sample_avatar_widget.dart';
 
 class MailTile extends StatelessWidget {
-  final Key? twoWidgetKey;
-
   const MailTile({
+    Key? key,
     required this.mail,
     this.showCaseDetail = false,
     this.showCaseKey,
-    this.twoWidgetKey,
-  }) : super(key: twoWidgetKey);
+  }) : super(key: key);
   final bool showCaseDetail;
   final GlobalKey<State<StatefulWidget>>? showCaseKey;
   final Mail mail;
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('index: ${twoWidgetKey.toString()}');
     return RepaintBoundary(
       child: Container(
         padding: const EdgeInsets.only(left: 6, right: 16, top: 8, bottom: 8),
-        color: mail.isUnread ? const Color(0xff48cae4) : Colors.white,
+        color: mail.isUnread ? const Color(0xffcaf0f8) : Colors.white,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -32,54 +27,7 @@ class MailTile extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  if (showCaseDetail) ...[
-                    Showcase.withWidget(
-                      key: showCaseKey!,
-                      overlayColor: Colors.black12,
-                      height: 150,
-                      width: 140,
-                      targetShapeBorder: const CircleBorder(),
-                      targetBorderRadius: const BorderRadius.all(
-                        Radius.circular(150),
-                      ),
-                      container: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Container(
-                            color: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                            child: Column(children: [
-                              Container(
-                                width: 45,
-                                height: 45,
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Color(0xff48cae4),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'S',
-                                    style: TextStyle(
-                                      color: Theme.of(context).primaryColor,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(
-                                height: 10,
-                              ),
-                              ShipToolTip(parentContext: context),
-                            ]),
-                          ),
-                        ],
-                      ),
-                      child: const SAvatarExampleChild(),
-                      actionButtonsPosition: const ActionButtonsPosition(),
-                    )
-                  ] else
-                    const SAvatarExampleChild(),
+                  const SAvatarExampleChild(),
                   const Padding(padding: EdgeInsets.only(left: 8)),
                   Expanded(
                     child: Column(

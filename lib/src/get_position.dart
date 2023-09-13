@@ -77,7 +77,7 @@ class GetPosition {
   ///Get the left position of the widget
   double getLeft() {
     final box = key.currentContext!.findRenderObject() as RenderBox;
-    final boxOffset = box.localToGlobal(const Offset(0.0, 0.0));
+    final boxOffset = box.globalToLocal(const Offset(0.0, 0.0));
     if (boxOffset.dx.isNaN) return 0 - padding.left;
     final topLeft = box.size.topLeft(boxOffset);
     return topLeft.dx - boxOffset.dx;
@@ -86,7 +86,7 @@ class GetPosition {
   ///Get the right position of the widget
   double getRight() {
     final box = key.currentContext!.findRenderObject() as RenderBox;
-    final boxOffset = box.localToGlobal(const Offset(0.0, 0.0));
+    final boxOffset = box.globalToLocal(const Offset(0.0, 0.0));
     if (boxOffset.dx.isNaN) return padding.right;
     final bottomRight = box.size.bottomRight(box.localToGlobal(const Offset(0.0, 0.0)));
     return bottomRight.dx - boxOffset.dx;

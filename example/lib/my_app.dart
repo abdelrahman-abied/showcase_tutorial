@@ -14,7 +14,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter ShowCase',
       theme: ThemeData(
-        primaryColor: const Color(0xff48cae4),
+        primaryColor: const Color(0xff0077b6),
       ),
       debugShowCheckedModeBanner: false,
       home: Scaffold(
