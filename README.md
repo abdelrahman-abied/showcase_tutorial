@@ -1,15 +1,12 @@
-![showcase_tutorial - Simform LLC.](https://github.com/abdelrahman-abied/showcase_tutorial/blob/master/preview/banner.png?raw=true)
-
-
 # ShowCaseView
 
-[![Build](https://github.com/SimformSolutionsPvtLtd/flutter_showcaseview/workflows/Build/badge.svg?branch=master)](https://github.com/SimformSolutionsPvtLtd/flutter_showcaseview/actions) [![showcaseview](https://img.shields.io/pub/v/showcaseview?label=showcaseview)](https://pub.dev/packages/showcaseview)
+ [![showcaseview](https://img.shields.io/pub/v/showcaseview?label=showcaseview)](https://pub.dev/packages/showcase_tutorial)
 
 A Flutter package allows you to Showcase/Highlight your widgets step by step.
 
 ## Preview
 
-![The example app running in Android](https://github.com/abdelrahman-abied/showcase_tutorial/blob/master/preview/showcaseview.gif)
+![The example app running in Android](https://github.com/abdelrahman-abied/showcase_tutorial/blob/main/preview/showcaseview.gif)
 
 ## Migration guide for release 2.0.0
 Renamed properties/fields of widgets mentioned below in the table.
