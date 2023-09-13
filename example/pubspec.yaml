@@ -10,7 +10,7 @@ publish_to: none
 dependencies:
   flutter:
     sdk: flutter
-  showcaseview:
+  showcase_tutorial:
     path: ../
 
 

@@ -50,7 +50,7 @@ dependencies:
 
 2.  Import the package
 ```dart
-import 'package:showcaseview/showcaseview.dart';
+import 'package:showcaseview/showcase_tutorial.dart';
 ```
 
 3. Adding a `ShowCaseWidget` widget.

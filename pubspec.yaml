@@ -1,11 +1,11 @@
-name: showcaseview
+name: showcase_tutorial
 description: A Flutter package to Showcase/Highlight widgets step by step.
 version: 1.0.0
 homepage: https://github.com/abdelrahman-abied/showcase_tutorial
 issue_tracker: https://github.com/abdelrahman-abied/showcase_tutorial/issues
 
 environment:
-  sdk: '>=2.12.0 <3.0.0'
+  sdk: '>=2.12.0 <4.0.0'
 
 dependencies:
   flutter:

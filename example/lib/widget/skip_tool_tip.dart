@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:showcaseview/showcaseview.dart';
+import 'package:showcase_tutorial/showcase_tutorial.dart';
 
 class ShipToolTip extends StatelessWidget {
   final BuildContext parentContext;

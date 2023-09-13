@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../showcaseview.dart';
+import '../showcase_tutorial.dart';
 import 'utilities/_showcase_context_provider.dart';
 
 class ShowCaseDefaultActions extends StatelessWidget {

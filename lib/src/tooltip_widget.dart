@@ -24,7 +24,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../showcaseview.dart';
+import '../showcase_tutorial.dart';
 import 'get_position.dart';
 import 'measure_size.dart';
 

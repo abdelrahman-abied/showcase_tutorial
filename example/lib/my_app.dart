@@ -2,7 +2,7 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:showcaseview/showcaseview.dart';
+import 'package:showcase_tutorial/showcase_tutorial.dart';
 
 import 'mail_page.dart';
 

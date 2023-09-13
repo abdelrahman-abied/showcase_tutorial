@@ -1,7 +1,7 @@
 import 'package:example/detailscreen.dart';
 import 'package:example/helper.dart';
 import 'package:flutter/material.dart';
-import 'package:showcaseview/showcaseview.dart';
+import 'package:showcase_tutorial/showcase_tutorial.dart';
 
 import 'mail_model.dart';
 import 'widget/mail_tile.dart';

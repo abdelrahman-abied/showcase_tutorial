@@ -28,7 +28,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../showcaseview.dart';
+import '../showcase_tutorial.dart';
 import 'get_position.dart';
 import 'layout_overlays.dart';
 import 'shape_clipper.dart';
