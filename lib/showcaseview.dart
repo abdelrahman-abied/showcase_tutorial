@@ -22,9 +22,10 @@
 
 library showcaseview;
 
-export 'src/enum.dart';
-export 'src/showcase.dart';
-export 'src/showcase_widget.dart';
-export 'src/showcase_default_actions.dart';
-export 'src/actions_container_config.dart';
 export 'src/action_buttons_position.dart';
+export 'src/actions_container_config.dart';
+export 'src/enum.dart';
+export 'src/multi_view_widget.dart';
+export 'src/showcase.dart';
+export 'src/showcase_default_actions.dart';
+export 'src/showcase_widget.dart';

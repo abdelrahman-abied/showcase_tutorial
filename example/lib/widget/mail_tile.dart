@@ -21,8 +21,7 @@ class MailTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     debugPrint('index: ${twoWidgetKey.toString()}');
-    return RepaintBoundary(
-      key: twoWidgetKey,
+    return MultiView(
       child: Container(
         padding: const EdgeInsets.only(left: 6, right: 16, top: 8, bottom: 8),
         color: mail.isUnread ? const Color(0xffFFF6F7) : Colors.white,

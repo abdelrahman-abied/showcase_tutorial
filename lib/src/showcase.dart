@@ -412,8 +412,6 @@ class _ShowcaseState extends State<Showcase> {
       return AnchoredOverlay(
         overlayBuilder: (context, rectBound, offset) {
           final size = MediaQuery.of(context).size;
-          debugPrint("===: ${size.width}");
-          debugPrint("===: ${size.width}");
           position = GetPosition(
             key: widget.key,
             padding: widget.targetPadding,
@@ -457,10 +455,10 @@ class _ShowcaseState extends State<Showcase> {
     try {
       if (widget.keys?.isNotEmpty ?? false) {
         RenderRepaintBoundary? boundary =
-            widget.keys!.last.currentContext!.findRenderObject() as RenderRepaintBoundary?;
+            widget.keys![1].currentContext!.findRenderObject() as RenderRepaintBoundary?;
         if (boundary == null) return const SizedBox.shrink();
         ui.Image image = await boundary.toImage(pixelRatio: 1.0);
-        final BuildContext context = widget.keys!.last.currentContext!;
+        final BuildContext context = widget.keys![1].currentContext!;
         RenderBox? renderBox;
         if (context.mounted) renderBox = context.findRenderObject() as RenderBox?;
         Offset offset = renderBox!.localToGlobal(Offset.zero);
@@ -485,7 +483,6 @@ class _ShowcaseState extends State<Showcase> {
       }
       return const SizedBox.shrink();
     } catch (e) {
-      debugPrint("===: ${e.toString()}");
       return const SizedBox.shrink();
     }
   }
@@ -612,14 +609,9 @@ class _ShowcaseState extends State<Showcase> {
                     FutureBuilder(
                         future: _buildCopy(context),
                         builder: (context, AsyncSnapshot<Widget?> snapshot) {
-                          if (snapshot.hasData) {
-                            return Positioned(
-                              top: offset.dy,
-                              left: offset.dx,
-                              child: snapshot.data as Widget,
-                            );
+                          if (snapshot.hasData && snapshot.data != null) {
+                            return snapshot.data as Widget;
                           } else {
-                            debugPrint("== 2 snapshot: ${snapshot.error}");
                             return const SizedBox.shrink();
                           }
                         }),
