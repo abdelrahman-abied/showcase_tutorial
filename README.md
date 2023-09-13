@@ -1,4 +1,4 @@
-![Showcaes View - Simform LLC.](https://github.com/SimformSolutionsPvtLtd/flutter_showcaseview/blob/master/preview/banner.png?raw=true)
+![showcase_tutorial - Simform LLC.](https://github.com/abdelrahman-abied/showcase_tutorial/blob/master/preview/banner.png?raw=true)
 
 
 # ShowCaseView
@@ -9,7 +9,7 @@ A Flutter package allows you to Showcase/Highlight your widgets step by step.
 
 ## Preview
 
-![The example app running in Android](https://github.com/simformsolutions/flutter_showcaseview/blob/master/preview/showcaseview.gif)
+![The example app running in Android](https://github.com/abdelrahman-abied/showcase_tutorial/blob/master/preview/showcaseview.gif)
 
 ## Migration guide for release 2.0.0
 Renamed properties/fields of widgets mentioned below in the table.
@@ -44,7 +44,7 @@ Removed unused parameter of `Showcase.withWidget()` mentioned below:
 
 1.  Add dependency to `pubspec.yaml`
 
-    *Get the latest version in the 'Installing' tab on [pub.dev](https://pub.dev/packages/showcaseview)*
+    *Get the latest version in the 'Installing' tab on [pub.dev](https://pub.dev/packages/showcase_tutorial)*
 
 ```dart
 dependencies:
