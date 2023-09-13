@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 class SAvatarExampleChild extends StatelessWidget {
   const SAvatarExampleChild({
     Key? key,
@@ -13,7 +14,7 @@ class SAvatarExampleChild extends StatelessWidget {
         height: 45,
         decoration: const BoxDecoration(
           shape: BoxShape.circle,
-          color: Color(0xffFCD8DC),
+          color: Color(0xffcaf0f8),
         ),
         child: Center(
           child: Text(

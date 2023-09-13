@@ -130,9 +130,9 @@ class _MailPageState extends State<MailPage> {
                         child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xffF9F9F9),
+                            color: const Color(0xffcaf0f8),
                             border: Border.all(
-                              color: const Color(0xffF3F3F3),
+                              color: const Color(0xffcaf0f8),
                               width: 2,
                             ),
                             borderRadius: BorderRadius.circular(8),
@@ -192,7 +192,7 @@ class _MailPageState extends State<MailPage> {
                                     const Spacer(),
                                     const Icon(
                                       Icons.search,
-                                      color: Color(0xffADADAD),
+                                      color: Color(0xffcaf0f8),
                                     ),
                                   ],
                                 ),
@@ -286,19 +286,23 @@ class _MailPageState extends State<MailPage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Theme.of(context).primaryColor,
-        onPressed: () {
-          setState(() {
-            /* reset ListView to ensure that the showcased widgets are
-             * currently rendered so the showcased keys are available in the
-             * render tree. */
-            scrollController.jumpTo(0);
-            ShowCaseWidget.of(context).startShowCase([_one, _two, _three, _five]);
-          });
-        },
-        child: const Icon(
-          Icons.add,
+      floatingActionButton: Showcase(
+        description: 'Floating action button',
+        key: _five,
+        child: FloatingActionButton(
+          backgroundColor: Theme.of(context).primaryColor,
+          onPressed: () {
+            setState(() {
+              /* reset ListView to ensure that the showcased widgets are
+               * currently rendered so the showcased keys are available in the
+               * render tree. */
+              scrollController.jumpTo(0);
+              ShowCaseWidget.of(context).startShowCase([_one, _two, _three, _five]);
+            });
+          },
+          child: const Icon(
+            Icons.add,
+          ),
         ),
       ),
     );

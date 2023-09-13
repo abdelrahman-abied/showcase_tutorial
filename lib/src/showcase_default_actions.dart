@@ -29,7 +29,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
     this.verticalDirection = VerticalDirection.down,
     this.textBaseline,
     this.dividerThickness = 1.0,
-    this.verticalDividerColor = const Color(0xffee5366),
+    this.verticalDividerColor = const Color(0xffcaf0f8),
   }) : super(key: key);
 
   @override
@@ -51,8 +51,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
             previous.text ?? 'Previous',
             previous.callback ??
                 () {
-                  if (showcaseContext != null &&
-                      ShowCaseWidget.of(showcaseContext).ids != null) {
+                  if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
                     ShowCaseWidget.of(showcaseContext).previous();
                   }
                 },
@@ -67,8 +66,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
             stop.text ?? 'Stop',
             stop.callback ??
                 () {
-                  if (showcaseContext != null &&
-                      ShowCaseWidget.of(showcaseContext).ids != null) {
+                  if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
                     ShowCaseWidget.of(showcaseContext).dismiss();
                   }
                 },
@@ -81,12 +79,9 @@ class ShowCaseDefaultActions extends StatelessWidget {
             next.text ?? 'Next',
             next.callback ??
                 () {
-                  if (showcaseContext != null &&
-                      ShowCaseWidget.of(showcaseContext).ids != null) {
-                    ShowCaseWidget.of(showcaseContext).completed(
-                        ShowCaseWidget.of(showcaseContext).ids![
-                            ShowCaseWidget.of(showcaseContext).activeWidgetId ??
-                                0]);
+                  if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
+                    ShowCaseWidget.of(showcaseContext).completed(ShowCaseWidget.of(showcaseContext)
+                        .ids![ShowCaseWidget.of(showcaseContext).activeWidgetId ?? 0]);
                   }
                 },
           ),
@@ -102,8 +97,8 @@ class ShowCaseDefaultActions extends StatelessWidget {
     );
   }
 
-  Widget _getButtonWidget(ActionButtonConfig actionConfig,
-      BuildContext? showcaseContext, String buttonText, VoidCallback onClick) {
+  Widget _getButtonWidget(ActionButtonConfig actionConfig, BuildContext? showcaseContext,
+      String buttonText, VoidCallback onClick) {
     return Expanded(
       child: Directionality(
         textDirection: actionConfig.textDirection,
@@ -116,8 +111,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
               : const SizedBox.shrink(),
           icon: actionConfig.icon ?? const SizedBox.shrink(),
           style: ButtonStyle(
-              backgroundColor: MaterialStateProperty.all<Color>(
-                  actionConfig.textButtonBgColor)),
+              backgroundColor: MaterialStateProperty.all<Color>(actionConfig.textButtonBgColor)),
           onPressed: onClick,
         ),
       ),
@@ -155,7 +149,7 @@ class ActionButtonConfig {
   const ActionButtonConfig({
     this.text,
     this.icon,
-    this.textColor = const Color(0xffee5366),
+    this.textColor = const Color(0xff48cae4),
     this.textButtonBgColor = Colors.transparent,
     this.callback,
     this.buttonVisible = true,

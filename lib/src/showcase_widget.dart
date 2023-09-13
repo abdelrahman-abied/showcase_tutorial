@@ -21,6 +21,7 @@
  */
 
 import 'package:flutter/material.dart';
+
 import '../showcaseview.dart';
 
 class ShowCaseWidget extends StatefulWidget {
@@ -101,9 +102,7 @@ class ShowCaseWidget extends StatefulWidget {
   }) : super(key: key);
 
   static GlobalKey? activeTargetWidget(BuildContext context) {
-    return context
-        .dependOnInheritedWidgetOfExactType<_InheritedShowCaseView>()
-        ?.activeWidgetIds;
+    return context.dependOnInheritedWidgetOfExactType<_InheritedShowCaseView>()?.activeWidgetIds;
   }
 
   static ShowCaseWidgetState of(BuildContext context) {

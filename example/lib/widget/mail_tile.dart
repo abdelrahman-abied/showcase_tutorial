@@ -13,7 +13,7 @@ class MailTile extends StatelessWidget {
     this.showCaseDetail = false,
     this.showCaseKey,
     this.twoWidgetKey,
-  });
+  }) : super(key: twoWidgetKey);
   final bool showCaseDetail;
   final GlobalKey<State<StatefulWidget>>? showCaseKey;
   final Mail mail;
@@ -24,7 +24,7 @@ class MailTile extends StatelessWidget {
     return RepaintBoundary(
       child: Container(
         padding: const EdgeInsets.only(left: 6, right: 16, top: 8, bottom: 8),
-        color: mail.isUnread ? const Color(0xffFFF6F7) : Colors.white,
+        color: mail.isUnread ? const Color(0xff48cae4) : Colors.white,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -54,7 +54,7 @@ class MailTile extends StatelessWidget {
                                 height: 45,
                                 decoration: const BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Color(0xffFCD8DC),
+                                  color: Color(0xff48cae4),
                                 ),
                                 child: Center(
                                   child: Text(
@@ -136,7 +136,7 @@ class MailTile extends StatelessWidget {
                   ),
                   Icon(
                     mail.isUnread ? Icons.star : Icons.star_border,
-                    color: mail.isUnread ? const Color(0xffFBC800) : Colors.grey,
+                    color: mail.isUnread ? const Color(0xffFFFFFF) : Colors.grey,
                   ),
                 ],
               ),
