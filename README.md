@@ -1,14 +1,12 @@
 # ShowCaseView
 
- [![showcaseview](https://img.shields.io/pub/v/showcaseview?label=showcaseview)](https://pub.dev/packages/showcase_tutorial)
-
 A Flutter package allows you to Showcase/Highlight your widgets step by step.
 
 ## Preview
 
 ![The example app running in Android](https://github.com/abdelrahman-abied/showcase_tutorial/blob/main/preview/showcaseview.gif)
 
-## Migration guide for release 2.0.0
+## Migration guide for release 1.0.0
 Renamed properties/fields of widgets mentioned below in the table.
 
 | Before                  | After                    |
