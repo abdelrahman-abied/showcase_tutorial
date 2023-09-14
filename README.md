@@ -4,7 +4,7 @@ A Flutter package allows you to Showcase/Highlight your widgets step by step.
 
 ## Preview
 
-![The example app running in Android](https://github.com/abdelrahman-abied/showcase_tutorial/blob/main/preview/showcaseview.gif)
+![The example app running in IOS](https://github.com/abdelrahman-abied/showcase_tutorial/blob/main/preview/showcaseview.gif)
 
 ## Migration guide for release 1.0.0
 Renamed properties/fields of widgets mentioned below in the table.
