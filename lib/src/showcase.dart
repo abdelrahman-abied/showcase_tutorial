@@ -459,7 +459,7 @@ class _ShowcaseState extends State<Showcase> {
           RenderRepaintBoundary? boundary =
               element.currentContext!.findRenderObject() as RenderRepaintBoundary?;
           // if (boundary == null) return await const SizedBox.shrink();
-          ui.Image image = await boundary!.toImage(pixelRatio: 1.0);
+          ui.Image image = await boundary!.toImage(pixelRatio: 2.0);
           final BuildContext context = element.currentContext!;
           RenderBox? renderBox;
           if (context.mounted) renderBox = context.findRenderObject() as RenderBox?;
