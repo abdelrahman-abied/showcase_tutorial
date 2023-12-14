@@ -1,7 +1,6 @@
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
-  strong-mode:
   errors:
     argument_type_not_assignable: error
     invalid_assignment: error
@@ -12,7 +11,6 @@ analyzer:
 linter:
   rules:
     public_member_api_docs: false
-    avoid_returning_null: false
     avoid_print: true
     avoid_empty_else: true
     annotate_overrides: true

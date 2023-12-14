@@ -367,8 +367,8 @@ class _ShowcaseState extends State<Showcase> {
       position ??= GetPosition(
         key: widget.key,
         padding: widget.targetPadding,
-        screenWidth: MediaQuery.of(context).size.width,
-        screenHeight: MediaQuery.of(context).size.height,
+        screenWidth: MediaQuery.sizeOf(context).width,
+        screenHeight: MediaQuery.sizeOf(context).height,
       );
       showOverlay();
     }
@@ -410,7 +410,7 @@ class _ShowcaseState extends State<Showcase> {
     if (_enableShowcase) {
       return AnchoredOverlay(
         overlayBuilder: (context, rectBound, offset) {
-          final size = MediaQuery.of(context).size;
+          final size = MediaQuery.sizeOf(context);
           position = GetPosition(
             key: widget.key,
             padding: widget.targetPadding,
@@ -551,16 +551,16 @@ class _ShowcaseState extends State<Showcase> {
                         ? BackdropFilter(
                             filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
                             child: Container(
-                              width: MediaQuery.of(context).size.width,
-                              height: MediaQuery.of(context).size.height,
+                              width: MediaQuery.sizeOf(context).width,
+                              height: MediaQuery.sizeOf(context).height,
                               decoration: BoxDecoration(
                                 color: widget.overlayColor.withOpacity(widget.overlayOpacity),
                               ),
                             ),
                           )
                         : Container(
-                            width: MediaQuery.of(context).size.width,
-                            height: MediaQuery.of(context).size.height,
+                            width: MediaQuery.sizeOf(context).width,
+                            height: MediaQuery.sizeOf(context).height,
                             decoration: BoxDecoration(
                               color: widget.overlayColor.withOpacity(widget.overlayOpacity),
                             ),
@@ -584,16 +584,16 @@ class _ShowcaseState extends State<Showcase> {
                         ? BackdropFilter(
                             filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
                             child: Container(
-                              width: MediaQuery.of(context).size.width,
-                              height: MediaQuery.of(context).size.height,
+                              width: MediaQuery.sizeOf(context).width,
+                              height: MediaQuery.sizeOf(context).height,
                               decoration: BoxDecoration(
                                 color: widget.overlayColor.withOpacity(0.1),
                               ),
                             ),
                           )
                         : Container(
-                            width: MediaQuery.of(context).size.width,
-                            height: MediaQuery.of(context).size.height,
+                            width: MediaQuery.sizeOf(context).width,
+                            height: MediaQuery.sizeOf(context).height,
                             decoration: BoxDecoration(
                               color: widget.overlayColor.withOpacity(widget.overlayOpacity),
                             ),
