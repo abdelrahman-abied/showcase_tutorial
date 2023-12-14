@@ -37,7 +37,9 @@ class MailTile extends StatelessWidget {
                           mail.sender,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontWeight: mail.isUnread ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: mail.isUnread
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                             fontSize: 17,
                           ),
                         ),
@@ -54,7 +56,9 @@ class MailTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontWeight: FontWeight.normal,
-                            color: mail.isUnread ? Theme.of(context).primaryColor : Colors.black,
+                            color: mail.isUnread
+                                ? Theme.of(context).primaryColor
+                                : Colors.black,
                             fontSize: 15,
                           ),
                         ),
@@ -84,7 +88,8 @@ class MailTile extends StatelessWidget {
                   ),
                   Icon(
                     mail.isUnread ? Icons.star : Icons.star_border,
-                    color: mail.isUnread ? const Color(0xffFFFFFF) : Colors.grey,
+                    color:
+                        mail.isUnread ? const Color(0xffFFFFFF) : Colors.grey,
                   ),
                 ],
               ),

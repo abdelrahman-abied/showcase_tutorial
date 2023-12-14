@@ -48,7 +48,9 @@ class GetPosition {
     final rect = Rect.fromLTRB(
       topLeft.dx - padding.left < 0 ? 0 : topLeft.dx - padding.left,
       topLeft.dy - padding.top < 0 ? 0 : topLeft.dy - padding.top,
-      bottomRight.dx + padding.right > screenWidth! ? screenWidth! : bottomRight.dx + padding.right,
+      bottomRight.dx + padding.right > screenWidth!
+          ? screenWidth!
+          : bottomRight.dx + padding.right,
       bottomRight.dy + padding.bottom > screenHeight!
           ? screenHeight!
           : bottomRight.dy + padding.bottom,
@@ -88,7 +90,8 @@ class GetPosition {
     final box = key.currentContext!.findRenderObject() as RenderBox;
     final boxOffset = box.globalToLocal(const Offset(0.0, 0.0));
     if (boxOffset.dx.isNaN) return padding.right;
-    final bottomRight = box.size.bottomRight(box.localToGlobal(const Offset(0.0, 0.0)));
+    final bottomRight =
+        box.size.bottomRight(box.localToGlobal(const Offset(0.0, 0.0)));
     return bottomRight.dx - boxOffset.dx;
   }
 
