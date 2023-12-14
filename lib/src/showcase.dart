@@ -265,7 +265,8 @@ class Showcase extends StatefulWidget {
     this.movingAnimationDuration = const Duration(milliseconds: 2000),
     this.disableMovingAnimation,
     this.disableScaleAnimation,
-    this.tooltipPadding = const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+    this.tooltipPadding =
+        const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
     this.onToolTipClick,
     this.targetPadding = EdgeInsets.zero,
     this.blurValue,
@@ -290,7 +291,10 @@ class Showcase extends StatefulWidget {
             "overlay opacity must be between 0 and 1."),
         assert(onTargetClick == null || disposeOnTap != null,
             "disposeOnTap is required if you're using onTargetClick"),
-        assert(disposeOnTap == null ? true : (onTargetClick == null ? false : true),
+        assert(
+            disposeOnTap == null
+                ? true
+                : (onTargetClick == null ? false : true),
             "onTargetClick is required if you're using disposeOnTap"),
         super(key: key);
 
@@ -309,8 +313,8 @@ class Showcase extends StatefulWidget {
     this.overlayColor = Colors.black45,
     this.targetBorderRadius,
     this.overlayOpacity = 0.75,
-    this.scrollLoadingWidget =
-        const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.white)),
+    this.scrollLoadingWidget = const CircularProgressIndicator(
+        valueColor: AlwaysStoppedAnimation(Colors.white)),
     this.onTargetClick,
     this.disposeOnTap,
     this.movingAnimationDuration = const Duration(milliseconds: 2000),
@@ -387,7 +391,9 @@ class _ShowcaseState extends State<Showcase> {
       }
 
       if (showCaseWidgetState.autoPlay) {
-        timer = Timer(Duration(seconds: showCaseWidgetState.autoPlayDelay.inSeconds), _nextIfAny);
+        timer = Timer(
+            Duration(seconds: showCaseWidgetState.autoPlayDelay.inSeconds),
+            _nextIfAny);
       }
     }
   }
@@ -456,13 +462,14 @@ class _ShowcaseState extends State<Showcase> {
       if (widget.keys != null && widget.keys!.isNotEmpty) {
         // loop through all keys and build a list of widgets to be displayed
         for (final element in widget.keys!) {
-          RenderRepaintBoundary? boundary =
-              element.currentContext!.findRenderObject() as RenderRepaintBoundary?;
+          RenderRepaintBoundary? boundary = element.currentContext!
+              .findRenderObject() as RenderRepaintBoundary?;
           // if (boundary == null) return await const SizedBox.shrink();
           ui.Image image = await boundary!.toImage(pixelRatio: 2.0);
           final BuildContext context = element.currentContext!;
           RenderBox? renderBox;
-          if (context.mounted) renderBox = context.findRenderObject() as RenderBox?;
+          if (context.mounted)
+            renderBox = context.findRenderObject() as RenderBox?;
           Offset offset = renderBox!.localToGlobal(Offset.zero);
           list.add(
             Positioned(
@@ -475,7 +482,8 @@ class _ShowcaseState extends State<Showcase> {
                   image: DecorationImage(
                     image: MemoryImage(
                       Uint8List.fromList(
-                        (await image.toByteData(format: ui.ImageByteFormat.png))!
+                        (await image.toByteData(
+                                format: ui.ImageByteFormat.png))!
                             .buffer
                             .asUint8List(),
                       ),
@@ -544,17 +552,23 @@ class _ShowcaseState extends State<Showcase> {
                     clipper: RRectClipper(
                       area: _isScrollRunning ? Rect.zero : rectBound,
                       isCircle: widget.targetShapeBorder is CircleBorder,
-                      radius: _isScrollRunning ? BorderRadius.zero : widget.targetBorderRadius,
-                      overlayPadding: _isScrollRunning ? EdgeInsets.zero : widget.targetPadding,
+                      radius: _isScrollRunning
+                          ? BorderRadius.zero
+                          : widget.targetBorderRadius,
+                      overlayPadding: _isScrollRunning
+                          ? EdgeInsets.zero
+                          : widget.targetPadding,
                     ),
                     child: blur != 0
                         ? BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                            filter:
+                                ImageFilter.blur(sigmaX: blur, sigmaY: blur),
                             child: Container(
                               width: MediaQuery.sizeOf(context).width,
                               height: MediaQuery.sizeOf(context).height,
                               decoration: BoxDecoration(
-                                color: widget.overlayColor.withOpacity(widget.overlayOpacity),
+                                color: widget.overlayColor
+                                    .withOpacity(widget.overlayOpacity),
                               ),
                             ),
                           )
@@ -562,7 +576,8 @@ class _ShowcaseState extends State<Showcase> {
                             width: MediaQuery.sizeOf(context).width,
                             height: MediaQuery.sizeOf(context).height,
                             decoration: BoxDecoration(
-                              color: widget.overlayColor.withOpacity(widget.overlayOpacity),
+                              color: widget.overlayColor
+                                  .withOpacity(widget.overlayOpacity),
                             ),
                           ),
                   ),
@@ -577,12 +592,17 @@ class _ShowcaseState extends State<Showcase> {
                     clipper: RRectClipper(
                       area: _isScrollRunning ? Rect.zero : rectBound,
                       isCircle: widget.targetShapeBorder is CircleBorder,
-                      radius: _isScrollRunning ? BorderRadius.zero : widget.targetBorderRadius,
-                      overlayPadding: _isScrollRunning ? EdgeInsets.zero : widget.targetPadding,
+                      radius: _isScrollRunning
+                          ? BorderRadius.zero
+                          : widget.targetBorderRadius,
+                      overlayPadding: _isScrollRunning
+                          ? EdgeInsets.zero
+                          : widget.targetPadding,
                     ),
                     child: blur != 0
                         ? BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                            filter:
+                                ImageFilter.blur(sigmaX: blur, sigmaY: blur),
                             child: Container(
                               width: MediaQuery.sizeOf(context).width,
                               height: MediaQuery.sizeOf(context).height,
@@ -595,7 +615,8 @@ class _ShowcaseState extends State<Showcase> {
                             width: MediaQuery.sizeOf(context).width,
                             height: MediaQuery.sizeOf(context).height,
                             decoration: BoxDecoration(
-                              color: widget.overlayColor.withOpacity(widget.overlayOpacity),
+                              color: widget.overlayColor
+                                  .withOpacity(widget.overlayOpacity),
                             ),
                           ),
                   ),
@@ -610,12 +631,14 @@ class _ShowcaseState extends State<Showcase> {
                     onDoubleTap: widget.onTargetDoubleTap,
                     onLongPress: widget.onTargetLongPress,
                     shapeBorder: widget.targetShapeBorder,
-                    disableDefaultChildGestures: widget.disableDefaultTargetGestures,
+                    disableDefaultChildGestures:
+                        widget.disableDefaultTargetGestures,
                   ),
                   if (widget.keys != null && widget.keys!.isNotEmpty) ...[
                     FutureBuilder<List<Widget>>(
                         future: _buildCopys(context),
-                        builder: (context, AsyncSnapshot<List<Widget>> snapshot) {
+                        builder:
+                            (context, AsyncSnapshot<List<Widget>> snapshot) {
                           if (snapshot.hasData &&
                               snapshot.data != null &&
                               snapshot.data!.isNotEmpty) {
@@ -645,10 +668,10 @@ class _ShowcaseState extends State<Showcase> {
                     contentWidth: widget.width,
                     onTooltipTap: _getOnTooltipTap,
                     tooltipPadding: widget.tooltipPadding,
-                    disableMovingAnimation:
-                        widget.disableMovingAnimation ?? showCaseWidgetState.disableMovingAnimation,
-                    disableScaleAnimation:
-                        widget.disableScaleAnimation ?? showCaseWidgetState.disableScaleAnimation,
+                    disableMovingAnimation: widget.disableMovingAnimation ??
+                        showCaseWidgetState.disableMovingAnimation,
+                    disableScaleAnimation: widget.disableScaleAnimation ??
+                        showCaseWidgetState.disableScaleAnimation,
                     movingAnimationDuration: widget.movingAnimationDuration,
                     tooltipBorderRadius: widget.tooltipBorderRadius,
                     scaleAnimationDuration: widget.scaleAnimationDuration,
