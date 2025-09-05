@@ -30,6 +30,7 @@ class _DetailState extends State<Detail> {
         builder: (context) {
           myContext = context;
           return Scaffold(
+            backgroundColor: Colors.white,
             appBar: AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
@@ -82,8 +83,7 @@ class _DetailState extends State<Detail> {
                       children: [
                         TextSpan(text: 'Hi team,\n\n'),
                         TextSpan(
-                          text:
-                              'As some of you know, we’re moving to Slack for '
+                          text: 'As some of you know, we’re moving to Slack for '
                               'our internal team communications. Slack is a '
                               'messaging app where we can talk, share files, '
                               'and work together. It also connects with tools '
@@ -98,8 +98,7 @@ class _DetailState extends State<Detail> {
                           ),
                         ),
                         TextSpan(
-                          text:
-                              'We want to use the best communication tools to '
+                          text: 'We want to use the best communication tools to '
                               'make our lives easier and be more productive. '
                               'Having everything in one place will help us '
                               'work together better and faster, rather than '
