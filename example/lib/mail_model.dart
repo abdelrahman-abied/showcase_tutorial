@@ -5,6 +5,7 @@ class Mail {
     required this.msg,
     required this.date,
     required this.isUnread,
+    this.isImportant = false,
   });
 
   String sender;
@@ -12,4 +13,5 @@ class Mail {
   String msg;
   String date;
   bool isUnread;
+  bool isImportant;
 }

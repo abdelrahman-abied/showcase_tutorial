@@ -38,13 +38,14 @@ class _MailPageState extends State<MailPage> {
         msg: 'Check new showcase View',
         date: '1 May',
         isUnread: false,
+        isImportant: true,
       ),
       Mail(
         sender: 'Quora',
         sub: 'New Question for you',
         msg: 'Hi, There is new question for you',
         date: '2 May',
-        isUnread: true,
+        isUnread: false,
       ),
       Mail(
         sender: 'Google',
@@ -52,13 +53,14 @@ class _MailPageState extends State<MailPage> {
         msg: 'We have launched Flutter 1.5',
         date: '3 May',
         isUnread: false,
+        isImportant: true,
       ),
       Mail(
         sender: 'Github',
         sub: 'Showcase View',
         msg: 'New star on your showcase view.',
         date: '4 May ',
-        isUnread: true,
+        isUnread: false,
       ),
       Mail(
         sender: 'Simform',
@@ -328,36 +330,13 @@ class _MailPageState extends State<MailPage> {
         child: Showcase(
           key: showCaseKey,
           keys: keys,
-          description: 'Tap to check mail',
+          description: 'Multi select star icon to mark important emails',
           tooltipPosition: TooltipPosition.top,
           disposeOnTap: true,
           onTargetClick: () {},
           child: MailTile(
             mail: mail,
             showCaseDetail: showCaseDetail,
-          ),
-          actions: ShowCaseDefaultActions(
-            previous: ActionButtonConfig(
-              icon: Image.asset(
-                'assets/left.png',
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-            next: ActionButtonConfig(
-              icon: Image.asset(
-                'assets/right.png',
-                color: Theme.of(context).primaryColor,
-              ),
-              textDirection: TextDirection.rtl,
-            ),
-            stop: ActionButtonConfig(
-              icon: Image.asset(
-                'assets/close.png',
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-            dividerThickness: 0.0,
-            verticalDividerColor: Colors.transparent,
           ),
           actionButtonsPosition: const ActionButtonsPosition(),
         ),
