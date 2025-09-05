@@ -84,7 +84,7 @@ class MailTile extends StatelessWidget {
                   ),
                   Icon(
                     mail.isImportant ? Icons.star : Icons.star_border,
-                    color: mail.isImportant ? Colors.blue : Color(0xffFFFFFF),
+                    color: mail.isImportant ? Colors.blue : Colors.blueGrey,
                   ),
                 ],
               ),
