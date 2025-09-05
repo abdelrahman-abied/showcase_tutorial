@@ -1,5 +1,4 @@
 import 'package:example/detailscreen.dart';
-import 'package:example/helper.dart';
 import 'package:flutter/material.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
 
@@ -27,12 +26,10 @@ class _MailPageState extends State<MailPage> {
   @override
   void initState() {
     super.initState();
+
     //Start showcase view after current widget frames are drawn.
-    //NOTE: remove ambiguate function if you are using
-    //flutter version greater than 3.x and direct use WidgetsBinding.instance
-    ambiguate(WidgetsBinding.instance)?.addPostFrameCallback(
-      (_) => ShowCaseWidget.of(context)
-          .startShowCase([_one, _two, firstMutliWidgetKey]),
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ShowCaseWidget.of(context).startShowCase([_one, _two, firstMutliWidgetKey]),
     );
     mails = [
       Mail(
@@ -146,8 +143,7 @@ class _MailPageState extends State<MailPage> {
                                       description: 'Tap to see menu options',
                                       disableDefaultTargetGestures: true,
                                       child: GestureDetector(
-                                        onTap: () =>
-                                            debugPrint('menu button clicked'),
+                                        onTap: () => debugPrint('menu button clicked'),
                                         child: Icon(
                                           Icons.menu,
                                           color: Theme.of(context).primaryColor,
@@ -157,16 +153,14 @@ class _MailPageState extends State<MailPage> {
                                         previous: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/left.png',
-                                            color:
-                                                Theme.of(context).primaryColor,
+                                            color: Theme.of(context).primaryColor,
                                           ),
                                           buttonTextVisible: false,
                                         ),
                                         next: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/right.png',
-                                            color:
-                                                Theme.of(context).primaryColor,
+                                            color: Theme.of(context).primaryColor,
                                           ),
                                           textDirection: TextDirection.rtl,
                                           buttonTextVisible: false,
@@ -174,8 +168,7 @@ class _MailPageState extends State<MailPage> {
                                         stop: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/close.png',
-                                            color:
-                                                Theme.of(context).primaryColor,
+                                            color: Theme.of(context).primaryColor,
                                           ),
                                           buttonTextVisible: false,
                                         ),
@@ -307,6 +300,7 @@ class _MailPageState extends State<MailPage> {
           },
           child: const Icon(
             Icons.add,
+            color: Colors.white,
           ),
         ),
       ),

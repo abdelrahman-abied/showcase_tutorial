@@ -1,6 +1,6 @@
-# ShowCaseView Example
+# showcase_tutorial Example
 
-A Flutter application demonstrate use of the `ShowCaseView` package.
+A Flutter application demonstrate use of the `showcase_tutorial` package.
 
 ## Get packages
 ```dart

@@ -15,8 +15,7 @@ class _DetailState extends State<Detail> {
   @override
   void initState() {
     super.initState();
-    //NOTE: remove ambiguate function if you are using
-    //flutter version greater than 3.x and direct use WidgetsBinding.instance
+    // Start showcase view after current widget frames are drawn.
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => Future.delayed(const Duration(milliseconds: 200), () {
         ShowCaseWidget.of(myContext!).startShowCase([_one]);

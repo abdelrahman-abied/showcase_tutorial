@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class MultiView extends StatelessWidget {
   final Widget child;
-  const MultiView({Key? key, required this.child}) : super(key: key);
+  const MultiView({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {

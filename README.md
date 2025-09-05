@@ -1,10 +1,13 @@
-# ShowCaseView
+# showcase_tutorial
+
+[![pub package](https://img.shields.io/badge/showcase_tutorial-1.1.0-blue)](https://pub.dev/packages/showcase_tutorial)
+[![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](
 
 A Flutter package allows you to Showcase/Highlight your widgets step by step.
 
 ## Preview
 
-![The example app running in IOS](https://github.com/abdelrahman-abied/showcase_tutorial/blob/main/preview/showcaseview.gif)
+![The example app running in IOS](https://github.com/abdelrahman-abied/showcase_tutorial/blob/main/preview/showcase_tutorial.gif)
 
 ## Migration guide for release 1.0.0
 Renamed properties/fields of widgets mentioned below in the table.
@@ -43,12 +46,12 @@ Removed unused parameter of `Showcase.withWidget()` mentioned below:
 
 ```dart
 dependencies:
-    showcaseview: <latest-version>
+    showcase_tutorial: <latest-version>
 ```
 
 2.  Import the package
 ```dart
-import 'package:showcaseview/showcase_tutorial.dart';
+import 'package:showcase_tutorial/showcase_tutorial.dart';
 ```
 
 3. Adding a `ShowCaseWidget` widget.
@@ -100,7 +103,7 @@ someEvent(){
 }
 ```
 
-If you want to start the `ShowCaseView` as soon as your UI built up then use below code.
+If you want to start the `showcase_tutorial` as soon as your UI built up then use below code.
 
 ```dart
 WidgetsBinding.instance.addPostFrameCallback((_) =>

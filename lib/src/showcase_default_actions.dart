@@ -18,7 +18,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
   final ActionButtonConfig stop;
 
   const ShowCaseDefaultActions({
-    Key? key,
+    super.key,
     this.next = const ActionButtonConfig(),
     this.previous = const ActionButtonConfig(),
     this.stop = const ActionButtonConfig(),
@@ -30,7 +30,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
     this.textBaseline,
     this.dividerThickness = 1.0,
     this.verticalDividerColor = const Color(0xffcaf0f8),
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +116,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
               : const SizedBox.shrink(),
           icon: actionConfig.icon ?? const SizedBox.shrink(),
           style: ButtonStyle(
-              backgroundColor: MaterialStateProperty.all<Color>(
+              backgroundColor: WidgetStateProperty.all<Color>(
                   actionConfig.textButtonBgColor)),
           onPressed: onClick,
         ),

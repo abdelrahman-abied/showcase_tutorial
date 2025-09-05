@@ -27,15 +27,10 @@ import 'package:flutter/material.dart';
 class ShowcaseContextProvider extends InheritedWidget {
   final BuildContext context;
 
-  const ShowcaseContextProvider({
-    Key? key,
-    required this.context,
-    required Widget child,
-  }) : super(key: key, child: child);
+  const ShowcaseContextProvider({super.key, required this.context, required super.child});
 
   static ShowcaseContextProvider? of(BuildContext context) {
-    final result =
-        context.dependOnInheritedWidgetOfExactType<ShowcaseContextProvider>();
+    final result = context.dependOnInheritedWidgetOfExactType<ShowcaseContextProvider>();
     return result;
   }
 

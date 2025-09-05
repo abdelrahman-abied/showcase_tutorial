@@ -66,7 +66,7 @@ class ToolTipWidget extends StatefulWidget {
   //final GlobalKey key;
 
   const ToolTipWidget({
-    Key? key,
+    super.key,
     required this.position,
     required this.offset,
     required this.screenSize,
@@ -98,7 +98,7 @@ class ToolTipWidget extends StatefulWidget {
     this.actions,
     this.actionSettings,
     this.actionButtonsPosition,
-  }) : super(key: key);
+  });
 
   @override
   State<ToolTipWidget> createState() => _ToolTipWidgetState();

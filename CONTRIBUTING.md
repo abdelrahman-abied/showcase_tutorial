@@ -67,7 +67,7 @@ and it will be automatically reflected in the PR.
   [file a bug or feature report][GitHub issues], so that we can discuss what direction to follow.
 - [Fork the project][fork guide] on GitHub.
 - Clone the forked repository to your local development machine
-  (e.g. `git clone git@github.com:<YOUR_GITHUB_USER>/flutter_showcaseview.git`).
+  (e.g. `git clone git@github.com:<YOUR_GITHUB_USER>/showcase_tutorial.git`).
 
 
 ### Performing changes

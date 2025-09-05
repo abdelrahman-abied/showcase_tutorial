@@ -22,11 +22,9 @@
 
 import 'package:flutter/material.dart';
 
-import 'extension.dart';
 import 'showcase_widget.dart';
 
-typedef OverlayBuilderCallback = Widget Function(
-    BuildContext, Rect anchorBounds, Offset anchor);
+typedef OverlayBuilderCallback = Widget Function(BuildContext, Rect anchorBounds, Offset anchor);
 
 /// Displays an overlay Widget anchored directly above the center of this
 /// [AnchoredOverlay].
@@ -48,12 +46,7 @@ class AnchoredOverlay extends StatelessWidget {
   final OverlayBuilderCallback? overlayBuilder;
   final Widget? child;
 
-  const AnchoredOverlay({
-    Key? key,
-    this.showOverlay = false,
-    this.overlayBuilder,
-    this.child,
-  }) : super(key: key);
+  const AnchoredOverlay({super.key, this.showOverlay = false, this.overlayBuilder, this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -65,22 +58,12 @@ class AnchoredOverlay extends StatelessWidget {
             // To calculate the "anchor" point we grab the render box of
             // our parent Container and then we find the center of that box.
             final box = context.findRenderObject() as RenderBox;
-            final topLeft =
-                box.size.topLeft(box.localToGlobal(const Offset(0.0, 0.0)));
-            final bottomRight =
-                box.size.bottomRight(box.localToGlobal(const Offset(0.0, 0.0)));
+            final topLeft = box.size.topLeft(box.localToGlobal(const Offset(0.0, 0.0)));
+            final bottomRight = box.size.bottomRight(box.localToGlobal(const Offset(0.0, 0.0)));
             Rect anchorBounds;
-            anchorBounds = (topLeft.dx.isNaN ||
-                    topLeft.dy.isNaN ||
-                    bottomRight.dx.isNaN ||
-                    bottomRight.dy.isNaN)
+            anchorBounds = (topLeft.dx.isNaN || topLeft.dy.isNaN || bottomRight.dx.isNaN || bottomRight.dy.isNaN)
                 ? const Rect.fromLTRB(0.0, 0.0, 0.0, 0.0)
-                : Rect.fromLTRB(
-                    topLeft.dx,
-                    topLeft.dy,
-                    bottomRight.dx,
-                    bottomRight.dy,
-                  );
+                : Rect.fromLTRB(topLeft.dx, topLeft.dy, bottomRight.dx, bottomRight.dy);
             final anchorCenter = box.size.center(topLeft);
             return overlayBuilder!(overlayContext, anchorBounds, anchorCenter);
           },
@@ -108,12 +91,7 @@ class OverlayBuilder extends StatefulWidget {
   final WidgetBuilder? overlayBuilder;
   final Widget? child;
 
-  const OverlayBuilder({
-    Key? key,
-    this.showOverlay = false,
-    this.overlayBuilder,
-    this.child,
-  }) : super(key: key);
+  const OverlayBuilder({super.key, this.showOverlay = false, this.overlayBuilder, this.child});
 
   @override
   State<OverlayBuilder> createState() => _OverlayBuilderState();
@@ -127,23 +105,20 @@ class _OverlayBuilderState extends State<OverlayBuilder> {
     super.initState();
 
     if (widget.showOverlay) {
-      ambiguate(WidgetsBinding.instance)
-          ?.addPostFrameCallback((_) => showOverlay());
+      WidgetsBinding.instance.addPostFrameCallback((_) => showOverlay());
     }
   }
 
   @override
   void didUpdateWidget(OverlayBuilder oldWidget) {
     super.didUpdateWidget(oldWidget);
-    ambiguate(WidgetsBinding.instance)
-        ?.addPostFrameCallback((_) => syncWidgetAndOverlay());
+    WidgetsBinding.instance.addPostFrameCallback((_) => syncWidgetAndOverlay());
   }
 
   @override
   void reassemble() {
     super.reassemble();
-    ambiguate(WidgetsBinding.instance)
-        ?.addPostFrameCallback((_) => syncWidgetAndOverlay());
+    WidgetsBinding.instance.addPostFrameCallback((_) => syncWidgetAndOverlay());
   }
 
   @override
@@ -160,9 +135,7 @@ class _OverlayBuilderState extends State<OverlayBuilder> {
   void showOverlay() {
     if (_overlayEntry == null) {
       // Create the overlay.
-      _overlayEntry = OverlayEntry(
-        builder: widget.overlayBuilder!,
-      );
+      _overlayEntry = OverlayEntry(builder: widget.overlayBuilder!);
       addToOverlay(_overlayEntry!);
     } else {
       // Rebuild overlay.
@@ -197,8 +170,7 @@ class _OverlayBuilderState extends State<OverlayBuilder> {
   }
 
   void buildOverlay() async {
-    ambiguate(WidgetsBinding.instance)
-        ?.addPostFrameCallback((_) => _overlayEntry?.markNeedsBuild());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _overlayEntry?.markNeedsBuild());
   }
 
   @override

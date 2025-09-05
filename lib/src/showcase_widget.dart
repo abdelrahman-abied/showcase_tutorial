@@ -84,7 +84,7 @@ class ShowCaseWidget extends StatefulWidget {
   final bool enableShowcase;
 
   const ShowCaseWidget({
-    Key? key,
+    super.key,
     required this.builder,
     this.onFinish,
     this.onStart,
@@ -99,7 +99,7 @@ class ShowCaseWidget extends StatefulWidget {
     this.enableAutoScroll = false,
     this.disableBarrierInteraction = false,
     this.enableShowcase = true,
-  }) : super(key: key);
+  });
 
   static GlobalKey? activeTargetWidget(BuildContext context) {
     return context
@@ -247,8 +247,8 @@ class _InheritedShowCaseView extends InheritedWidget {
 
   const _InheritedShowCaseView({
     required this.activeWidgetIds,
-    required Widget child,
-  }) : super(child: child);
+    required super.child,
+  });
 
   @override
   bool updateShouldNotify(_InheritedShowCaseView oldWidget) =>
