@@ -1,7 +1,7 @@
 # showcase_tutorial
 
 [![pub package](https://img.shields.io/badge/showcase_tutorial-1.1.0-blue)](https://pub.dev/packages/showcase_tutorial)
-[![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](
+[![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](https://github.com/abdelrahman-abied/showcase_tutorial)
 
 A Flutter package allows you to Showcase/Highlight your widgets step by step.
 
