@@ -7,9 +7,10 @@ import 'package:showcase_tutorial/showcase_tutorial.dart';
 import 'mail_page.dart';
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
+
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter ShowCase',

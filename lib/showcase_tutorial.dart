@@ -20,7 +20,7 @@
  * SOFTWARE.
  */
 
-library showcase_tutorial;
+library;
 
 export 'src/action_buttons_position.dart';
 export 'src/actions_container_config.dart';

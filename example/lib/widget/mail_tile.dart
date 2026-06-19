@@ -5,11 +5,11 @@ import 'sample_avatar_widget.dart';
 
 class MailTile extends StatelessWidget {
   const MailTile({
-    Key? key,
+    super.key,
     required this.mail,
     this.showCaseDetail = false,
     this.showCaseKey,
-  }) : super(key: key);
+  });
   final bool showCaseDetail;
   final GlobalKey<State<StatefulWidget>>? showCaseKey;
   final Mail mail;

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
 
 class Detail extends StatefulWidget {
-  const Detail({Key? key}) : super(key: key);
+  const Detail({super.key});
 
   @override
-  _DetailState createState() => _DetailState();
+  State<Detail> createState() => _DetailState();
 }
 
 class _DetailState extends State<Detail> {

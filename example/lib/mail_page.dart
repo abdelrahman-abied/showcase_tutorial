@@ -6,10 +6,10 @@ import 'mail_model.dart';
 import 'widget/mail_tile.dart';
 
 class MailPage extends StatefulWidget {
-  const MailPage({Key? key}) : super(key: key);
+  const MailPage({super.key});
 
   @override
-  _MailPageState createState() => _MailPageState();
+  State<MailPage> createState() => _MailPageState();
 }
 
 class _MailPageState extends State<MailPage> {
@@ -144,13 +144,6 @@ class _MailPageState extends State<MailPage> {
                                       key: _one,
                                       description: 'Tap to see menu options',
                                       disableDefaultTargetGestures: true,
-                                      child: GestureDetector(
-                                        onTap: () => debugPrint('menu button clicked'),
-                                        child: Icon(
-                                          Icons.menu,
-                                          color: Theme.of(context).primaryColor,
-                                        ),
-                                      ),
                                       actions: ShowCaseDefaultActions(
                                         previous: ActionButtonConfig(
                                           icon: Image.asset(
@@ -173,6 +166,13 @@ class _MailPageState extends State<MailPage> {
                                             color: Theme.of(context).primaryColor,
                                           ),
                                           buttonTextVisible: false,
+                                        ),
+                                      ),
+                                      child: GestureDetector(
+                                        onTap: () => debugPrint('menu button clicked'),
+                                        child: Icon(
+                                          Icons.menu,
+                                          color: Theme.of(context).primaryColor,
                                         ),
                                       ),
                                     ),
@@ -209,15 +209,6 @@ class _MailPageState extends State<MailPage> {
                       tooltipBackgroundColor: Theme.of(context).primaryColor,
                       textColor: Colors.white,
                       targetShapeBorder: const CircleBorder(),
-                      child: Container(
-                        padding: const EdgeInsets.all(5),
-                        width: 50,
-                        height: 50,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                        ),
-                        child: Image.asset('assets/simform.png'),
-                      ),
                       actions: ShowCaseDefaultActions(
                         previous: ActionButtonConfig(
                           icon: Image.asset(
@@ -240,6 +231,15 @@ class _MailPageState extends State<MailPage> {
                         ),
                         dividerThickness: 0.0,
                         verticalDividerColor: Colors.transparent,
+                      ),
+                      child: Container(
+                        padding: const EdgeInsets.all(5),
+                        width: 50,
+                        height: 50,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                        ),
+                        child: Image.asset('assets/simform.png'),
                       ),
                     ),
                     const SizedBox(
@@ -334,11 +334,11 @@ class _MailPageState extends State<MailPage> {
           tooltipPosition: TooltipPosition.top,
           disposeOnTap: true,
           onTargetClick: () {},
+          actionButtonsPosition: const ActionButtonsPosition(),
           child: MailTile(
             mail: mail,
             showCaseDetail: showCaseDetail,
           ),
-          actionButtonsPosition: const ActionButtonsPosition(),
         ),
       ),
     );

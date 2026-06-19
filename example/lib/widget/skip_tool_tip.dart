@@ -4,9 +4,9 @@ import 'package:showcase_tutorial/showcase_tutorial.dart';
 class ShipToolTip extends StatelessWidget {
   final BuildContext parentContext;
   const ShipToolTip({
-    Key? key,
+    super.key,
     required this.parentContext,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
