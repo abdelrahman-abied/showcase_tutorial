@@ -384,12 +384,21 @@ class _ShowcaseState extends State<Showcase> {
 
   void _scrollIntoView() {
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
+      // The Showcase may be disposed before this post-frame callback fires
+      // (e.g. the screen redirects within a frame of its first build).
+      // Guard against operating on an unmounted State, otherwise both the
+      // setState calls and the `currentContext!` null-check operator throw.
+      if (!mounted) return;
       setState(() => _isScrollRunning = true);
-      await Scrollable.ensureVisible(
-        widget.key.currentContext!, // ?? widget.keys![0].currentContext!,
-        duration: showCaseWidgetState.widget.scrollDuration,
-        alignment: 0.5,
-      );
+      final targetContext = widget.key.currentContext; // ?? widget.keys![0].currentContext;
+      if (targetContext != null) {
+        await Scrollable.ensureVisible(
+          targetContext,
+          duration: showCaseWidgetState.widget.scrollDuration,
+          alignment: 0.5,
+        );
+      }
+      if (!mounted) return;
       setState(() => _isScrollRunning = false);
     });
   }
