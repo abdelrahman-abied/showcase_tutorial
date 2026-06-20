@@ -106,6 +106,14 @@ class ShowCaseWidget extends StatefulWidget {
   /// [onComplete]) using any storage you like, and read it back here.
   final FutureOr<bool> Function(String? showcaseId)? onShouldStartShowcase;
 
+  /// When `true`, steps whose target widget is not currently mounted are
+  /// skipped automatically while starting or navigating the tour, instead of
+  /// showing an empty / mis-positioned overlay.
+  ///
+  /// Useful when some showcased widgets are rendered conditionally. Defaults
+  /// to `false`.
+  final bool autoSkipUnmountedSteps;
+
   const ShowCaseWidget({
     super.key,
     required this.builder,
@@ -125,6 +133,7 @@ class ShowCaseWidget extends StatefulWidget {
     this.style = const ShowcaseStyle(),
     this.showcaseId,
     this.onShouldStartShowcase,
+    this.autoSkipUnmountedSteps = false,
   });
 
   static GlobalKey? activeTargetWidget(BuildContext context) {
@@ -174,6 +183,15 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Returns value of [ShowCaseWidget.blurValue]
   double get blurValue => widget.blurValue;
 
+  /// Whether a showcase tour is currently running.
+  bool get isShowcaseRunning => ids != null;
+
+  /// Zero-based index of the active step, or `null` when no tour is running.
+  int? get currentIndex => activeWidgetId;
+
+  /// Total number of steps in the running tour (0 when none is running).
+  int get totalSteps => ids?.length ?? 0;
+
   /// Starts Showcase view from the beginning of specified list of widget ids.
   /// If this function is used when showcase has been disabled then it will
   /// throw an exception.
@@ -206,9 +224,29 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   void _startShowCaseNow(List<GlobalKey> widgetIds) {
     setState(() {
       ids = widgetIds;
-      activeWidgetId = 0;
-      _onStart();
+      activeWidgetId = _nextMountedIndex(0, 1);
+      if (activeWidgetId! >= ids!.length) {
+        _cleanupAfterSteps();
+        widget.onFinish?.call();
+      } else {
+        _onStart();
+      }
     });
+  }
+
+  /// When [ShowCaseWidget.autoSkipUnmountedSteps] is enabled, advances [index]
+  /// in [direction] (`1` forward / `-1` back) past steps whose target widget is
+  /// not currently mounted, returning the first mounted index (or an
+  /// out-of-range index when none remain). Returns [index] unchanged when the
+  /// option is disabled.
+  int _nextMountedIndex(int index, int direction) {
+    if (!widget.autoSkipUnmountedSteps || ids == null) return index;
+    while (index >= 0 &&
+        index < ids!.length &&
+        ids![index].currentContext == null) {
+      index += direction;
+    }
+    return index;
   }
 
   /// Completes showcase of given key and starts next one
@@ -217,7 +255,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     if (ids != null && ids![activeWidgetId!] == key && mounted) {
       setState(() {
         _onComplete();
-        activeWidgetId = activeWidgetId! + 1;
+        activeWidgetId = _nextMountedIndex(activeWidgetId! + 1, 1);
         _onStart();
 
         if (activeWidgetId! >= ids!.length) {
@@ -234,7 +272,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     if (ids != null && mounted) {
       setState(() {
         _onComplete();
-        activeWidgetId = activeWidgetId! + 1;
+        activeWidgetId = _nextMountedIndex(activeWidgetId! + 1, 1);
         _onStart();
 
         if (activeWidgetId! >= ids!.length) {
@@ -246,19 +284,39 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   }
 
   /// Completes current active showcase and starts previous one
-  /// otherwise will finish the entire showcase view
+  /// otherwise does nothing
   void previous() {
-    if (ids != null && ((activeWidgetId ?? 0) - 1) >= 0 && mounted) {
-      setState(() {
-        _onComplete();
-        activeWidgetId = activeWidgetId! - 1;
-        _onStart();
-        if (activeWidgetId! >= ids!.length) {
-          _cleanupAfterSteps();
-          widget.onFinish?.call();
-        }
-      });
-    }
+    if (ids == null || !mounted) return;
+    final target = _nextMountedIndex((activeWidgetId ?? 0) - 1, -1);
+    if (target < 0) return;
+    setState(() {
+      _onComplete();
+      activeWidgetId = target;
+      _onStart();
+    });
+  }
+
+  /// Jumps to the step at [index] (zero-based) of the running tour.
+  ///
+  /// Does nothing if no tour is running or [index] is out of range. Fires
+  /// [ShowCaseWidget.onComplete] for the current step and
+  /// [ShowCaseWidget.onStart] for the target step.
+  void goTo(int index) {
+    if (ids == null || activeWidgetId == null || !mounted) return;
+    if (index < 0 || index >= ids!.length) return;
+    setState(() {
+      _onComplete();
+      activeWidgetId = index;
+      _onStart();
+    });
+  }
+
+  /// Jumps to the step whose target is [key].
+  ///
+  /// Does nothing if [key] is not part of the running tour.
+  void goToKey(GlobalKey key) {
+    final index = ids?.indexOf(key) ?? -1;
+    if (index != -1) goTo(index);
   }
 
   /// Dismiss entire showcase view
