@@ -31,3 +31,18 @@ enum TooltipPosition {
 
   bool get isVertical => this == top || this == bottom;
 }
+
+/// What happens when the user taps the dimmed background (the barrier) while a
+/// showcase step is visible.
+///
+/// Set it on [ShowCaseWidget.barrierInteraction].
+enum BarrierInteraction {
+  /// Advance to the next step (the default behaviour).
+  next,
+
+  /// Dismiss the whole showcase tour.
+  dismiss,
+
+  /// Ignore taps on the barrier — nothing happens.
+  none,
+}

@@ -308,6 +308,42 @@ Showcase(
 );
 ```
 
+## Step lifecycle callbacks
+
+Each `Showcase` can report when it becomes visible and when it's left — handy
+for analytics or per-step side effects:
+
+```dart
+Showcase(
+  key: _one,
+  title: 'Menu',
+  description: 'Open the menu',
+  onShow: () => analytics.log('tour_step_shown', {'step': 'menu'}),
+  onDismiss: () => analytics.log('tour_step_left', {'step': 'menu'}),
+  child: const Icon(Icons.menu),
+);
+```
+
+`onShow` fires when the step becomes the active showcase; `onDismiss` fires when
+it stops being active — advanced past, navigated away, or the whole tour ended.
+
+## Background (barrier) tap behavior
+
+By default, tapping the dimmed background advances to the next step. Change it
+with `barrierInteraction`:
+
+```dart
+ShowCaseWidget(
+  barrierInteraction: BarrierInteraction.dismiss, // tap background → end tour
+  // BarrierInteraction.next    → advance (default)
+  // BarrierInteraction.none    → ignore background taps
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+> The legacy `disableBarrierInteraction: true` still works and is equivalent to
+> `BarrierInteraction.none`.
+
 ## Blur the background
 
 ```dart
@@ -385,7 +421,8 @@ ShowCaseWidget(
 | enableAutoPlayLock        | bool                       | false                         | Block user interaction on the overlay while auto-playing.                |
 | enableAutoScroll          | bool                       | false                         | Auto-scroll so the next target becomes visible.                          |
 | scrollDuration            | Duration                   | `Duration(milliseconds: 300)` | Duration of the auto-scroll animation.                                   |
-| disableBarrierInteraction | bool                       | false                         | Disable advancing the tour by tapping the overlay.                       |
+| barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`     | What a background tap does: `next` (advance), `dismiss` (end tour), `none`. |
+| disableBarrierInteraction | bool                       | false                         | Legacy flag; `true` makes the barrier inert (same as `BarrierInteraction.none`). |
 | disableScaleAnimation     | bool                       | false                         | Disable the tooltip scale transition for all showcases.                  |
 | disableMovingAnimation    | bool                       | false                         | Disable the bouncing/moving transition for all showcases.               |
 | onStart                   | Function(int?, GlobalKey)? |                               | Called on the start of each showcase.                                    |
@@ -434,6 +471,8 @@ ShowCaseWidget(
 | onTargetDoubleTap            | VoidCallback?    |                                                  | Called when the target is double-tapped.                                                       | ✅ | ✅ |
 | onTargetLongPress            | VoidCallback?    |                                                  | Called when the target is long-pressed.                                                        | ✅ | ✅ |
 | onToolTipClick               | VoidCallback?    |                                                  | Called when the tooltip is tapped.                                                             | ✅ | |
+| onShow                       | VoidCallback?    |                                                  | Called when this step becomes the active showcase.                                            | ✅ | ✅ |
+| onDismiss                    | VoidCallback?    |                                                  | Called when this step stops being active (advanced past, navigated away, or dismissed).        | ✅ | ✅ |
 | disableMovingAnimation       | bool?            | `ShowCaseWidget.disableMovingAnimation`          | Disable the bouncing/moving transition.                                                       | ✅ | ✅ |
 | disableScaleAnimation        | bool?            | `ShowCaseWidget.disableScaleAnimation`           | Disable the initial scale transition.                                                          | ✅ | |
 | movingAnimationDuration      | Duration         | `Duration(milliseconds: 2000)`                   | Duration of the moving animation.                                                             | ✅ | ✅ |

@@ -166,6 +166,20 @@ class Showcase extends StatefulWidget {
   /// Triggered when default tooltip is tapped
   final VoidCallback? onToolTipClick;
 
+  /// Called when this step becomes the active showcase — i.e. its tooltip
+  /// appears on screen.
+  ///
+  /// Handy for analytics ("user reached step 3") or to trigger a side effect
+  /// when a particular step is reached.
+  final VoidCallback? onShow;
+
+  /// Called when this step stops being the active showcase — when the tour
+  /// advances past it, navigates away from it, or the whole showcase is
+  /// dismissed.
+  ///
+  /// Handy for analytics or per-step cleanup.
+  final VoidCallback? onDismiss;
+
   /// Triggered when showcased target widget is tapped
   ///
   /// Note: [disposeOnTap] is required if you're using [onTargetClick]
@@ -295,6 +309,8 @@ class Showcase extends StatefulWidget {
     this.disableScaleAnimation,
     this.tooltipPadding = const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
     this.onToolTipClick,
+    this.onShow,
+    this.onDismiss,
     this.targetPadding = EdgeInsets.zero,
     this.blurValue,
     this.targetBorderRadius,
@@ -343,6 +359,8 @@ class Showcase extends StatefulWidget {
     this.blurValue,
     this.onTargetLongPress,
     this.onTargetDoubleTap,
+    this.onShow,
+    this.onDismiss,
     this.disableDefaultTargetGestures = false,
     this.tooltipPosition,
     this.actions,
@@ -404,11 +422,23 @@ class _ShowcaseState extends State<Showcase> {
   /// show overlay if there is any target widget
   void showOverlay() {
     final activeStep = ShowCaseWidget.activeTargetWidget(context);
+    final isActiveNow = activeStep == widget.key;
+    final wasActive = _showShowCase;
+
     setState(() {
-      _showShowCase = activeStep == (widget.key);
+      _showShowCase = isActiveNow;
     });
 
-    if (activeStep == (widget.key)) {
+    // Fire the per-step lifecycle callbacks on actual transitions only, so a
+    // rebuild for an unrelated dependency change (e.g. a rotation) doesn't
+    // re-trigger them.
+    if (isActiveNow && !wasActive) {
+      widget.onShow?.call();
+    } else if (!isActiveNow && wasActive) {
+      widget.onDismiss?.call();
+    }
+
+    if (isActiveNow) {
       if (showCaseWidgetState.enableAutoScroll) {
         _scrollIntoView();
       }
@@ -579,6 +609,14 @@ class _ShowcaseState extends State<Showcase> {
     widget.onToolTipClick?.call();
   }
 
+  /// Reverse-animates the tooltip and then dismisses the whole tour. Used when
+  /// [ShowCaseWidget.barrierInteraction] is [BarrierInteraction.dismiss].
+  Future<void> _dismissShowcaseTour() async {
+    await _reverseAnimateTooltip();
+    if (!mounted) return;
+    showCaseWidgetState.dismiss();
+  }
+
   /// Reverse animates the provided tooltip or
   /// the custom container widget.
   Future<void> _reverseAnimateTooltip() async {
@@ -614,8 +652,15 @@ class _ShowcaseState extends State<Showcase> {
               children: [
                 GestureDetector(
                   onTap: () {
-                    if (!showCaseWidgetState.disableBarrierInteraction) {
-                      _nextIfAny();
+                    switch (showCaseWidgetState.barrierInteraction) {
+                      case BarrierInteraction.next:
+                        _nextIfAny();
+                        break;
+                      case BarrierInteraction.dismiss:
+                        _dismissShowcaseTour();
+                        break;
+                      case BarrierInteraction.none:
+                        break;
                     }
                   },
                   child: ClipPath(
