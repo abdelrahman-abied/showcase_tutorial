@@ -1,6 +1,6 @@
 # showcase_tutorial
 
-[![pub package](https://img.shields.io/badge/showcase_tutorial-1.2.1-blue)](https://pub.dev/packages/showcase_tutorial)
+[![pub package](https://img.shields.io/badge/showcase_tutorial-1.3.0-blue)](https://pub.dev/packages/showcase_tutorial)
 [![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](https://github.com/abdelrahman-abied/showcase_tutorial)
 
 A Flutter package to **showcase / highlight your widgets step by step** — perfect for
@@ -194,6 +194,32 @@ ShowCaseWidget(
 ```
 
 Resolution order for each value: **`Showcase` → `ShowcaseStyle` → built-in default**.
+
+## Show the tour only once
+
+By default the package stores nothing, so the tour replays every time you call
+`startShowCase`. To show it only once (typical onboarding), give the
+`ShowCaseWidget` a `showcaseId` and an `onShouldStartShowcase` guard, and persist
+completion yourself in `onFinish` — with any storage (`shared_preferences`,
+Hive, a backend, …):
+
+```dart
+ShowCaseWidget(
+  showcaseId: 'home_v1',
+  onShouldStartShowcase: (id) async =>
+      !(prefs.getBool(id!) ?? false),       // skip if already seen
+  onFinish: () => prefs.setBool('home_v1', true),
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+Call `startShowCase([...])` as usual — it silently does nothing when the guard
+returns `false`. The guard may be synchronous or asynchronous. To force a replay
+(e.g. a "Show tutorial again" button), pass `force: true`:
+
+```dart
+ShowCaseWidget.of(context).startShowCase([_one, _two], force: true);
+```
 
 ## Auto play
 

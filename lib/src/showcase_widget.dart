@@ -21,6 +21,8 @@
  * SOFTWARE.
  */
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../showcase_tutorial.dart';
@@ -90,6 +92,20 @@ class ShowCaseWidget extends StatefulWidget {
   /// falls back to the built-in defaults.
   final ShowcaseStyle style;
 
+  /// An optional identifier for this showcase, passed to
+  /// [onShouldStartShowcase]. Handy when one guard handles several tours.
+  final String? showcaseId;
+
+  /// Called when [ShowCaseWidgetState.startShowCase] is invoked (unless
+  /// `force: true` is passed).
+  ///
+  /// Return `false` to skip starting the tour — for example when the user has
+  /// already completed it. The result may be a `bool` or a `Future<bool>`.
+  ///
+  /// The package stores nothing itself: persist completion in [onFinish] (or
+  /// [onComplete]) using any storage you like, and read it back here.
+  final FutureOr<bool> Function(String? showcaseId)? onShouldStartShowcase;
+
   const ShowCaseWidget({
     super.key,
     required this.builder,
@@ -107,6 +123,8 @@ class ShowCaseWidget extends StatefulWidget {
     this.disableBarrierInteraction = false,
     this.enableShowcase = true,
     this.style = const ShowcaseStyle(),
+    this.showcaseId,
+    this.onShouldStartShowcase,
   });
 
   static GlobalKey? activeTargetWidget(BuildContext context) {
@@ -159,7 +177,12 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Starts Showcase view from the beginning of specified list of widget ids.
   /// If this function is used when showcase has been disabled then it will
   /// throw an exception.
-  void startShowCase(List<GlobalKey> widgetIds) {
+  ///
+  /// When [ShowCaseWidget.onShouldStartShowcase] is provided it is consulted
+  /// first, and the showcase only starts if it resolves to `true` (useful for
+  /// "show the tour only once"). Pass `force: true` to bypass that guard — for
+  /// example from a "show tutorial again" button.
+  void startShowCase(List<GlobalKey> widgetIds, {bool force = false}) {
     if (!enableShowcase) {
       throw Exception(
         "You are trying to start Showcase while it has been disabled with "
@@ -167,6 +190,20 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
       );
     }
     if (!mounted) return;
+
+    final guard = widget.onShouldStartShowcase;
+    if (force || guard == null) {
+      _startShowCaseNow(widgetIds);
+      return;
+    }
+    // The guard may be synchronous or asynchronous; wrapping in Future.value
+    // handles both without forcing callers to await.
+    Future<bool>.value(guard(widget.showcaseId)).then((shouldStart) {
+      if (shouldStart && mounted) _startShowCaseNow(widgetIds);
+    });
+  }
+
+  void _startShowCaseNow(List<GlobalKey> widgetIds) {
     setState(() {
       ids = widgetIds;
       activeWidgetId = 0;

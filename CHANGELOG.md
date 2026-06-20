@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0
+
+* FEAT: "show once" support for onboarding tours. `ShowCaseWidget` gains a
+  `showcaseId` and an `onShouldStartShowcase` guard (sync or async).
+  `startShowCase` consults the guard and starts only when it returns `true`,
+  so a tour can be shown a single time. Pass `startShowCase(..., force: true)`
+  to replay (e.g. a "show tutorial again" button). The package stays
+  storage-agnostic — persist completion yourself in `onFinish`.
+
 ## 1.2.1
 
 * DOCS: rewrite the README with a Features overview and runnable examples for
