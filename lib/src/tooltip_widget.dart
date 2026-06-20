@@ -362,8 +362,10 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
     const gap = 6.0;
     final showArrow = widget.showArrow;
 
-    final pos = widget.position!;
-    final targetCenterY = (pos.getTop() + pos.getBottom()) / 2;
+    // Use getRect() for the target's edges: GetPosition.getLeft()/getRight()
+    // are unreliable, only getRect() (and getCenter()) are computed correctly.
+    final rect = widget.position!.getRect();
+    final targetCenterY = rect.center.dy;
     final screenW = MediaQuery.sizeOf(context).width;
     final screenH = MediaQuery.sizeOf(context).height;
 
@@ -371,8 +373,8 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
     final totalWidth = tooltipWidth + arrowSpace;
 
     double left = isLeft
-        ? pos.getLeft() - gap - totalWidth
-        : pos.getRight() + gap;
+        ? rect.left - gap - totalWidth
+        : rect.right + gap;
     final maxLeft =
         max(tooltipScreenEdgePadding, screenW - totalWidth - tooltipScreenEdgePadding);
     left = left.clamp(tooltipScreenEdgePadding, maxLeft);
@@ -459,6 +461,10 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
               child: Material(
                 type: MaterialType.transparency,
                 child: Row(
+                  // left/right are physical positions, so keep the
+                  // arrow/box order fixed regardless of the app text direction.
+                  // (Tooltip text inside `box` still renders RTL.)
+                  textDirection: TextDirection.ltr,
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [

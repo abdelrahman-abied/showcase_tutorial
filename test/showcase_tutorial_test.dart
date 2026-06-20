@@ -364,9 +364,48 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Side'), findsOneWidget);
-    final targetCenter = tester.getCenter(find.byKey(key));
+    final targetRight = tester.getTopRight(find.byKey(key)).dx;
     final tooltipLeft = tester.getTopLeft(find.text('Side')).dx;
-    expect(tooltipLeft, greaterThan(targetCenter.dx));
+    // Tooltip sits just to the right of the target — not pushed far away.
+    expect(tooltipLeft, greaterThan(targetRight));
+    expect(tooltipLeft - targetRight, lessThan(80));
+  });
+
+  testWidgets('tooltipPosition.left places the tooltip to the left of target',
+      (tester) async {
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Align(
+                alignment: Alignment.centerRight,
+                child: Showcase(
+                  key: key,
+                  description: 'Body',
+                  tooltipPosition: TooltipPosition.left,
+                  child: const SizedBox(width: 40, height: 40, child: Text('t')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Body'), findsOneWidget);
+    final targetLeft = tester.getTopLeft(find.byKey(key)).dx;
+    final tooltipRight = tester.getTopRight(find.text('Body')).dx;
+    // Tooltip sits just to the left of the target — not pushed far away.
+    expect(tooltipRight, lessThan(targetLeft));
+    expect(targetLeft - tooltipRight, lessThan(80));
   });
 
   testWidgets('tooltip inherits RTL directionality', (tester) async {
