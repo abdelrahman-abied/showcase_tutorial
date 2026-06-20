@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Simform Solutions
+ * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,45 +22,47 @@
  */
 
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
+import 'package:flutter/rendering.dart';
 
 typedef OnWidgetSizeChange = void Function(Size? size);
 
-class MeasureSize extends StatefulWidget {
-  final Widget? child;
+/// Reports the laid-out size of [child] to [onSizeChange] whenever it changes.
+///
+/// Implemented as a [RenderProxyBox] so the size is read during layout, rather
+/// than scheduling a post-frame measurement on every build.
+class MeasureSize extends SingleChildRenderObjectWidget {
   final OnWidgetSizeChange onSizeChange;
 
   const MeasureSize({
     super.key,
     required this.onSizeChange,
-    required this.child,
+    super.child,
   });
 
   @override
-  State<MeasureSize> createState() => _MeasureSizeState();
+  RenderObject createRenderObject(BuildContext context) =>
+      _MeasureSizeRenderObject(onSizeChange);
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) {
+    (renderObject as _MeasureSizeRenderObject).onSizeChange = onSizeChange;
+  }
 }
 
-class _MeasureSizeState extends State<MeasureSize> {
+class _MeasureSizeRenderObject extends RenderProxyBox {
+  _MeasureSizeRenderObject(this.onSizeChange);
+
+  OnWidgetSizeChange onSizeChange;
+  Size? _oldSize;
+
   @override
-  Widget build(BuildContext context) {
-    SchedulerBinding.instance.addPostFrameCallback(postFrameCallback);
-    return Container(
-      key: widgetKey,
-      child: widget.child,
-    );
-  }
-
-  GlobalKey widgetKey = GlobalKey();
-  Size? oldSize;
-
-  void postFrameCallback(Duration timestamp) {
-    var context = widgetKey.currentContext;
-    if (context == null) return;
-
-    var newSize = context.size;
-    if (oldSize == newSize) return;
-
-    oldSize = newSize;
-    widget.onSizeChange(newSize);
+  void performLayout() {
+    super.performLayout();
+    final newSize = child?.size;
+    if (_oldSize == newSize) return;
+    _oldSize = newSize;
+    // Defer the callback: it triggers setState in the parent, which is not
+    // allowed during a layout pass.
+    WidgetsBinding.instance.addPostFrameCallback((_) => onSizeChange(newSize));
   }
 }
