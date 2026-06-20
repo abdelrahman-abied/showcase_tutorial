@@ -507,4 +507,181 @@ void main() {
     );
     expect(directionality.textDirection, TextDirection.rtl);
   });
+
+  // Builds a two-step tour with a configurable barrier behaviour. Targets are
+  // centered so a tap near a screen corner lands on the dimmed barrier.
+  Widget buildBarrierApp(
+    GlobalKey k1,
+    GlobalKey k2, {
+    BarrierInteraction barrierInteraction = BarrierInteraction.next,
+    bool disableBarrierInteraction = false,
+  }) {
+    return MaterialApp(
+      home: ShowCaseWidget(
+        disableMovingAnimation: true,
+        disableScaleAnimation: true,
+        barrierInteraction: barrierInteraction,
+        disableBarrierInteraction: disableBarrierInteraction,
+        builder: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Showcase(
+                      key: k1, title: 'One', description: 'd', child: const Text('t1')),
+                  Showcase(
+                      key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('barrier tap advances to the next step by default',
+      (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    await tester.pumpWidget(buildBarrierApp(k1, k2));
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('One'), findsOneWidget);
+
+    await tester.tapAt(const Offset(10, 10)); // tap the dimmed barrier
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400)); // reverse animation
+    await tester.pump(const Duration(milliseconds: 400)); // next step in
+
+    expect(state.currentIndex, 1);
+    expect(find.text('Two'), findsOneWidget);
+  });
+
+  testWidgets('barrierInteraction.dismiss closes the tour on a background tap',
+      (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    await tester.pumpWidget(
+      buildBarrierApp(k1, k2, barrierInteraction: BarrierInteraction.dismiss),
+    );
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(state.isShowcaseRunning, isTrue);
+
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400)); // reverse animation
+    await tester.pump(const Duration(milliseconds: 400)); // overlay teardown
+
+    expect(state.isShowcaseRunning, isFalse);
+    expect(find.text('One'), findsNothing);
+  });
+
+  testWidgets('barrierInteraction.none ignores background taps', (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    await tester.pumpWidget(
+      buildBarrierApp(k1, k2, barrierInteraction: BarrierInteraction.none),
+    );
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(state.currentIndex, 0); // unchanged
+    expect(find.text('One'), findsOneWidget);
+  });
+
+  testWidgets('legacy disableBarrierInteraction:true makes the barrier inert',
+      (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    await tester.pumpWidget(
+      buildBarrierApp(k1, k2, disableBarrierInteraction: true),
+    );
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(state.currentIndex, 0); // disableBarrierInteraction wins
+    expect(find.text('One'), findsOneWidget);
+  });
+
+  testWidgets('onShow and onDismiss fire on step transitions', (tester) async {
+    final events = <String>[];
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Showcase(
+                      key: k1,
+                      title: 'One',
+                      description: 'd',
+                      onShow: () => events.add('show1'),
+                      onDismiss: () => events.add('dismiss1'),
+                      child: const Text('t1'),
+                    ),
+                    Showcase(
+                      key: k2,
+                      title: 'Two',
+                      description: 'd',
+                      onShow: () => events.add('show2'),
+                      onDismiss: () => events.add('dismiss2'),
+                      child: const Text('t2'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(events, contains('show1'));
+    expect(events, isNot(contains('dismiss1')));
+
+    state.next();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(events, contains('dismiss1'));
+    expect(events, contains('show2'));
+
+    state.dismiss();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(events, contains('dismiss2'));
+  });
 }

@@ -67,8 +67,21 @@ class ShowCaseWidget extends StatefulWidget {
   /// Default to `false`
   final bool disableScaleAnimation;
 
-  /// Whether disabling barrier interaction
+  /// Whether disabling barrier interaction.
+  ///
+  /// Superseded by [barrierInteraction]; kept for backward compatibility. When
+  /// `true` it takes precedence and the barrier is inert
+  /// ([BarrierInteraction.none]).
   final bool disableBarrierInteraction;
+
+  /// What tapping the dimmed background (the barrier) does during a step.
+  ///
+  /// Defaults to [BarrierInteraction.next] (advance to the next step). Use
+  /// [BarrierInteraction.dismiss] to close the whole tour on a background tap,
+  /// or [BarrierInteraction.none] to ignore barrier taps.
+  ///
+  /// Note: [disableBarrierInteraction] wins when set to `true`.
+  final BarrierInteraction barrierInteraction;
 
   /// Provides time duration for auto scrolling when [enableAutoScroll] is true
   final Duration scrollDuration;
@@ -129,6 +142,7 @@ class ShowCaseWidget extends StatefulWidget {
     this.disableScaleAnimation = false,
     this.enableAutoScroll = false,
     this.disableBarrierInteraction = false,
+    this.barrierInteraction = BarrierInteraction.next,
     this.enableShowcase = true,
     this.style = const ShowcaseStyle(),
     this.showcaseId,
@@ -174,6 +188,12 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   bool get enableAutoScroll => widget.enableAutoScroll;
 
   bool get disableBarrierInteraction => widget.disableBarrierInteraction;
+
+  /// Resolved barrier behaviour. The legacy [ShowCaseWidget.disableBarrierInteraction]
+  /// flag wins when `true`, mapping to [BarrierInteraction.none].
+  BarrierInteraction get barrierInteraction => widget.disableBarrierInteraction
+      ? BarrierInteraction.none
+      : widget.barrierInteraction;
 
   bool get enableShowcase => widget.enableShowcase;
 

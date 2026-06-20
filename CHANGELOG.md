@@ -16,6 +16,13 @@
   geometric `targetShapeBorder`. The target is captured as a snapshot and drawn
   above the dimmed overlay, so any shape is hugged exactly with no need to set
   `targetShapeBorder`/`targetBorderRadius` to match it.
+* FEAT: per-step lifecycle callbacks `Showcase.onShow` and `Showcase.onDismiss`
+  — fired when a step becomes the active showcase and when it stops being active
+  (advanced past, navigated away, or the tour is dismissed). Handy for analytics.
+* FEAT: `ShowCaseWidget.barrierInteraction` (`BarrierInteraction.next` /
+  `.dismiss` / `.none`) — choose whether tapping the dimmed background advances
+  to the next step (default), dismisses the whole tour, or does nothing. The
+  legacy `disableBarrierInteraction: true` still works and maps to `.none`.
 
 ## 1.3.0
 
