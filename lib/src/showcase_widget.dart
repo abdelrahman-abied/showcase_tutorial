@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Simform Solutions
+ * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -83,6 +84,12 @@ class ShowCaseWidget extends StatefulWidget {
   /// Enable/disable showcase globally. Enabled by default.
   final bool enableShowcase;
 
+  /// Default tooltip styling applied to every [Showcase] in this tree.
+  ///
+  /// Each [Showcase] overrides individual values; anything left unset here
+  /// falls back to the built-in defaults.
+  final ShowcaseStyle style;
+
   const ShowCaseWidget({
     super.key,
     required this.builder,
@@ -99,6 +106,7 @@ class ShowCaseWidget extends StatefulWidget {
     this.enableAutoScroll = false,
     this.disableBarrierInteraction = false,
     this.enableShowcase = true,
+    this.style = const ShowcaseStyle(),
   });
 
   static GlobalKey? activeTargetWidget(BuildContext context) {
@@ -141,6 +149,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   bool get disableBarrierInteraction => widget.disableBarrierInteraction;
 
   bool get enableShowcase => widget.enableShowcase;
+
+  /// Default tooltip styling for showcases in this tree.
+  ShowcaseStyle get style => widget.style;
 
   /// Returns value of [ShowCaseWidget.blurValue]
   double get blurValue => widget.blurValue;
