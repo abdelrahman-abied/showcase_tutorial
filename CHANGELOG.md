@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1
+
+* DOCS: rewrite the README with a Features overview and runnable examples for
+  every feature (custom tooltips, action buttons, multi-widget steps,
+  `ShowcaseStyle`, auto-play, programmatic control, target interactions, blur,
+  tooltip position, enable/disable). Correct the property tables and remove the
+  stale pre-1.0.0 migration guide.
+
 ## 1.2.0
 
 * FEAT: add `ShowCaseWidget(style: ShowcaseStyle(...))` to set default tooltip
