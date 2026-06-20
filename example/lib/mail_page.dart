@@ -2,6 +2,7 @@ import 'package:example/detailscreen.dart';
 import 'package:flutter/material.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
 
+import 'features_demo_page.dart';
 import 'mail_model.dart';
 import 'widget/mail_tile.dart';
 
@@ -288,23 +289,46 @@ class _MailPageState extends State<MailPage> {
           ],
         ),
       ),
-      floatingActionButton: MultiView(
-        key: thirdMutliWidgetKey,
-        child: FloatingActionButton(
-          backgroundColor: Theme.of(context).primaryColor,
-          onPressed: () {
-            setState(() {
-              /* reset ListView to ensure that the showcased widgets are
-               * currently rendered so the showcased keys are available in the
-               * render tree. */
-              scrollController.jumpTo(0);
-            });
-          },
-          child: const Icon(
-            Icons.add,
-            color: Colors.white,
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Navigate to the second demo that exercises the newer features.
+          FloatingActionButton.extended(
+            heroTag: 'featuresDemoFab',
+            backgroundColor: Theme.of(context).primaryColor,
+            onPressed: () => Navigator.push<void>(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => const FeaturesDemoPage(),
+              ),
+            ),
+            icon: const Icon(Icons.auto_awesome, color: Colors.white),
+            label: const Text(
+              'Feature demos',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
-        ),
+          const SizedBox(height: 12),
+          MultiView(
+            key: thirdMutliWidgetKey,
+            child: FloatingActionButton(
+              heroTag: 'showcaseFab',
+              backgroundColor: Theme.of(context).primaryColor,
+              onPressed: () {
+                setState(() {
+                  /* reset ListView to ensure that the showcased widgets are
+                   * currently rendered so the showcased keys are available in
+                   * the render tree. */
+                  scrollController.jumpTo(0);
+                });
+              },
+              child: const Icon(
+                Icons.add,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
