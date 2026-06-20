@@ -148,6 +148,17 @@ class ShowCaseWidget extends StatefulWidget {
   /// No-op when no screen reader is running. Defaults to `true`.
   final bool enableAutoAnnouncements;
 
+  /// When `true`, the default tooltip shows a built-in step indicator (dots)
+  /// reflecting the current position in the tour. Defaults to `false`.
+  final bool showProgress;
+
+  /// When `true`, the default tooltip shows a "Skip" button that dismisses the
+  /// whole tour. Defaults to `false`.
+  final bool showSkip;
+
+  /// Label for the skip button (see [showSkip]). Defaults to `'Skip'`.
+  final String skipButtonText;
+
   const ShowCaseWidget({
     super.key,
     required this.builder,
@@ -171,6 +182,9 @@ class ShowCaseWidget extends StatefulWidget {
     this.autoSkipUnmountedSteps = false,
     this.enableKeyboardNavigation = true,
     this.enableAutoAnnouncements = true,
+    this.showProgress = false,
+    this.showSkip = false,
+    this.skipButtonText = 'Skip',
   });
 
   static GlobalKey? activeTargetWidget(BuildContext context) {
@@ -223,6 +237,12 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   bool get enableKeyboardNavigation => widget.enableKeyboardNavigation;
 
   bool get enableAutoAnnouncements => widget.enableAutoAnnouncements;
+
+  bool get showProgress => widget.showProgress;
+
+  bool get showSkip => widget.showSkip;
+
+  String get skipButtonText => widget.skipButtonText;
 
   /// Default tooltip styling for showcases in this tree.
   ShowcaseStyle get style => widget.style;

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.0
+
+* FEAT: built-in **progress indicator** and **skip button** in the default
+  tooltip, via `ShowCaseWidget.showProgress` and `ShowCaseWidget.showSkip`
+  (label customizable with `skipButtonText`). The progress shows one dot per
+  step with the active step highlighted; the skip button dismisses the whole
+  tour. Both default to `false` and only affect the default tooltip — custom
+  `container` tooltips are untouched.
+
 ## 1.5.1
 
 * DOCS: add a second example page ("Feature demos"), reachable from a button on

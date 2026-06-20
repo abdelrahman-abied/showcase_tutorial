@@ -64,6 +64,24 @@ class ToolTipWidget extends StatefulWidget {
   final ActionsSettings? actionSettings;
   final ActionButtonsPosition? actionButtonsPosition;
 
+  /// Whether to render a built-in step indicator (dots) in the default tooltip.
+  final bool showProgress;
+
+  /// Whether to render a "Skip" button in the default tooltip.
+  final bool showSkip;
+
+  /// Label for the skip button.
+  final String skipText;
+
+  /// Zero-based index of the active step (for the progress indicator).
+  final int currentStep;
+
+  /// Total number of steps in the running tour (for the progress indicator).
+  final int totalSteps;
+
+  /// Called when the skip button is tapped.
+  final VoidCallback? onSkip;
+
   //final GlobalKey key;
 
   const ToolTipWidget({
@@ -99,6 +117,12 @@ class ToolTipWidget extends StatefulWidget {
     this.actions,
     this.actionSettings,
     this.actionButtonsPosition,
+    this.showProgress = false,
+    this.showSkip = false,
+    this.skipText = 'Skip',
+    this.currentStep = 0,
+    this.totalSteps = 0,
+    this.onSkip,
   });
 
   @override
@@ -167,7 +191,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
             widget.tooltipPadding!.left +
             (widget.descriptionPadding?.right ?? 0) +
             (widget.descriptionPadding?.left ?? 0));
-    var maxTextWidth = max(titleLength, descriptionLength);
+    var maxTextWidth = max(max(titleLength, descriptionLength), _footerWidth);
     if (maxTextWidth > widget.screenSize!.width - tooltipScreenEdgePadding) {
       tooltipWidth = widget.screenSize!.width - tooltipScreenEdgePadding;
     } else {
@@ -196,12 +220,86 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
         : (_textSize(widget.description!, descriptionStyle).height +
             widget.tooltipPadding!.bottom +
             widget.tooltipPadding!.top);
-    var maxTextHeight = titleLength + descriptionLength;
+    var maxTextHeight = titleLength + descriptionLength + _footerHeight;
     if (maxTextHeight > widget.screenSize!.height - tooltipScreenEdgePadding) {
       tooltipHeight = widget.screenSize!.height - tooltipScreenEdgePadding;
     } else {
       tooltipHeight = maxTextHeight + tooltipTextPadding;
     }
+  }
+
+  /// Whether the built-in progress/skip footer is shown in the default tooltip.
+  bool get _hasFooter =>
+      (widget.showProgress || widget.showSkip) && widget.totalSteps > 0;
+
+  /// Reserved vertical space for the progress/skip footer.
+  double get _footerHeight => _hasFooter ? 28.0 : 0.0;
+
+  /// Estimated horizontal space the footer needs, so the tooltip is measured
+  /// wide enough to fit the dots and the skip button.
+  double get _footerWidth {
+    if (!_hasFooter) return 0;
+    var w = 0.0;
+    if (widget.showProgress) w += widget.totalSteps * 10.0 + 16;
+    if (widget.showSkip) {
+      w += _textSize(
+            widget.skipText,
+            const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          ).width +
+          16;
+    }
+    if (widget.showProgress && widget.showSkip) w += 16; // gap
+    return w + widget.tooltipPadding!.left + widget.tooltipPadding!.right;
+  }
+
+  /// Builds the dots + skip footer row, or `null` when neither is enabled.
+  Widget? _buildProgressFooter() {
+    if (!_hasFooter) return null;
+    final color = widget.textColor ?? Colors.black;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          if (widget.showProgress)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(widget.totalSteps, (i) {
+                final isActive = i == widget.currentStep;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 2),
+                  width: isActive ? 16 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color:
+                        isActive ? color : color.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                );
+              }),
+            )
+          else
+            const SizedBox.shrink(),
+          if (widget.showSkip)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onSkip,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Text(
+                  widget.skipText,
+                  style: TextStyle(
+                    color: color.withValues(alpha: 0.7),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   double? _getLeft() {
@@ -439,6 +537,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
                             ),
                   ),
                 ),
+              if (_hasFooter) _buildProgressFooter()!,
             ],
           ),
         ),
@@ -648,6 +747,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
                                                     ),
                                           ),
                                         ),
+                                      if (_hasFooter) _buildProgressFooter()!,
                                     ],
                                   ),
                                 ),
