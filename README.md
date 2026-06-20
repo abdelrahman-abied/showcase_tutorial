@@ -1,6 +1,6 @@
 # showcase_tutorial
 
-[![pub package](https://img.shields.io/badge/showcase_tutorial-1.4.0-blue)](https://pub.dev/packages/showcase_tutorial)
+[![pub package](https://img.shields.io/badge/showcase_tutorial-1.5.0-blue)](https://pub.dev/packages/showcase_tutorial)
 [![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](https://github.com/abdelrahman-abied/showcase_tutorial)
 
 A Flutter package to **showcase / highlight your widgets step by step** — perfect for
@@ -359,11 +359,14 @@ ShowCaseWidget(
 
 **Keyboard** (web/desktop; harmless on mobile):
 
-| Key                         | Action            |
-|-----------------------------|-------------------|
-| `→` / `↓` / `Enter` / `Space` | Next step       |
-| `←` / `↑`                    | Previous step     |
-| `Esc`                       | Dismiss the tour  |
+| Key                  | Action            |
+|----------------------|-------------------|
+| `→` / `↓` / `Enter`  | Next step         |
+| `←` / `↑`            | Previous step     |
+| `Esc`                | Dismiss the tour  |
+
+Keyboard handling is focus-scoped: it only acts while the showcase overlay holds
+focus, so it never hijacks keys from the rest of your app.
 
 **Screen readers**: each step's title and description are announced via
 TalkBack / VoiceOver as it becomes active. Override the spoken text per step

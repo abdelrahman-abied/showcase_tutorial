@@ -130,9 +130,11 @@ class ShowCaseWidget extends StatefulWidget {
   /// When `true`, the active step can be controlled with a hardware keyboard:
   ///
   /// * <kbd>Esc</kbd> dismisses the tour,
-  /// * <kbd>→</kbd> / <kbd>↓</kbd> / <kbd>Enter</kbd> / <kbd>Space</kbd> go to
-  ///   the next step,
+  /// * <kbd>→</kbd> / <kbd>↓</kbd> / <kbd>Enter</kbd> go to the next step,
   /// * <kbd>←</kbd> / <kbd>↑</kbd> go to the previous step.
+  ///
+  /// Handling is focus-scoped: it only acts while the showcase overlay holds
+  /// focus, so it never hijacks keys from the rest of the app.
   ///
   /// Relevant on web/desktop; harmless on mobile (no keyboard). Defaults to
   /// `true`.
