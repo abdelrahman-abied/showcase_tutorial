@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Simform Solutions
+ * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -43,6 +44,17 @@ class Showcase extends StatefulWidget {
   /// target widget while showcasing.
   @override
   final GlobalKey key;
+
+  /// Additional widgets to highlight together in the **same** showcase step.
+  ///
+  /// Each [GlobalKey] must point to a widget wrapped in a [MultiView] (a
+  /// [RepaintBoundary]). A snapshot of every such widget is painted above the
+  /// overlay so multiple, non-adjacent widgets — for example several items in
+  /// a `ListView` or a multi-select control — appear highlighted at once while
+  /// a single tooltip is shown.
+  ///
+  /// A key whose widget is not currently mounted is skipped; the remaining
+  /// widgets are still highlighted.
   final List<GlobalKey>? keys;
 
   /// Target widget that will be showcased or highlighted
@@ -103,14 +115,14 @@ class Showcase extends StatefulWidget {
 
   /// Defines background color for tooltip widget.
   ///
-  /// Default to [Colors.white]
-  final Color tooltipBackgroundColor;
+  /// Falls back to [ShowCaseWidget.style], then to [Colors.white].
+  final Color? tooltipBackgroundColor;
 
   /// Defines text color of default tooltip when [titleTextStyle] and
   /// [descTextStyle] is not provided.
   ///
-  /// Default to [Colors.black]
-  final Color textColor;
+  /// Falls back to [ShowCaseWidget.style], then to [Colors.black].
+  final Color? textColor;
 
   /// If [enableAutoScroll] is sets to `true`, this widget will be shown above
   /// the overlay until the target widget is visible in the viewport.
@@ -245,15 +257,15 @@ class Showcase extends StatefulWidget {
     required this.child,
     this.title,
     this.titleAlignment = TextAlign.start,
-    required this.description,
+    this.description,
     this.descriptionAlignment = TextAlign.start,
     this.targetShapeBorder = const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
     this.overlayColor = Colors.black45,
     this.overlayOpacity = 0.75,
     this.titleTextStyle,
     this.descTextStyle,
-    this.tooltipBackgroundColor = Colors.white,
-    this.textColor = Colors.black,
+    this.tooltipBackgroundColor,
+    this.textColor,
     this.scrollLoadingWidget = const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.white)),
     this.showArrow = true,
     this.onTargetClick,
@@ -327,8 +339,8 @@ class Showcase extends StatefulWidget {
        descriptionAlignment = TextAlign.start,
        titleTextStyle = null,
        descTextStyle = null,
-       tooltipBackgroundColor = Colors.white,
-       textColor = Colors.black,
+       tooltipBackgroundColor = null,
+       textColor = null,
        tooltipBorderRadius = null,
        tooltipPadding = const EdgeInsets.symmetric(vertical: 8),
        titlePadding = null,
@@ -449,46 +461,48 @@ class _ShowcaseState extends State<Showcase> {
   }
 
   Future<List<Widget>> _buildCopys(BuildContext context) async {
-    try {
-      List<Widget> list = [];
-      if (widget.keys != null && widget.keys!.isNotEmpty) {
-        // loop through all keys and build a list of widgets to be displayed
-        for (final element in widget.keys!) {
-          RenderRepaintBoundary? boundary = element.currentContext!.findRenderObject() as RenderRepaintBoundary?;
-          // if (boundary == null) return await const SizedBox.shrink();
-          ui.Image image = await boundary!.toImage(pixelRatio: 2.0);
-          final BuildContext context = element.currentContext!;
-          RenderBox? renderBox;
-          if (context.mounted) {
-            renderBox = context.findRenderObject() as RenderBox?;
-          }
-          Offset offset = renderBox!.localToGlobal(Offset.zero);
-          list.add(
-            Positioned(
-              left: offset.dx,
-              top: offset.dy,
-              child: Container(
-                width: boundary.size.width,
-                height: boundary.size.height,
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: MemoryImage(
-                      Uint8List.fromList(
-                        (await image.toByteData(format: ui.ImageByteFormat.png))!.buffer.asUint8List(),
-                      ),
-                    ),
-                    fit: BoxFit.fill,
-                  ),
+    final list = <Widget>[];
+    final keys = widget.keys;
+    if (keys == null || keys.isEmpty) return list;
+
+    // Build an overlay copy for every key. Each one is handled independently
+    // so a single missing or unmounted widget is simply skipped instead of
+    // dropping the highlights for the whole multi-widget step.
+    for (final element in keys) {
+      try {
+        final keyContext = element.currentContext;
+        if (keyContext == null || !keyContext.mounted) continue;
+
+        final boundary = keyContext.findRenderObject();
+        if (boundary is! RenderRepaintBoundary || !boundary.hasSize) continue;
+
+        final image = await boundary.toImage(pixelRatio: 2.0);
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData == null) continue;
+
+        final offset = boundary.localToGlobal(Offset.zero);
+        list.add(
+          Positioned(
+            left: offset.dx,
+            top: offset.dy,
+            child: Container(
+              width: boundary.size.width,
+              height: boundary.size.height,
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: MemoryImage(byteData.buffer.asUint8List()),
+                  fit: BoxFit.fill,
                 ),
               ),
             ),
-          );
-        }
+          ),
+        );
+      } catch (_) {
+        // Ignore this widget and keep building the remaining copies.
+        continue;
       }
-      return list;
-    } catch (e) {
-      return const [];
     }
+    return list;
   }
 
   Future<void> _getOnTooltipTap() async {
@@ -564,37 +578,6 @@ class _ShowcaseState extends State<Showcase> {
                           ),
                   ),
                 ),
-                GestureDetector(
-                  onTap: () {
-                    if (!showCaseWidgetState.disableBarrierInteraction) {
-                      _nextIfAny();
-                    }
-                  },
-                  child: ClipPath(
-                    clipper: RRectClipper(
-                      area: _isScrollRunning ? Rect.zero : rectBound,
-                      isCircle: widget.targetShapeBorder is CircleBorder,
-                      radius: _isScrollRunning ? BorderRadius.zero : widget.targetBorderRadius,
-                      overlayPadding: _isScrollRunning ? EdgeInsets.zero : widget.targetPadding,
-                    ),
-                    child: blur != 0
-                        ? BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                            child: Container(
-                              width: MediaQuery.sizeOf(context).width,
-                              height: MediaQuery.sizeOf(context).height,
-                              decoration: BoxDecoration(color: widget.overlayColor.withValues(alpha: 0.1)),
-                            ),
-                          )
-                        : Container(
-                            width: MediaQuery.sizeOf(context).width,
-                            height: MediaQuery.sizeOf(context).height,
-                            decoration: BoxDecoration(
-                              color: widget.overlayColor.withValues(alpha: widget.overlayOpacity),
-                            ),
-                          ),
-                  ),
-                ),
                 if (_isScrollRunning) Center(child: widget.scrollLoadingWidget),
                 if (!_isScrollRunning) ...[
                   _TargetWidget(
@@ -627,11 +610,13 @@ class _ShowcaseState extends State<Showcase> {
                     titleAlignment: widget.titleAlignment,
                     description: widget.description,
                     descriptionAlignment: widget.descriptionAlignment,
-                    titleTextStyle: widget.titleTextStyle,
-                    descTextStyle: widget.descTextStyle,
+                    titleTextStyle: widget.titleTextStyle ?? showCaseWidgetState.style.titleTextStyle,
+                    descTextStyle: widget.descTextStyle ?? showCaseWidgetState.style.descTextStyle,
                     container: widget.container,
-                    tooltipBackgroundColor: widget.tooltipBackgroundColor,
-                    textColor: widget.textColor,
+                    tooltipBackgroundColor: widget.tooltipBackgroundColor ??
+                        showCaseWidgetState.style.tooltipBackgroundColor ??
+                        Colors.white,
+                    textColor: widget.textColor ?? showCaseWidgetState.style.textColor ?? Colors.black,
                     showArrow: widget.showArrow,
                     contentHeight: widget.height,
                     contentWidth: widget.width,
@@ -640,7 +625,7 @@ class _ShowcaseState extends State<Showcase> {
                     disableMovingAnimation: widget.disableMovingAnimation ?? showCaseWidgetState.disableMovingAnimation,
                     disableScaleAnimation: widget.disableScaleAnimation ?? showCaseWidgetState.disableScaleAnimation,
                     movingAnimationDuration: widget.movingAnimationDuration,
-                    tooltipBorderRadius: widget.tooltipBorderRadius,
+                    tooltipBorderRadius: widget.tooltipBorderRadius ?? showCaseWidgetState.style.tooltipBorderRadius,
                     scaleAnimationDuration: widget.scaleAnimationDuration,
                     scaleAnimationCurve: widget.scaleAnimationCurve,
                     scaleAnimationAlignment: widget.scaleAnimationAlignment,

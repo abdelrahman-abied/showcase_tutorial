@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Simform Solutions
+ * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -169,7 +170,11 @@ class _OverlayBuilderState extends State<OverlayBuilder> {
     }
   }
 
-  void buildOverlay() async {
+  void buildOverlay() {
+    // Nothing to refresh until an overlay entry exists. Skipping here avoids
+    // scheduling a post-frame callback on every build while no showcase
+    // overlay is active.
+    if (_overlayEntry == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) => _overlayEntry?.markNeedsBuild());
   }
 

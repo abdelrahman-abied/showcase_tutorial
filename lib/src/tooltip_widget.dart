@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Simform Solutions
+ * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -488,24 +489,25 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
                                                     ),
                                           ),
                                         ),
-                                      Padding(
-                                        padding: widget.descriptionPadding ??
-                                            EdgeInsets.zero,
-                                        child: Text(
-                                          widget.description!,
-                                          textAlign:
-                                              widget.descriptionAlignment,
-                                          style: widget.descTextStyle ??
-                                              Theme.of(context)
-                                                  .textTheme
-                                                  .titleSmall!
-                                                  .merge(
-                                                    TextStyle(
-                                                      color: widget.textColor,
+                                      if (widget.description != null)
+                                        Padding(
+                                          padding: widget.descriptionPadding ??
+                                              EdgeInsets.zero,
+                                          child: Text(
+                                            widget.description!,
+                                            textAlign:
+                                                widget.descriptionAlignment,
+                                            style: widget.descTextStyle ??
+                                                Theme.of(context)
+                                                    .textTheme
+                                                    .titleSmall!
+                                                    .merge(
+                                                      TextStyle(
+                                                        color: widget.textColor,
+                                                      ),
                                                     ),
-                                                  ),
+                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ),
@@ -529,8 +531,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
               height: min((tooltipHeight - arrowHeight), 40),
               width: tooltipWidth,
               child: Container(
-                height: 200,
-                color: Colors.white,
+                color: widget.actionSettings?.containerColor,
                 child: widget.actions,
               ),
             ),
@@ -582,8 +583,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
               padding:
                   widget.actionSettings?.containerPadding ?? EdgeInsets.zero,
               child: Container(
-                color: Colors
-                    .lightBlueAccent /*widget.actionSettings?.containerColor ?? */,
+                color: widget.actionSettings?.containerColor,
                 height: widget.actionSettings?.containerHeight,
                 width: widget.actionSettings?.containerWidth,
                 child: widget.actions!,

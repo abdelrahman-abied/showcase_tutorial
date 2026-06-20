@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Simform Solutions
+ * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,4 +29,5 @@ export 'src/enum.dart';
 export 'src/multi_view_widget.dart';
 export 'src/showcase.dart';
 export 'src/showcase_default_actions.dart';
+export 'src/showcase_style.dart';
 export 'src/showcase_widget.dart';

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021 Simform Solutions
+ * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,9 +37,10 @@ class GetPosition {
   });
 
   Rect getRect() {
-    late final box = key.currentContext?.findRenderObject() as RenderBox;
+    final box = key.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return Rect.zero;
 
-    var boxOffset = box.localToGlobal(const Offset(0.0, 0.0));
+    final boxOffset = box.localToGlobal(const Offset(0.0, 0.0));
     if (boxOffset.dx.isNaN || boxOffset.dy.isNaN) {
       return const Rect.fromLTRB(0, 0, 0, 0);
     }
