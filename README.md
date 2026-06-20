@@ -1,6 +1,6 @@
 # showcase_tutorial
 
-[![pub package](https://img.shields.io/badge/showcase_tutorial-1.5.1-blue)](https://pub.dev/packages/showcase_tutorial)
+[![pub package](https://img.shields.io/badge/showcase_tutorial-1.6.0-blue)](https://pub.dev/packages/showcase_tutorial)
 [![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](https://github.com/abdelrahman-abied/showcase_tutorial)
 
 A Flutter package to **showcase / highlight your widgets step by step** — perfect for
@@ -21,6 +21,7 @@ onboarding tours and feature discovery.
 - **Highlight multiple widgets in a single step** (e.g. multi-select).
 - **Global tooltip styling** via `ShowcaseStyle` — set it once, not per step.
 - Built-in **action buttons** (Next / Previous / Stop) with customizable text.
+- Built-in **progress dots** and a **Skip** button in the default tooltip.
 - Auto-play, auto-scroll, and background blur.
 - Programmatic control & progress: `next()`, `previous()`, `goTo()`, `dismiss()`, "Step x of y".
 - Per-step **lifecycle callbacks** (`onShow` / `onDismiss`) and configurable background-tap behavior.
@@ -151,6 +152,25 @@ Showcase(
   child: const Icon(Icons.menu),
 );
 ```
+
+## Progress dots & Skip button
+
+Add a built-in step indicator and a skip control to the default tooltip — no
+custom container needed. Both are set once on the `ShowCaseWidget` and default
+to off:
+
+```dart
+ShowCaseWidget(
+  showProgress: true,           // dots: one per step, active step highlighted
+  showSkip: true,               // a "Skip" button that ends the whole tour
+  skipButtonText: 'Skip tour',  // optional, defaults to 'Skip'
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+The dots use the tooltip's text color and reflect `currentIndex` / `totalSteps`.
+This only affects the **default** tooltip; a custom `container` tooltip is left
+untouched (build your own indicator there if you want one).
 
 ## Highlight a widget by its exact shape
 
@@ -474,6 +494,9 @@ ShowCaseWidget(
 | autoSkipUnmountedSteps    | bool                       | false                         | Skip steps whose target widget is not currently mounted.                 |
 | enableKeyboardNavigation  | bool                       | true                          | Drive the active step with a hardware keyboard (Esc / arrows / Enter).   |
 | enableAutoAnnouncements   | bool                       | true                          | Announce each step's title/description to screen readers.                |
+| showProgress              | bool                       | false                         | Show built-in progress dots in the default tooltip.                      |
+| showSkip                  | bool                       | false                         | Show a "Skip" button in the default tooltip that ends the tour.          |
+| skipButtonText            | String                     | 'Skip'                        | Label for the skip button.                                               |
 
 ## Properties of `Showcase` and `Showcase.withWidget`
 

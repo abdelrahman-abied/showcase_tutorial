@@ -873,6 +873,99 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(tester.takeException(), isNull);
   });
+
+  // Builds a three-step tour with the progress/skip footer configurable.
+  Widget buildProgressApp(
+    GlobalKey k1,
+    GlobalKey k2,
+    GlobalKey k3, {
+    bool showProgress = false,
+    bool showSkip = false,
+    String skipButtonText = 'Skip',
+  }) {
+    return MaterialApp(
+      home: ShowCaseWidget(
+        disableMovingAnimation: true,
+        disableScaleAnimation: true,
+        showProgress: showProgress,
+        showSkip: showSkip,
+        skipButtonText: skipButtonText,
+        builder: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Showcase(
+                      key: k1, title: 'One', description: 'd', child: const Text('t1')),
+                  Showcase(
+                      key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                  Showcase(
+                      key: k3, title: 'Three', description: 'd', child: const Text('t3')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('showProgress renders one dot per step', (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    final k3 = GlobalKey();
+    await tester.pumpWidget(buildProgressApp(k1, k2, k3, showProgress: true));
+
+    ShowCaseWidget.of(tester.element(find.text('t1')))
+        .startShowCase([k1, k2, k3]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('One'), findsOneWidget);
+    // One dot (AnimatedContainer) per step.
+    expect(find.byType(AnimatedContainer), findsNWidgets(3));
+  });
+
+  testWidgets('showSkip renders a Skip button that dismisses the tour',
+      (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    final k3 = GlobalKey();
+    await tester.pumpWidget(buildProgressApp(k1, k2, k3, showSkip: true));
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2, k3]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Skip'), findsOneWidget);
+    expect(state.isShowcaseRunning, isTrue);
+
+    await tester.tap(find.text('Skip'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400)); // reverse animation
+    await tester.pump(const Duration(milliseconds: 400)); // teardown
+
+    expect(state.isShowcaseRunning, isFalse);
+  });
+
+  testWidgets('skipButtonText customizes the skip label', (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    final k3 = GlobalKey();
+    await tester.pumpWidget(
+      buildProgressApp(k1, k2, k3, showSkip: true, skipButtonText: 'Skip tour'),
+    );
+
+    ShowCaseWidget.of(tester.element(find.text('t1')))
+        .startShowCase([k1, k2, k3]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Skip tour'), findsOneWidget);
+    expect(find.text('Skip'), findsNothing);
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

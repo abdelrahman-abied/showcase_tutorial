@@ -36,6 +36,8 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
       child: ShowCaseWidget(
         autoSkipUnmountedSteps: true,
         barrierInteraction: _barrier,
+        showProgress: true,
+        showSkip: true,
         onStart: (index, key) => setState(() => _step = (index ?? 0) + 1),
         builder: Builder(
           builder: (context) {
