@@ -8,6 +8,8 @@ onboarding tours and feature discovery.
 
 ## Preview
 
+![Feature walkthrough](https://github.com/abdelrahman-abied/showcase_tutorial/blob/main/preview/demo.gif)
+
 ![The example app running in iOS](https://github.com/abdelrahman-abied/showcase_tutorial/blob/main/preview/showcase_tutorial.gif)
 
 ## Features
