@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.4.0
+
+* FEAT: `TooltipPosition.left` and `.right` — place the default tooltip to the
+  side of the target, with a horizontal arrow.
+* FEAT: progress + navigation API on `ShowCaseWidget.of(context)`:
+  `currentIndex`, `totalSteps`, `isShowcaseRunning`, `goTo(index)` and
+  `goToKey(key)` (build "Step 2 of 5" indicators and skip-to controls).
+* FEAT: `ShowCaseWidget.autoSkipUnmountedSteps` — skip steps whose target
+  widget isn't currently in the tree instead of showing an empty overlay.
+* FEAT: RTL support — the tooltip inherits the app's text direction and
+  measures/lays out RTL text correctly.
+
 ## 1.3.0
 
 * FEAT: "show once" support for onboarding tours. `ShowCaseWidget` gains a

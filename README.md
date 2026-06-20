@@ -1,6 +1,6 @@
 # showcase_tutorial
 
-[![pub package](https://img.shields.io/badge/showcase_tutorial-1.3.0-blue)](https://pub.dev/packages/showcase_tutorial)
+[![pub package](https://img.shields.io/badge/showcase_tutorial-1.4.0-blue)](https://pub.dev/packages/showcase_tutorial)
 [![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](https://github.com/abdelrahman-abied/showcase_tutorial)
 
 A Flutter package to **showcase / highlight your widgets step by step** — perfect for
@@ -242,6 +242,17 @@ ShowCaseWidget.of(context).previous();  // go to the previous step
 ShowCaseWidget.of(context).dismiss();   // stop the whole tour
 ```
 
+Jump to a specific step and read progress — useful for a "Step 2 of 5"
+indicator or a skip-to control:
+
+```dart
+final show = ShowCaseWidget.of(context);
+show.goTo(2);                 // jump to a step by index
+show.goToKey(profileKey);     // ...or by its GlobalKey
+final label = '${(show.currentIndex ?? 0) + 1} of ${show.totalSteps}';
+final running = show.isShowcaseRunning;
+```
+
 Lifecycle callbacks on `ShowCaseWidget`:
 
 ```dart
@@ -282,17 +293,40 @@ Showcase(blurValue: 2, key: _one, description: '...', child: ...);
 
 ## Tooltip position
 
-Force the tooltip above or below the target (defaults to whatever space is
+Force the tooltip to a side of the target with `TooltipPosition.top`,
+`.bottom`, `.left`, or `.right` (defaults to whatever vertical space is
 available):
 
 ```dart
 Showcase(
   key: _one,
-  description: 'Always shown on top',
-  tooltipPosition: TooltipPosition.top,
+  description: 'Shown to the right of the target',
+  tooltipPosition: TooltipPosition.right,
   child: const Icon(Icons.menu),
 );
 ```
+
+> `left` / `right` use the default title/description tooltip; custom
+> `container` tooltips and action buttons keep top/bottom placement.
+
+## Skip steps whose target isn't on screen
+
+If some showcased widgets are rendered conditionally, enable
+`autoSkipUnmountedSteps` so steps whose target isn't currently in the widget
+tree are skipped automatically instead of showing an empty overlay:
+
+```dart
+ShowCaseWidget(
+  autoSkipUnmountedSteps: true,
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+## Right-to-left (RTL)
+
+The tooltip inherits the ambient text direction, so RTL text (e.g. Arabic) is
+measured and laid out correctly when your app is RTL — no extra configuration
+needed.
 
 ## Enable or disable showcasing globally
 
@@ -331,6 +365,7 @@ ShowCaseWidget(
 | onComplete                | Function(int?, GlobalKey)? |                               | Called on the completion of each showcase.                               |
 | onFinish                  | VoidCallback?              |                               | Called when all showcases are completed.                                 |
 | enableShowcase            | bool                       | true                          | Enable or disable showcasing globally.                                   |
+| autoSkipUnmountedSteps    | bool                       | false                         | Skip steps whose target widget is not currently mounted.                 |
 
 ## Properties of `Showcase` and `Showcase.withWidget`
 
