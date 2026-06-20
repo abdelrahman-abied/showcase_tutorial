@@ -354,9 +354,141 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
     super.dispose();
   }
 
+  /// Builds the tooltip to the left or right of the target, with the arrow
+  /// pointing horizontally at it and the tooltip vertically centred on it.
+  Widget _buildHorizontalTooltip({required bool isLeft}) {
+    const arrowShort = 9.0; // arrow depth toward the target
+    const arrowLong = 18.0; // arrow span along the tooltip edge
+    const gap = 6.0;
+    final showArrow = widget.showArrow;
+
+    final pos = widget.position!;
+    final targetCenterY = (pos.getTop() + pos.getBottom()) / 2;
+    final screenW = MediaQuery.sizeOf(context).width;
+    final screenH = MediaQuery.sizeOf(context).height;
+
+    final arrowSpace = showArrow ? arrowShort : 0.0;
+    final totalWidth = tooltipWidth + arrowSpace;
+
+    double left = isLeft
+        ? pos.getLeft() - gap - totalWidth
+        : pos.getRight() + gap;
+    final maxLeft =
+        max(tooltipScreenEdgePadding, screenW - totalWidth - tooltipScreenEdgePadding);
+    left = left.clamp(tooltipScreenEdgePadding, maxLeft);
+
+    final maxTop =
+        max(tooltipScreenEdgePadding, screenH - tooltipHeight - tooltipScreenEdgePadding);
+    final top = (targetCenterY - tooltipHeight / 2)
+        .clamp(tooltipScreenEdgePadding, maxTop);
+
+    if (!widget.disableScaleAnimation && widget.isTooltipDismissed) {
+      _scaleAnimationController.reverse();
+    }
+
+    final arrow = SizedBox(
+      width: arrowShort,
+      height: arrowLong,
+      child: CustomPaint(
+        painter: _Arrow(
+          strokeColor: widget.tooltipBackgroundColor!,
+          strokeWidth: 10,
+          paintingStyle: PaintingStyle.fill,
+          direction: isLeft ? _ArrowDirection.right : _ArrowDirection.left,
+        ),
+      ),
+    );
+
+    final box = ClipRRect(
+      borderRadius: widget.tooltipBorderRadius ?? BorderRadius.circular(8.0),
+      child: GestureDetector(
+        onTap: widget.onTooltipTap,
+        child: Container(
+          width: tooltipWidth,
+          padding: widget.tooltipPadding,
+          color: widget.tooltipBackgroundColor,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: widget.title != null
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.center,
+            children: <Widget>[
+              if (widget.title != null)
+                Padding(
+                  padding: widget.titlePadding ?? EdgeInsets.zero,
+                  child: Text(
+                    widget.title!,
+                    textAlign: widget.titleAlignment,
+                    style: widget.titleTextStyle ??
+                        Theme.of(context).textTheme.titleLarge!.merge(
+                              TextStyle(color: widget.textColor),
+                            ),
+                  ),
+                ),
+              if (widget.description != null)
+                Padding(
+                  padding: widget.descriptionPadding ?? EdgeInsets.zero,
+                  child: Text(
+                    widget.description!,
+                    textAlign: widget.descriptionAlignment,
+                    style: widget.descTextStyle ??
+                        Theme.of(context).textTheme.titleSmall!.merge(
+                              TextStyle(color: widget.textColor),
+                            ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    return Stack(
+      children: [
+        Positioned(
+          top: top,
+          left: left,
+          child: ScaleTransition(
+            scale: _scaleAnimation,
+            alignment: isLeft ? Alignment.centerRight : Alignment.centerLeft,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: Offset.zero,
+                end: Offset(isLeft ? -0.06 : 0.06, 0.0),
+              ).animate(_movingAnimation),
+              child: Material(
+                type: MaterialType.transparency,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (showArrow && !isLeft) arrow,
+                    box,
+                    if (showArrow && isLeft) arrow,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     position = widget.offset;
+
+    // Left/right placement uses a dedicated horizontal layout path. (Custom
+    // containers and action buttons keep the vertical layout.)
+    final tp = widget.tooltipPosition;
+    if (widget.container == null &&
+        widget.actions == null &&
+        widget.position != null &&
+        (tp == TooltipPosition.left || tp == TooltipPosition.right)) {
+      return _buildHorizontalTooltip(isLeft: tp == TooltipPosition.left);
+    }
+
     final contentOrientation = findPositionForContent(position!);
     final contentOffsetMultiplier =
         contentOrientation == TooltipPosition.bottom ? 1.0 : -1.0;
@@ -444,7 +576,9 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
                                   strokeColor: widget.tooltipBackgroundColor!,
                                   strokeWidth: 10,
                                   paintingStyle: PaintingStyle.fill,
-                                  isUpArrow: isArrowUp,
+                                  direction: isArrowUp
+                                      ? _ArrowDirection.up
+                                      : _ArrowDirection.down,
                                 ),
                                 child: const SizedBox(
                                   height: arrowHeight,
@@ -605,7 +739,9 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
       text: TextSpan(text: text, style: style),
       maxLines: 1,
       textScaler: MediaQuery.textScalerOf(context),
-      textDirection: TextDirection.ltr,
+      // Measure with the ambient text direction so RTL (e.g. Arabic) text is
+      // sized correctly.
+      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
     )..layout();
     return textPainter.size;
   }
@@ -624,18 +760,20 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
   }
 }
 
+enum _ArrowDirection { up, down, left, right }
+
 class _Arrow extends CustomPainter {
   final Color strokeColor;
   final PaintingStyle paintingStyle;
   final double strokeWidth;
-  final bool isUpArrow;
+  final _ArrowDirection direction;
   final Paint _paint;
 
   _Arrow({
     this.strokeColor = Colors.black,
     this.strokeWidth = 3,
     this.paintingStyle = PaintingStyle.stroke,
-    this.isUpArrow = true,
+    this.direction = _ArrowDirection.up,
   }) : _paint = Paint()
           ..color = strokeColor
           ..strokeWidth = strokeWidth
@@ -647,24 +785,39 @@ class _Arrow extends CustomPainter {
   }
 
   Path getTrianglePath(double x, double y) {
-    if (isUpArrow) {
-      return Path()
-        ..moveTo(0, y)
-        ..lineTo(x / 2, 0)
-        ..lineTo(x, y)
-        ..lineTo(0, y);
+    switch (direction) {
+      case _ArrowDirection.up:
+        return Path()
+          ..moveTo(0, y)
+          ..lineTo(x / 2, 0)
+          ..lineTo(x, y)
+          ..close();
+      case _ArrowDirection.down:
+        return Path()
+          ..moveTo(0, 0)
+          ..lineTo(x, 0)
+          ..lineTo(x / 2, y)
+          ..close();
+      case _ArrowDirection.left:
+        return Path()
+          ..moveTo(x, 0)
+          ..lineTo(x, y)
+          ..lineTo(0, y / 2)
+          ..close();
+      case _ArrowDirection.right:
+        return Path()
+          ..moveTo(0, 0)
+          ..lineTo(0, y)
+          ..lineTo(x, y / 2)
+          ..close();
     }
-    return Path()
-      ..moveTo(0, 0)
-      ..lineTo(x, 0)
-      ..lineTo(x / 2, y)
-      ..lineTo(0, 0);
   }
 
   @override
   bool shouldRepaint(covariant _Arrow oldDelegate) {
     return oldDelegate.strokeColor != strokeColor ||
         oldDelegate.paintingStyle != paintingStyle ||
-        oldDelegate.strokeWidth != strokeWidth;
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.direction != direction;
   }
 }

@@ -245,4 +245,171 @@ void main() {
 
     expect(find.text('Guarded'), findsOneWidget);
   });
+
+  // Builds a three-step showcase. Optionally omit one of the targets from the
+  // tree (to exercise auto-skip).
+  Widget buildMultiStepApp(
+    GlobalKey k1,
+    GlobalKey k2,
+    GlobalKey k3, {
+    bool includeSecondTarget = true,
+    bool autoSkipUnmountedSteps = false,
+  }) {
+    return MaterialApp(
+      home: ShowCaseWidget(
+        disableMovingAnimation: true,
+        disableScaleAnimation: true,
+        autoSkipUnmountedSteps: autoSkipUnmountedSteps,
+        builder: Builder(
+          builder: (context) => Scaffold(
+            body: Column(
+              children: [
+                Showcase(
+                    key: k1, title: 'One', description: 'd', child: const Text('t1')),
+                if (includeSecondTarget)
+                  Showcase(
+                      key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                Showcase(
+                    key: k3, title: 'Three', description: 'd', child: const Text('t3')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('progress getters and goTo / goToKey navigate steps',
+      (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    final k3 = GlobalKey();
+    await tester.pumpWidget(buildMultiStepApp(k1, k2, k3));
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    expect(state.isShowcaseRunning, isFalse);
+    expect(state.totalSteps, 0);
+
+    state.startShowCase([k1, k2, k3]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(state.isShowcaseRunning, isTrue);
+    expect(state.totalSteps, 3);
+    expect(state.currentIndex, 0);
+    expect(find.text('One'), findsOneWidget);
+
+    state.goTo(2);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(state.currentIndex, 2);
+    expect(find.text('Three'), findsOneWidget);
+
+    state.goToKey(k2);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(state.currentIndex, 1);
+    expect(find.text('Two'), findsOneWidget);
+  });
+
+  testWidgets('autoSkipUnmountedSteps skips a step whose target is absent',
+      (tester) async {
+    final k1 = GlobalKey();
+    final kAbsent = GlobalKey(); // never attached to the tree
+    final k3 = GlobalKey();
+    await tester.pumpWidget(
+      buildMultiStepApp(k1, kAbsent, k3,
+          includeSecondTarget: false, autoSkipUnmountedSteps: true),
+    );
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, kAbsent, k3]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('One'), findsOneWidget);
+
+    state.next(); // skips the unmounted middle step
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(state.currentIndex, 2);
+    expect(find.text('Three'), findsOneWidget);
+  });
+
+  testWidgets('tooltipPosition.right places the tooltip to the right of target',
+      (tester) async {
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Showcase(
+                  key: key,
+                  title: 'Side',
+                  description: 'Body',
+                  tooltipPosition: TooltipPosition.right,
+                  child: const SizedBox(width: 40, height: 40, child: Text('t')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Side'), findsOneWidget);
+    final targetCenter = tester.getCenter(find.byKey(key));
+    final tooltipLeft = tester.getTopLeft(find.text('Side')).dx;
+    expect(tooltipLeft, greaterThan(targetCenter.dx));
+  });
+
+  testWidgets('tooltip inherits RTL directionality', (tester) async {
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Directionality(
+          textDirection: TextDirection.rtl,
+          child: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: Showcase(
+                    key: key,
+                    title: 'عنوان',
+                    description: 'وصف',
+                    child: const Text('t'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('عنوان'), findsOneWidget);
+
+    final directionality = tester.widget<Directionality>(
+      find
+          .ancestor(
+            of: find.text('عنوان'),
+            matching: find.byType(Directionality),
+          )
+          .first,
+    );
+    expect(directionality.textDirection, TextDirection.rtl);
+  });
 }
