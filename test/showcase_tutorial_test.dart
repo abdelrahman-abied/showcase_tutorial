@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
@@ -160,5 +162,87 @@ void main() {
     await tester.pump();
 
     expect(reported, const Size(120, 48));
+  });
+
+  // Builds a single-step showcase with a start guard.
+  Widget buildGuardedApp(
+    GlobalKey targetKey, {
+    required FutureOr<bool> Function(String?) onShouldStartShowcase,
+    String? showcaseId,
+  }) {
+    return MaterialApp(
+      home: ShowCaseWidget(
+        disableMovingAnimation: true,
+        disableScaleAnimation: true,
+        showcaseId: showcaseId,
+        onShouldStartShowcase: onShouldStartShowcase,
+        builder: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: Showcase(
+                key: targetKey,
+                title: 'Guarded',
+                description: 'Body',
+                child: const Text('target'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('onShouldStartShowcase=false blocks the tour and receives the id',
+      (tester) async {
+    final targetKey = GlobalKey();
+    String? receivedId;
+    await tester.pumpWidget(
+      buildGuardedApp(
+        targetKey,
+        showcaseId: 'home_v1',
+        onShouldStartShowcase: (id) {
+          receivedId = id;
+          return false;
+        },
+      ),
+    );
+
+    ShowCaseWidget.of(tester.element(find.text('target')))
+        .startShowCase([targetKey]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(receivedId, 'home_v1');
+    expect(find.text('Guarded'), findsNothing);
+  });
+
+  testWidgets('an async onShouldStartShowcase=true starts the tour',
+      (tester) async {
+    final targetKey = GlobalKey();
+    await tester.pumpWidget(
+      buildGuardedApp(targetKey, onShouldStartShowcase: (id) async => true),
+    );
+
+    ShowCaseWidget.of(tester.element(find.text('target')))
+        .startShowCase([targetKey]);
+    await tester.pump(); // kick off the guard future
+    await tester.pump(); // resolve it
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Guarded'), findsOneWidget);
+  });
+
+  testWidgets('force:true bypasses a blocking guard', (tester) async {
+    final targetKey = GlobalKey();
+    await tester.pumpWidget(
+      buildGuardedApp(targetKey, onShouldStartShowcase: (id) async => false),
+    );
+
+    ShowCaseWidget.of(tester.element(find.text('target')))
+        .startShowCase([targetKey], force: true);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(find.text('Guarded'), findsOneWidget);
   });
 }
