@@ -11,6 +11,11 @@
   widget isn't currently in the tree instead of showing an empty overlay.
 * FEAT: RTL support — the tooltip inherits the app's text direction and
   measures/lays out RTL text correctly.
+* FEAT: `Showcase.highlightExactShape` — highlight the target by its **actual
+  painted shape** (a star, a pill, an icon, an irregular logo) instead of a
+  geometric `targetShapeBorder`. The target is captured as a snapshot and drawn
+  above the dimmed overlay, so any shape is hugged exactly with no need to set
+  `targetShapeBorder`/`targetBorderRadius` to match it.
 
 ## 1.3.0
 

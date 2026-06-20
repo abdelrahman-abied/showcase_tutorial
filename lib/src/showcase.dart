@@ -83,6 +83,25 @@ class Showcase extends StatefulWidget {
   /// ```
   final ShapeBorder targetShapeBorder;
 
+  /// When `true`, the highlight conforms to the target widget's **actual
+  /// painted shape** instead of a geometric [targetShapeBorder].
+  ///
+  /// The target is captured as a snapshot and drawn above the dimmed overlay,
+  /// so any shape — a circle, a pill, a star, an irregular icon or logo — is
+  /// highlighted exactly, without having to set [targetShapeBorder] or
+  /// [targetBorderRadius] to match it manually.
+  ///
+  /// Notes:
+  /// * While the step is showing, the target is rendered as a **static image**,
+  ///   so it will not animate or update until the showcase moves on. For
+  ///   typical static UI this is invisible to the user.
+  /// * To be captured, the child is wrapped in a [RepaintBoundary].
+  /// * [targetShapeBorder]/[targetBorderRadius] are ignored for the highlight
+  ///   when this is enabled.
+  ///
+  /// Defaults to `false`.
+  final bool highlightExactShape;
+
   /// Radius of rectangle box while target widget is being showcased.
   final BorderRadius? targetBorderRadius;
 
@@ -260,6 +279,7 @@ class Showcase extends StatefulWidget {
     this.description,
     this.descriptionAlignment = TextAlign.start,
     this.targetShapeBorder = const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+    this.highlightExactShape = false,
     this.overlayColor = Colors.black45,
     this.overlayOpacity = 0.75,
     this.titleTextStyle,
@@ -310,6 +330,7 @@ class Showcase extends StatefulWidget {
     required this.height,
     required this.width,
     this.targetShapeBorder = const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+    this.highlightExactShape = false,
     this.overlayColor = Colors.black45,
     this.targetBorderRadius,
     this.overlayOpacity = 0.75,
@@ -358,6 +379,10 @@ class _ShowcaseState extends State<Showcase> {
   bool _enableShowcase = true;
   Timer? timer;
   GetPosition? position;
+
+  /// Wraps the child when [Showcase.highlightExactShape] is enabled so it can
+  /// be captured with [RenderRepaintBoundary.toImage].
+  final GlobalKey _childBoundaryKey = GlobalKey();
 
   ShowCaseWidgetState get showCaseWidgetState => ShowCaseWidget.of(context);
 
@@ -431,7 +456,11 @@ class _ShowcaseState extends State<Showcase> {
           return buildOverlayOnTarget(offset, rectBound.size, rectBound, size);
         },
         showOverlay: true,
-        child: widget.child,
+        // Wrap in a RepaintBoundary so the target can be captured as a snapshot
+        // and highlighted in its exact painted shape.
+        child: widget.highlightExactShape
+            ? RepaintBoundary(key: _childBoundaryKey, child: widget.child)
+            : widget.child,
       );
     }
     return widget.child;
@@ -505,6 +534,43 @@ class _ShowcaseState extends State<Showcase> {
     return list;
   }
 
+  /// Captures the target widget and returns it as a [Positioned] image so the
+  /// highlight matches the widget's exact painted shape. Used when
+  /// [Showcase.highlightExactShape] is enabled. Returns `null` if the target
+  /// cannot be captured (e.g. not yet laid out), in which case the plain
+  /// dimmed overlay is shown.
+  Future<Widget?> _buildExactShapeCopy(BuildContext context) async {
+    try {
+      final keyContext = _childBoundaryKey.currentContext;
+      if (keyContext == null || !keyContext.mounted) return null;
+
+      final boundary = keyContext.findRenderObject();
+      if (boundary is! RenderRepaintBoundary || !boundary.hasSize) return null;
+
+      final pixelRatio = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
+      final image = await boundary.toImage(pixelRatio: pixelRatio);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return null;
+
+      final offset = boundary.localToGlobal(Offset.zero);
+      return Positioned(
+        left: offset.dx,
+        top: offset.dy,
+        // The snapshot is purely visual; taps fall through to [_TargetWidget].
+        child: IgnorePointer(
+          child: Image.memory(
+            byteData.buffer.asUint8List(),
+            width: boundary.size.width,
+            height: boundary.size.height,
+            fit: BoxFit.fill,
+          ),
+        ),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _getOnTooltipTap() async {
     if (widget.disposeOnTap == true) {
       await _reverseAnimateTooltip();
@@ -554,7 +620,9 @@ class _ShowcaseState extends State<Showcase> {
                   },
                   child: ClipPath(
                     clipper: RRectClipper(
-                      area: _isScrollRunning ? Rect.zero : rectBound,
+                      // With an exact-shape highlight the snapshot provides the
+                      // cut-out, so the overlay dims the whole screen (no hole).
+                      area: (_isScrollRunning || widget.highlightExactShape) ? Rect.zero : rectBound,
                       isCircle: widget.targetShapeBorder is CircleBorder,
                       radius: _isScrollRunning ? BorderRadius.zero : widget.targetBorderRadius,
                       overlayPadding: _isScrollRunning ? EdgeInsets.zero : widget.targetPadding,
@@ -603,6 +671,13 @@ class _ShowcaseState extends State<Showcase> {
                       },
                     ),
                   ],
+                  if (widget.highlightExactShape)
+                    FutureBuilder<Widget?>(
+                      future: _buildExactShapeCopy(context),
+                      builder: (context, AsyncSnapshot<Widget?> snapshot) {
+                        return snapshot.data ?? const SizedBox.shrink();
+                      },
+                    ),
                   ToolTipWidget(
                     position: position,
                     offset: offset,

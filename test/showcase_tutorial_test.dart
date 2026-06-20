@@ -408,6 +408,62 @@ void main() {
     expect(targetLeft - tooltipRight, lessThan(80));
   });
 
+  testWidgets(
+      'highlightExactShape wraps the target and runs the snapshot highlight '
+      'without error', (tester) async {
+    final targetKey = GlobalKey();
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: Showcase(
+                    key: targetKey,
+                    title: 'Exact',
+                    description: 'Body',
+                    highlightExactShape: true,
+                    child: Container(
+                      key: const ValueKey('exactChild'),
+                      width: 48,
+                      height: 48,
+                      decoration: const BoxDecoration(
+                        color: Colors.blue,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // The target is wrapped in a RepaintBoundary so it can be captured.
+      expect(
+        find.ancestor(
+          of: find.byKey(const ValueKey('exactChild')),
+          matching: find.byType(RepaintBoundary),
+        ),
+        findsWidgets,
+      );
+
+      ShowCaseWidget.of(tester.element(find.byKey(targetKey)))
+          .startShowCase([targetKey]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      // Let the async snapshot capture (toImage) resolve.
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Exact'), findsOneWidget);
+    });
+  });
+
   testWidgets('tooltip inherits RTL directionality', (tester) async {
     final key = GlobalKey();
     await tester.pumpWidget(
