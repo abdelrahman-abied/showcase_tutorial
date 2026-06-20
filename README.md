@@ -1,6 +1,6 @@
 # showcase_tutorial
 
-[![pub package](https://img.shields.io/badge/showcase_tutorial-1.6.0-blue)](https://pub.dev/packages/showcase_tutorial)
+[![pub package](https://img.shields.io/badge/showcase_tutorial-1.6.1-blue)](https://pub.dev/packages/showcase_tutorial)
 [![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](https://github.com/abdelrahman-abied/showcase_tutorial)
 
 A Flutter package to **showcase / highlight your widgets step by step** — perfect for
@@ -8,9 +8,9 @@ onboarding tours and feature discovery.
 
 ## Preview
 
-![Feature walkthrough](https://github.com/abdelrahman-abied/showcase_tutorial/blob/main/preview/demo.gif)
+![Feature walkthrough](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/demo.gif)
 
-![The example app running in iOS](https://github.com/abdelrahman-abied/showcase_tutorial/blob/main/preview/showcase_tutorial.gif)
+![The example app running in iOS](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/showcase_tutorial.gif)
 
 ## Features
 

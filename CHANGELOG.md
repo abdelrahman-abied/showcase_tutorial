@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.1
+
+* DOCS: fix the README preview GIFs so they render on pub.dev — the links used
+  GitHub `blob/...` URLs (which point to an HTML page) instead of
+  `raw.githubusercontent.com` image URLs.
+
 ## 1.6.0
 
 * FEAT: built-in **progress indicator** and **skip button** in the default
