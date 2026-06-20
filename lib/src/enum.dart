@@ -21,4 +21,13 @@
  * SOFTWARE.
  */
 
-enum TooltipPosition { top, bottom }
+enum TooltipPosition {
+  top,
+  bottom,
+  left,
+  right;
+
+  bool get isHorizontal => this == left || this == right;
+
+  bool get isVertical => this == top || this == bottom;
+}

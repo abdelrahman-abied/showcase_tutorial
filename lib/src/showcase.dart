@@ -540,8 +540,9 @@ class _ShowcaseState extends State<Showcase> {
 
     if (!_showShowCase) return const SizedBox.shrink();
 
-    return _showShowCase
-        ? ShowcaseContextProvider(
+    return Directionality(
+      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      child: ShowcaseContextProvider(
             context: context,
             child: Stack(
               children: [
@@ -640,8 +641,8 @@ class _ShowcaseState extends State<Showcase> {
                 ],
               ],
             ),
-          )
-        : const SizedBox.shrink();
+          ),
+    );
   }
 }
 
