@@ -23,6 +23,14 @@
   `.dismiss` / `.none`) — choose whether tapping the dimmed background advances
   to the next step (default), dismisses the whole tour, or does nothing. The
   legacy `disableBarrierInteraction: true` still works and maps to `.none`.
+* FEAT: keyboard navigation (`ShowCaseWidget.enableKeyboardNavigation`, default
+  `true`) — drive the active step with a hardware keyboard: `Esc` dismisses,
+  `→`/`↓`/`Enter`/`Space` go to the next step, `←`/`↑` go back. Relevant on
+  web/desktop, harmless on mobile.
+* FEAT: screen-reader announcements (`ShowCaseWidget.enableAutoAnnouncements`,
+  default `true`) — each step's title and description are announced to
+  TalkBack/VoiceOver as it becomes active. `Showcase.semanticLabel` overrides
+  the announced text (useful for custom-`container` tooltips).
 
 ## 1.3.0
 
