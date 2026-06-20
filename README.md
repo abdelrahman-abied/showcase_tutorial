@@ -1,6 +1,6 @@
 # showcase_tutorial
 
-[![pub package](https://img.shields.io/badge/showcase_tutorial-1.1.2-blue)](https://pub.dev/packages/showcase_tutorial)
+[![pub package](https://img.shields.io/badge/showcase_tutorial-1.2.0-blue)](https://pub.dev/packages/showcase_tutorial)
 [![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](https://github.com/abdelrahman-abied/showcase_tutorial)
 
 A Flutter package allows you to Showcase/Highlight your widgets step by step.
@@ -108,6 +108,54 @@ If you want to start the `showcase_tutorial` as soon as your UI built up then us
 ```dart
 WidgetsBinding.instance.addPostFrameCallback((_) =>
   ShowCaseWidget.of(context).startShowCase([_one, _two, _three])
+);
+```
+
+## Highlight multiple widgets in a single step
+
+Sometimes a single step should highlight several widgets at once — for
+example a multi-select control, or a few non-adjacent items in a `ListView`.
+Pass the extra widgets' keys to `Showcase(keys: ...)` and wrap each of those
+widgets in a `MultiView` (a `RepaintBoundary`) so a snapshot of it can be drawn
+above the overlay.
+
+```dart
+final GlobalKey mainKey = GlobalKey();
+final GlobalKey extraOne = GlobalKey();
+final GlobalKey extraTwo = GlobalKey();
+
+// The primary target carries the tooltip and lists the extra keys.
+Showcase(
+  key: mainKey,
+  keys: [extraOne, extraTwo],
+  description: 'Tap the star to mark important emails',
+  child: const MailTile(),
+);
+
+// Each extra widget is wrapped so it can be captured.
+MultiView(key: extraOne, child: const SomeListItem());
+MultiView(key: extraTwo, child: FloatingActionButton(onPressed: () {}));
+```
+
+> Note: the extra widgets must currently be in the widget tree (rendered) when
+> the step starts so their keys resolve. A widget that is missing is simply
+> skipped — the remaining ones are still highlighted.
+
+## Set default tooltip styling once
+
+Instead of repeating the same tooltip styling on every `Showcase`, set it once
+on the `ShowCaseWidget` with `ShowcaseStyle`. Each `Showcase` still overrides
+any value it provides; anything left unset falls back to the style, then to the
+built-in default.
+
+```dart
+ShowCaseWidget(
+  style: const ShowcaseStyle(
+    tooltipBackgroundColor: Color(0xFF0077B6),
+    textColor: Colors.white,
+    tooltipBorderRadius: BorderRadius.all(Radius.circular(12)),
+  ),
+  builder: Builder(builder: (context) => const HomePage()),
 );
 ```
 
