@@ -14,12 +14,16 @@ onboarding tours and feature discovery.
 
 - Step-by-step highlight of any widget with an auto-positioned tooltip.
 - Default tooltip (title + description) or a fully custom tooltip widget.
+- Tooltip on any side — top / bottom / left / right — with full **RTL** support.
 - **Highlight any widget by its exact shape** — circle, pill, star, icon — with `highlightExactShape`.
 - **Highlight multiple widgets in a single step** (e.g. multi-select).
 - **Global tooltip styling** via `ShowcaseStyle` — set it once, not per step.
-- Built-in **action buttons** (Next / Previous / Stop).
+- Built-in **action buttons** (Next / Previous / Stop) with customizable text.
 - Auto-play, auto-scroll, and background blur.
-- Programmatic control: `next()`, `previous()`, `dismiss()`.
+- Programmatic control & progress: `next()`, `previous()`, `goTo()`, `dismiss()`, "Step x of y".
+- Per-step **lifecycle callbacks** (`onShow` / `onDismiss`) and configurable background-tap behavior.
+- **Show the tour only once** for onboarding, and auto-skip steps not on screen.
+- **Accessibility**: keyboard navigation (Esc / arrows / Enter) and screen-reader announcements.
 - Target interaction callbacks: tap, double-tap, long-press.
 - Enable/disable the whole tour with a single flag.
 
