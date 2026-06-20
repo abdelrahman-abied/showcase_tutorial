@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.1
+
+* DOCS: add a second example page ("Feature demos"), reachable from a button on
+  the original mail demo, that walks through the newer features (left/right
+  tooltip positions, progress indicator, multi-widget highlight, custom action
+  text, `highlightExactShape`, `onShow`/`onDismiss`, `barrierInteraction`,
+  auto-skip). Add a feature-walkthrough GIF to the README preview and complete
+  the README's feature list. No library changes.
+
 ## 1.5.0
 
 * FEAT: keyboard navigation (`ShowCaseWidget.enableKeyboardNavigation`, default
