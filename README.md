@@ -14,6 +14,7 @@ onboarding tours and feature discovery.
 
 - Step-by-step highlight of any widget with an auto-positioned tooltip.
 - Default tooltip (title + description) or a fully custom tooltip widget.
+- **Highlight any widget by its exact shape** — circle, pill, star, icon — with `highlightExactShape`.
 - **Highlight multiple widgets in a single step** (e.g. multi-select).
 - **Global tooltip styling** via `ShowcaseStyle` — set it once, not per step.
 - Built-in **action buttons** (Next / Previous / Stop).
@@ -144,6 +145,32 @@ Showcase(
   child: const Icon(Icons.menu),
 );
 ```
+
+## Highlight a widget by its exact shape
+
+By default the highlight is a geometric box you control with `targetShapeBorder`
+(e.g. `CircleBorder()` for a round target). For irregular widgets — a star, a
+pill, an icon, a logo — set `highlightExactShape: true` and the highlight hugs
+the widget's **actual painted shape** automatically, with no `targetShapeBorder`
+to match by hand.
+
+```dart
+Showcase(
+  key: starKey,
+  highlightExactShape: true, // highlight follows the star, not a box
+  title: 'Favourites',
+  description: 'Tap the star to save this item',
+  child: const Icon(Icons.star, size: 48, color: Colors.amber),
+);
+```
+
+How it works: the target is captured as a snapshot and drawn above the dimmed
+overlay (the child is wrapped in a `RepaintBoundary` for you).
+
+> Note: while the step is showing, the target is rendered as a **static image**,
+> so it won't animate or update until the showcase moves on. For typical static
+> UI this is invisible. `targetShapeBorder`/`targetBorderRadius` are ignored for
+> the highlight when this is on.
 
 ## Highlight multiple widgets in a single step
 
@@ -395,6 +422,7 @@ ShowCaseWidget(
 | actionSettings               | ActionsSettings? | `const ActionsSettings()`                        | Container styling for the action buttons.                                                     | ✅ | ✅ |
 | actionButtonsPosition        | ActionButtonsPosition? |                                            | Manual position for the action buttons.                                                       | ✅ | ✅ |
 | targetShapeBorder            | ShapeBorder      | `RoundedRectangleBorder(...)`                    | Shape applied to the highlighted target (used when `targetBorderRadius` is null).             | ✅ | ✅ |
+| highlightExactShape          | bool             | false                                            | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`.   | ✅ | ✅ |
 | targetBorderRadius           | BorderRadius?    |                                                  | Border radius of the highlighted target.                                                      | ✅ | ✅ |
 | targetPadding                | EdgeInsets       | `EdgeInsets.zero`                                | Padding around the highlighted target.                                                        | ✅ | ✅ |
 | overlayColor                 | Color            | `Colors.black45`                                 | Color of the overlay.                                                                          | ✅ | ✅ |
