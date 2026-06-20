@@ -344,6 +344,39 @@ ShowCaseWidget(
 > The legacy `disableBarrierInteraction: true` still works and is equivalent to
 > `BarrierInteraction.none`.
 
+## Accessibility & keyboard navigation
+
+The active step is keyboard-navigable and announced to screen readers out of the
+box (both default to on):
+
+```dart
+ShowCaseWidget(
+  enableKeyboardNavigation: true,   // default
+  enableAutoAnnouncements: true,    // default
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+**Keyboard** (web/desktop; harmless on mobile):
+
+| Key                         | Action            |
+|-----------------------------|-------------------|
+| `→` / `↓` / `Enter` / `Space` | Next step       |
+| `←` / `↑`                    | Previous step     |
+| `Esc`                       | Dismiss the tour  |
+
+**Screen readers**: each step's title and description are announced via
+TalkBack / VoiceOver as it becomes active. Override the spoken text per step
+(handy for a custom `container` tooltip with no title/description):
+
+```dart
+Showcase(
+  key: _logo,
+  semanticLabel: 'Your company logo. Double tap to go home.',
+  child: const FlutterLogo(),
+);
+```
+
 ## Blur the background
 
 ```dart
@@ -430,6 +463,8 @@ ShowCaseWidget(
 | onFinish                  | VoidCallback?              |                               | Called when all showcases are completed.                                 |
 | enableShowcase            | bool                       | true                          | Enable or disable showcasing globally.                                   |
 | autoSkipUnmountedSteps    | bool                       | false                         | Skip steps whose target widget is not currently mounted.                 |
+| enableKeyboardNavigation  | bool                       | true                          | Drive the active step with a hardware keyboard (Esc / arrows / Enter).   |
+| enableAutoAnnouncements   | bool                       | true                          | Announce each step's title/description to screen readers.                |
 
 ## Properties of `Showcase` and `Showcase.withWidget`
 
@@ -473,6 +508,7 @@ ShowCaseWidget(
 | onToolTipClick               | VoidCallback?    |                                                  | Called when the tooltip is tapped.                                                             | ✅ | |
 | onShow                       | VoidCallback?    |                                                  | Called when this step becomes the active showcase.                                            | ✅ | ✅ |
 | onDismiss                    | VoidCallback?    |                                                  | Called when this step stops being active (advanced past, navigated away, or dismissed).        | ✅ | ✅ |
+| semanticLabel                | String?          |                                                  | Text announced to screen readers for this step (defaults to title + description).             | ✅ | ✅ |
 | disableMovingAnimation       | bool?            | `ShowCaseWidget.disableMovingAnimation`          | Disable the bouncing/moving transition.                                                       | ✅ | ✅ |
 | disableScaleAnimation        | bool?            | `ShowCaseWidget.disableScaleAnimation`           | Disable the initial scale transition.                                                          | ✅ | |
 | movingAnimationDuration      | Duration         | `Duration(milliseconds: 2000)`                   | Duration of the moving animation.                                                             | ✅ | ✅ |

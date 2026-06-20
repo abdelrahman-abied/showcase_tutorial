@@ -127,6 +127,25 @@ class ShowCaseWidget extends StatefulWidget {
   /// to `false`.
   final bool autoSkipUnmountedSteps;
 
+  /// When `true`, the active step can be controlled with a hardware keyboard:
+  ///
+  /// * <kbd>Esc</kbd> dismisses the tour,
+  /// * <kbd>→</kbd> / <kbd>↓</kbd> / <kbd>Enter</kbd> / <kbd>Space</kbd> go to
+  ///   the next step,
+  /// * <kbd>←</kbd> / <kbd>↑</kbd> go to the previous step.
+  ///
+  /// Relevant on web/desktop; harmless on mobile (no keyboard). Defaults to
+  /// `true`.
+  final bool enableKeyboardNavigation;
+
+  /// When `true`, each step's title and description are announced to screen
+  /// readers (TalkBack / VoiceOver) as it becomes active, via
+  /// [SemanticsService.announce]. A [Showcase.semanticLabel] overrides the
+  /// announced text for that step.
+  ///
+  /// No-op when no screen reader is running. Defaults to `true`.
+  final bool enableAutoAnnouncements;
+
   const ShowCaseWidget({
     super.key,
     required this.builder,
@@ -148,6 +167,8 @@ class ShowCaseWidget extends StatefulWidget {
     this.showcaseId,
     this.onShouldStartShowcase,
     this.autoSkipUnmountedSteps = false,
+    this.enableKeyboardNavigation = true,
+    this.enableAutoAnnouncements = true,
   });
 
   static GlobalKey? activeTargetWidget(BuildContext context) {
@@ -196,6 +217,10 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
       : widget.barrierInteraction;
 
   bool get enableShowcase => widget.enableShowcase;
+
+  bool get enableKeyboardNavigation => widget.enableKeyboardNavigation;
+
+  bool get enableAutoAnnouncements => widget.enableAutoAnnouncements;
 
   /// Default tooltip styling for showcases in this tree.
   ShowcaseStyle get style => widget.style;

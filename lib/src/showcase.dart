@@ -28,6 +28,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 import '../showcase_tutorial.dart';
 import 'get_position.dart';
@@ -180,6 +181,14 @@ class Showcase extends StatefulWidget {
   /// Handy for analytics or per-step cleanup.
   final VoidCallback? onDismiss;
 
+  /// Text announced to screen readers when this step becomes active, when
+  /// [ShowCaseWidget.enableAutoAnnouncements] is on.
+  ///
+  /// Defaults to the step's title and description joined together. Provide this
+  /// to customise the spoken text — useful for a custom [container] tooltip
+  /// that has no [title]/[description].
+  final String? semanticLabel;
+
   /// Triggered when showcased target widget is tapped
   ///
   /// Note: [disposeOnTap] is required if you're using [onTargetClick]
@@ -311,6 +320,7 @@ class Showcase extends StatefulWidget {
     this.onToolTipClick,
     this.onShow,
     this.onDismiss,
+    this.semanticLabel,
     this.targetPadding = EdgeInsets.zero,
     this.blurValue,
     this.targetBorderRadius,
@@ -361,6 +371,7 @@ class Showcase extends StatefulWidget {
     this.onTargetDoubleTap,
     this.onShow,
     this.onDismiss,
+    this.semanticLabel,
     this.disableDefaultTargetGestures = false,
     this.tooltipPosition,
     this.actions,
@@ -395,6 +406,7 @@ class _ShowcaseState extends State<Showcase> {
   bool _isScrollRunning = false;
   bool _isTooltipDismissed = false;
   bool _enableShowcase = true;
+  bool _keyHandlerRegistered = false;
   Timer? timer;
   GetPosition? position;
 
@@ -403,6 +415,13 @@ class _ShowcaseState extends State<Showcase> {
   final GlobalKey _childBoundaryKey = GlobalKey();
 
   ShowCaseWidgetState get showCaseWidgetState => ShowCaseWidget.of(context);
+
+  @override
+  void dispose() {
+    _setKeyHandler(false);
+    timer?.cancel();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -434,8 +453,11 @@ class _ShowcaseState extends State<Showcase> {
     // re-trigger them.
     if (isActiveNow && !wasActive) {
       widget.onShow?.call();
+      _announceForAccessibility();
+      if (showCaseWidgetState.enableKeyboardNavigation) _setKeyHandler(true);
     } else if (!isActiveNow && wasActive) {
       widget.onDismiss?.call();
+      _setKeyHandler(false);
     }
 
     if (isActiveNow) {
@@ -447,6 +469,60 @@ class _ShowcaseState extends State<Showcase> {
         timer = Timer(Duration(seconds: showCaseWidgetState.autoPlayDelay.inSeconds), _nextIfAny);
       }
     }
+  }
+
+  /// Announces this step's title and description (or [Showcase.semanticLabel])
+  /// to screen readers. A no-op when no screen reader is active.
+  void _announceForAccessibility() {
+    if (!showCaseWidgetState.enableAutoAnnouncements) return;
+    final label = widget.semanticLabel ??
+        [widget.title, widget.description]
+            .whereType<String>()
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .join('. ');
+    if (label.isEmpty) return;
+    final textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
+    // `announce` is kept for compatibility with the package's Flutter floor
+    // (>=3.27.0); its replacement `sendAnnouncement` doesn't exist there yet.
+    // ignore: deprecated_member_use
+    SemanticsService.announce(label, textDirection);
+  }
+
+  /// Registers/unregisters a global key handler so the active step can be
+  /// driven by a hardware keyboard, regardless of which widget holds focus.
+  void _setKeyHandler(bool register) {
+    if (register == _keyHandlerRegistered) return;
+    if (register) {
+      HardwareKeyboard.instance.addHandler(_onKey);
+    } else {
+      HardwareKeyboard.instance.removeHandler(_onKey);
+    }
+    _keyHandlerRegistered = register;
+  }
+
+  /// Handles hardware-keyboard navigation for the active step. Returns `true`
+  /// when the key was consumed.
+  bool _onKey(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.escape) {
+      _dismissShowcaseTour();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.space) {
+      _nextIfAny();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowUp) {
+      showCaseWidgetState.previous();
+      return true;
+    }
+    return false;
   }
 
   void _scrollIntoView() {
@@ -644,7 +720,7 @@ class _ShowcaseState extends State<Showcase> {
 
     if (!_showShowCase) return const SizedBox.shrink();
 
-    return Directionality(
+    final Widget overlay = Directionality(
       textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
       child: ShowcaseContextProvider(
             context: context,
@@ -763,6 +839,8 @@ class _ShowcaseState extends State<Showcase> {
             ),
           ),
     );
+
+    return overlay;
   }
 }
 

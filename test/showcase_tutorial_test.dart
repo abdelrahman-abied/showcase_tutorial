@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
 import 'package:showcase_tutorial/src/measure_size.dart';
@@ -515,6 +516,7 @@ void main() {
     GlobalKey k2, {
     BarrierInteraction barrierInteraction = BarrierInteraction.next,
     bool disableBarrierInteraction = false,
+    bool enableKeyboardNavigation = true,
   }) {
     return MaterialApp(
       home: ShowCaseWidget(
@@ -522,6 +524,7 @@ void main() {
         disableScaleAnimation: true,
         barrierInteraction: barrierInteraction,
         disableBarrierInteraction: disableBarrierInteraction,
+        enableKeyboardNavigation: enableKeyboardNavigation,
         builder: Builder(
           builder: (context) => Scaffold(
             body: Center(
@@ -683,5 +686,172 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(events, contains('dismiss2'));
+  });
+
+  testWidgets('keyboard ArrowRight advances and ArrowLeft goes back',
+      (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    await tester.pumpWidget(buildBarrierApp(k1, k2));
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('One'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400)); // reverse animation
+    await tester.pump(const Duration(milliseconds: 400)); // next step in
+    expect(state.currentIndex, 1);
+    expect(find.text('Two'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(state.currentIndex, 0);
+    expect(find.text('One'), findsOneWidget);
+  });
+
+  testWidgets('keyboard Escape dismisses the tour', (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    await tester.pumpWidget(buildBarrierApp(k1, k2));
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(state.isShowcaseRunning, isTrue);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400)); // reverse animation
+    await tester.pump(const Duration(milliseconds: 400)); // teardown
+    expect(state.isShowcaseRunning, isFalse);
+  });
+
+  testWidgets('enableKeyboardNavigation:false ignores key presses',
+      (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    await tester.pumpWidget(
+      buildBarrierApp(k1, k2, enableKeyboardNavigation: false),
+    );
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(state.currentIndex, 0); // unchanged
+    expect(find.text('One'), findsOneWidget);
+  });
+
+  // Builds a single-step showcase used by the announcement tests.
+  Widget buildAnnounceApp(
+    GlobalKey key, {
+    bool enableAutoAnnouncements = true,
+    String? semanticLabel,
+  }) {
+    return MaterialApp(
+      home: ShowCaseWidget(
+        disableMovingAnimation: true,
+        disableScaleAnimation: true,
+        enableAutoAnnouncements: enableAutoAnnouncements,
+        builder: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: Showcase(
+                key: key,
+                title: 'Profile',
+                description: 'Your account',
+                semanticLabel: semanticLabel,
+                child: const Text('t'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('an active step is announced to screen readers', (tester) async {
+    final announced = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(
+      SystemChannels.accessibility,
+      (dynamic message) async {
+        if (message is Map && message['type'] == 'announce') {
+          announced.add((message['data'] as Map)['message'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockDecodedMessageHandler(SystemChannels.accessibility, null));
+
+    final key = GlobalKey();
+    await tester.pumpWidget(buildAnnounceApp(key));
+    ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(announced, isNotEmpty);
+    expect(announced.first, contains('Profile'));
+    expect(announced.first, contains('Your account'));
+  });
+
+  testWidgets('semanticLabel overrides the announced text', (tester) async {
+    final announced = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(
+      SystemChannels.accessibility,
+      (dynamic message) async {
+        if (message is Map && message['type'] == 'announce') {
+          announced.add((message['data'] as Map)['message'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockDecodedMessageHandler(SystemChannels.accessibility, null));
+
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      buildAnnounceApp(key, semanticLabel: 'Open your profile'),
+    );
+    ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(announced, contains('Open your profile'));
+  });
+
+  testWidgets('enableAutoAnnouncements:false makes no announcement',
+      (tester) async {
+    final announced = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(
+      SystemChannels.accessibility,
+      (dynamic message) async {
+        if (message is Map && message['type'] == 'announce') {
+          announced.add((message['data'] as Map)['message'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockDecodedMessageHandler(SystemChannels.accessibility, null));
+
+    final key = GlobalKey();
+    await tester.pumpWidget(buildAnnounceApp(key, enableAutoAnnouncements: false));
+    ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(announced, isEmpty);
   });
 }
