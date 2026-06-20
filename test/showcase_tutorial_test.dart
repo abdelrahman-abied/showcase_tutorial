@@ -854,4 +854,76 @@ void main() {
 
     expect(announced, isEmpty);
   });
+
+  testWidgets(
+      'onShow/onDismiss can call setState without a "setState during build" '
+      'crash', (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    await tester.pumpWidget(_SetStateLifecycleApp(k1: k1, k2: k2));
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400)); // onShow post-frame
+    expect(tester.takeException(), isNull);
+
+    state.next(); // dismiss k1 + show k2, both call setState on the ancestor
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.takeException(), isNull);
+  });
+}
+
+/// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this
+/// ancestor — the scenario that previously threw "setState during build".
+class _SetStateLifecycleApp extends StatefulWidget {
+  const _SetStateLifecycleApp({required this.k1, required this.k2});
+
+  final GlobalKey k1;
+  final GlobalKey k2;
+
+  @override
+  State<_SetStateLifecycleApp> createState() => _SetStateLifecycleAppState();
+}
+
+class _SetStateLifecycleAppState extends State<_SetStateLifecycleApp> {
+  int _events = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: ShowCaseWidget(
+        disableMovingAnimation: true,
+        disableScaleAnimation: true,
+        builder: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('events:$_events'),
+                  Showcase(
+                    key: widget.k1,
+                    title: 'One',
+                    description: 'd',
+                    onShow: () => setState(() => _events++),
+                    onDismiss: () => setState(() => _events++),
+                    child: const Text('t1'),
+                  ),
+                  Showcase(
+                    key: widget.k2,
+                    title: 'Two',
+                    description: 'd',
+                    onShow: () => setState(() => _events++),
+                    child: const Text('t2'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

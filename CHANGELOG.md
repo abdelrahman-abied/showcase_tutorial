@@ -25,7 +25,8 @@
   legacy `disableBarrierInteraction: true` still works and maps to `.none`.
 * FEAT: keyboard navigation (`ShowCaseWidget.enableKeyboardNavigation`, default
   `true`) — drive the active step with a hardware keyboard: `Esc` dismisses,
-  `→`/`↓`/`Enter`/`Space` go to the next step, `←`/`↑` go back. Relevant on
+  `→`/`↓`/`Enter` go to the next step, `←`/`↑` go back. Focus-scoped, so it only
+  acts while the overlay holds focus (never hijacks app-wide keys). Relevant on
   web/desktop, harmless on mobile.
 * FEAT: screen-reader announcements (`ShowCaseWidget.enableAutoAnnouncements`,
   default `true`) — each step's title and description are announced to

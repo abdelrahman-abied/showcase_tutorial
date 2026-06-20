@@ -359,11 +359,14 @@ ShowCaseWidget(
 
 **Keyboard** (web/desktop; harmless on mobile):
 
-| Key                         | Action            |
-|-----------------------------|-------------------|
-| `→` / `↓` / `Enter` / `Space` | Next step       |
-| `←` / `↑`                    | Previous step     |
-| `Esc`                       | Dismiss the tour  |
+| Key                  | Action            |
+|----------------------|-------------------|
+| `→` / `↓` / `Enter`  | Next step         |
+| `←` / `↑`            | Previous step     |
+| `Esc`                | Dismiss the tour  |
+
+Keyboard handling is focus-scoped: it only acts while the showcase overlay holds
+focus, so it never hijacks keys from the rest of your app.
 
 **Screen readers**: each step's title and description are announced via
 TalkBack / VoiceOver as it becomes active. Override the spoken text per step

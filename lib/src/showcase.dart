@@ -406,9 +406,12 @@ class _ShowcaseState extends State<Showcase> {
   bool _isScrollRunning = false;
   bool _isTooltipDismissed = false;
   bool _enableShowcase = true;
-  bool _keyHandlerRegistered = false;
   Timer? timer;
   GetPosition? position;
+
+  /// Focus node for the active overlay so a hardware keyboard can drive the
+  /// tour **only while the showcase holds focus** (never app-wide).
+  final FocusNode _focusNode = FocusNode(debugLabel: 'Showcase');
 
   /// Wraps the child when [Showcase.highlightExactShape] is enabled so it can
   /// be captured with [RenderRepaintBoundary.toImage].
@@ -418,7 +421,7 @@ class _ShowcaseState extends State<Showcase> {
 
   @override
   void dispose() {
-    _setKeyHandler(false);
+    _focusNode.dispose();
     timer?.cancel();
     super.dispose();
   }
@@ -452,12 +455,16 @@ class _ShowcaseState extends State<Showcase> {
     // rebuild for an unrelated dependency change (e.g. a rotation) doesn't
     // re-trigger them.
     if (isActiveNow && !wasActive) {
-      widget.onShow?.call();
       _announceForAccessibility();
-      if (showCaseWidgetState.enableKeyboardNavigation) _setKeyHandler(true);
+      _notifyLifecycle(widget.onShow);
+      // Take focus so keyboard navigation works without the user tapping first.
+      if (showCaseWidgetState.enableKeyboardNavigation) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _focusNode.requestFocus();
+        });
+      }
     } else if (!isActiveNow && wasActive) {
-      widget.onDismiss?.call();
-      _setKeyHandler(false);
+      _notifyLifecycle(widget.onDismiss);
     }
 
     if (isActiveNow) {
@@ -469,6 +476,20 @@ class _ShowcaseState extends State<Showcase> {
         timer = Timer(Duration(seconds: showCaseWidgetState.autoPlayDelay.inSeconds), _nextIfAny);
       }
     }
+  }
+
+  /// Invokes a per-step lifecycle [callback] ([Showcase.onShow] /
+  /// [Showcase.onDismiss]) after the current frame.
+  ///
+  /// [showOverlay] runs during [didChangeDependencies], i.e. in the build
+  /// phase. These callbacks commonly call `setState` on an ancestor (e.g. to
+  /// update a "Step x of y" indicator), which is illegal during build — so we
+  /// defer them to a post-frame callback.
+  void _notifyLifecycle(VoidCallback? callback) {
+    if (callback == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) callback();
+    });
   }
 
   /// Announces this step's title and description (or [Showcase.semanticLabel])
@@ -489,40 +510,28 @@ class _ShowcaseState extends State<Showcase> {
     SemanticsService.announce(label, textDirection);
   }
 
-  /// Registers/unregisters a global key handler so the active step can be
-  /// driven by a hardware keyboard, regardless of which widget holds focus.
-  void _setKeyHandler(bool register) {
-    if (register == _keyHandlerRegistered) return;
-    if (register) {
-      HardwareKeyboard.instance.addHandler(_onKey);
-    } else {
-      HardwareKeyboard.instance.removeHandler(_onKey);
-    }
-    _keyHandlerRegistered = register;
-  }
-
-  /// Handles hardware-keyboard navigation for the active step. Returns `true`
-  /// when the key was consumed.
-  bool _onKey(KeyEvent event) {
-    if (event is! KeyDownEvent) return false;
+  /// Handles hardware-keyboard navigation for the active step. Only called
+  /// while the overlay's [Focus] holds focus, so it never hijacks keys from the
+  /// rest of the app. Returns [KeyEventResult.handled] when the key is consumed.
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.escape) {
       _dismissShowcaseTour();
-      return true;
+      return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowRight ||
         key == LogicalKeyboardKey.arrowDown ||
-        key == LogicalKeyboardKey.enter ||
-        key == LogicalKeyboardKey.space) {
+        key == LogicalKeyboardKey.enter) {
       _nextIfAny();
-      return true;
+      return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowLeft ||
         key == LogicalKeyboardKey.arrowUp) {
       showCaseWidgetState.previous();
-      return true;
+      return KeyEventResult.handled;
     }
-    return false;
+    return KeyEventResult.ignored;
   }
 
   void _scrollIntoView() {
@@ -840,7 +849,15 @@ class _ShowcaseState extends State<Showcase> {
           ),
     );
 
-    return overlay;
+    if (!showCaseWidgetState.enableKeyboardNavigation) return overlay;
+    // Focus-scoped: keys are handled only while this overlay holds focus, so
+    // navigation never hijacks keys from the rest of the app.
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: overlay,
+    );
   }
 }
 
