@@ -37,11 +37,13 @@ complete as of **1.6.0**; the items below are optional.
 
 ## Potential features (only if revisited)
 
-- [ ] **Pulsing / animated highlight ring**
-      An animated ring or glow that gently pulses around the highlighted target
-      to draw the eye to it, instead of a static cut-out. Configurable color,
-      speed, and on/off; works with `highlightExactShape` so even irregular
-      shapes pulse. Mostly an additive painter on the overlay.
+- [x] **Pulsing / animated highlight ring**
+      An animated ring that pulses outward around the highlighted target to draw
+      the eye to it, in addition to the static cut-out. Opt in per step with
+      `Showcase(enablePulseAnimation: true)`; configurable color (`pulseColor`,
+      or `ShowcaseStyle.pulseColor` tour-wide) and speed (`pulseDuration`). The
+      ring follows the highlight shape, works alongside `highlightExactShape`,
+      and honors the platform "reduce motion" setting (single static ring).
 
 - [ ] **Animated step transitions**
       Smoothly glide the highlight cut-out and the tooltip from one target to the
