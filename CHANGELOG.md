@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.0
+
+* FEAT: **pulsing highlight ring** — opt in per step with
+  `Showcase(enablePulseAnimation: true)` to draw an animated ring that pings
+  outward around the highlight, drawing the eye to the target. Tune it with
+  `pulseColor` (also settable tour-wide via `ShowcaseStyle.pulseColor`) and
+  `pulseDuration`. Additive and off by default; the ring follows the highlight
+  shape, works alongside `highlightExactShape`, and falls back to a single
+  static ring when the platform "reduce motion" setting is on.
+
 ## 1.6.2
 
 * DOCS: full dartdoc coverage of the public API — every exported class, field,

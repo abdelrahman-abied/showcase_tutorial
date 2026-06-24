@@ -57,6 +57,10 @@ class ShowcaseStyle {
   /// Border radius of the default tooltip.
   final BorderRadius? tooltipBorderRadius;
 
+  /// Color of the pulsing highlight ring drawn when a `Showcase` enables
+  /// `Showcase.enablePulseAnimation`. Falls back to [Colors.white].
+  final Color? pulseColor;
+
   /// Creates a [ShowcaseStyle].
   ///
   /// Every parameter is optional; any value left unset falls back to the
@@ -67,5 +71,6 @@ class ShowcaseStyle {
     this.titleTextStyle,
     this.descTextStyle,
     this.tooltipBorderRadius,
+    this.pulseColor,
   });
 }
