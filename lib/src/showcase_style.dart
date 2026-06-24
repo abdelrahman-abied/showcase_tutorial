@@ -61,6 +61,24 @@ class ShowcaseStyle {
   /// `Showcase.enablePulseAnimation`. Falls back to [Colors.white].
   final Color? pulseColor;
 
+  /// Color of the default tooltip's arrow. Falls back to the tooltip
+  /// background color.
+  final Color? arrowColor;
+
+  /// Width (base) of the default tooltip's arrow. Falls back to `18`.
+  final double? arrowWidth;
+
+  /// Height (depth) of the default tooltip's arrow. Falls back to `9`.
+  final double? arrowHeight;
+
+  /// Color of the border drawn around the highlighted target. When `null` no
+  /// border is drawn (the default).
+  final Color? highlightBorderColor;
+
+  /// Width of the highlight border (see [highlightBorderColor]). Falls back
+  /// to `2`.
+  final double? highlightBorderWidth;
+
   /// Creates a [ShowcaseStyle].
   ///
   /// Every parameter is optional; any value left unset falls back to the
@@ -72,5 +90,10 @@ class ShowcaseStyle {
     this.descTextStyle,
     this.tooltipBorderRadius,
     this.pulseColor,
+    this.arrowColor,
+    this.arrowWidth,
+    this.arrowHeight,
+    this.highlightBorderColor,
+    this.highlightBorderWidth,
   });
 }
