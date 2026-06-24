@@ -27,7 +27,15 @@ import 'package:flutter/material.dart';
 
 import '../showcase_tutorial.dart';
 
+/// Hosts a showcase tour for the [Showcase] widgets in its subtree.
+///
+/// Wrap your screen (or app) in a [ShowCaseWidget], wrap each target in a
+/// [Showcase] with a unique [GlobalKey], then start the tour with
+/// `ShowCaseWidget.of(context).startShowCase([...])`. Tour-wide options such as
+/// [autoPlay], [barrierInteraction], [style], and the accessibility flags are
+/// configured here and shared by every [Showcase] in the tree.
 class ShowCaseWidget extends StatefulWidget {
+  /// Builds the subtree that contains the [Showcase] widgets.
   final Builder builder;
 
   /// Triggered when all the showcases are completed.
@@ -45,7 +53,7 @@ class ShowCaseWidget extends StatefulWidget {
   /// Default to `false`
   final bool autoPlay;
 
-  /// Visibility time of current showcase when [autoplay] sets to true.
+  /// Visibility time of current showcase when [autoPlay] sets to true.
   ///
   /// Default to [Duration(seconds: 3)]
   final Duration autoPlayDelay;
@@ -159,6 +167,8 @@ class ShowCaseWidget extends StatefulWidget {
   /// Label for the skip button (see [showSkip]). Defaults to `'Skip'`.
   final String skipButtonText;
 
+  /// Creates a [ShowCaseWidget] that hosts the showcase tour for the
+  /// [Showcase] widgets built by [builder].
   const ShowCaseWidget({
     super.key,
     required this.builder,
@@ -187,12 +197,22 @@ class ShowCaseWidget extends StatefulWidget {
     this.skipButtonText = 'Skip',
   });
 
+  /// Returns the [GlobalKey] of the currently active step's target, or `null`
+  /// when no tour is running.
+  ///
+  /// Reads the nearest [_InheritedShowCaseView], so callers rebuild when the
+  /// active step changes.
   static GlobalKey? activeTargetWidget(BuildContext context) {
     return context
         .dependOnInheritedWidgetOfExactType<_InheritedShowCaseView>()
         ?.activeWidgetIds;
   }
 
+  /// Returns the [ShowCaseWidgetState] of the nearest [ShowCaseWidget] ancestor.
+  ///
+  /// Use it to drive the tour, e.g.
+  /// `ShowCaseWidget.of(context).startShowCase([...])`. Throws if no
+  /// [ShowCaseWidget] is found above [context].
   static ShowCaseWidgetState of(BuildContext context) {
     final state = context.findAncestorStateOfType<ShowCaseWidgetState>();
     if (state != null) {
@@ -202,28 +222,47 @@ class ShowCaseWidget extends StatefulWidget {
     }
   }
 
+  /// Creates the mutable state for this widget.
   @override
   ShowCaseWidgetState createState() => ShowCaseWidgetState();
 }
 
+/// The state for a [ShowCaseWidget] and the controller for the running tour.
+///
+/// Obtain it with [ShowCaseWidget.of] to start, navigate, and inspect the
+/// showcase: [startShowCase], [next], [previous], [goTo], [dismiss],
+/// [currentIndex], [totalSteps], and [isShowcaseRunning].
 class ShowCaseWidgetState extends State<ShowCaseWidget> {
+  /// The ordered list of target [GlobalKey]s for the running tour, or `null`
+  /// when no tour is running.
   List<GlobalKey>? ids;
+
+  /// Zero-based index into [ids] of the active step, or `null` when no tour is
+  /// running.
   int? activeWidgetId;
 
   /// These properties are only here so that it can be accessed by
   /// [Showcase]
   bool get autoPlay => widget.autoPlay;
 
+  /// Value of [ShowCaseWidget.disableMovingAnimation].
   bool get disableMovingAnimation => widget.disableMovingAnimation;
 
+  /// Value of [ShowCaseWidget.disableScaleAnimation].
   bool get disableScaleAnimation => widget.disableScaleAnimation;
 
+  /// Value of [ShowCaseWidget.autoPlayDelay].
   Duration get autoPlayDelay => widget.autoPlayDelay;
 
+  /// Value of [ShowCaseWidget.enableAutoPlayLock].
   bool get enableAutoPlayLock => widget.enableAutoPlayLock;
 
+  /// Value of [ShowCaseWidget.enableAutoScroll].
   bool get enableAutoScroll => widget.enableAutoScroll;
 
+  /// Value of the legacy [ShowCaseWidget.disableBarrierInteraction] flag.
+  ///
+  /// Prefer [barrierInteraction] for the resolved barrier behaviour.
   bool get disableBarrierInteraction => widget.disableBarrierInteraction;
 
   /// Resolved barrier behaviour. The legacy [ShowCaseWidget.disableBarrierInteraction]
@@ -232,16 +271,22 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
       ? BarrierInteraction.none
       : widget.barrierInteraction;
 
+  /// Value of [ShowCaseWidget.enableShowcase].
   bool get enableShowcase => widget.enableShowcase;
 
+  /// Value of [ShowCaseWidget.enableKeyboardNavigation].
   bool get enableKeyboardNavigation => widget.enableKeyboardNavigation;
 
+  /// Value of [ShowCaseWidget.enableAutoAnnouncements].
   bool get enableAutoAnnouncements => widget.enableAutoAnnouncements;
 
+  /// Value of [ShowCaseWidget.showProgress].
   bool get showProgress => widget.showProgress;
 
+  /// Value of [ShowCaseWidget.showSkip].
   bool get showSkip => widget.showSkip;
 
+  /// Value of [ShowCaseWidget.skipButtonText].
   String get skipButtonText => widget.skipButtonText;
 
   /// Default tooltip styling for showcases in this tree.
@@ -406,6 +451,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     activeWidgetId = null;
   }
 
+  /// Exposes the active step's target key to descendants and builds the
+  /// configured [ShowCaseWidget.builder] subtree.
   @override
   Widget build(BuildContext context) {
     return _InheritedShowCaseView(

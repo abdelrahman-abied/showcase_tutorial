@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.6.2
+
+* DOCS: full dartdoc coverage of the public API — every exported class, field,
+  enum value, and method now has a `///` comment — plus a fix for a few stale
+  doc references. Improves the pub.dev documentation score and the docs tab.
+* DOCS: add an "Upgrading (1.4 → 1.6)" section to the README summarising what
+  landed across those releases and how to opt in (all additive, no code changes).
+* DOCS: tidy the README markdown-lint warnings (aligned the property-table pipes
+  and fixed the ordered-list prefix in the Installing section).
+* CHORE: losslessly optimise the preview GIFs with `gifsicle -O3` — `demo.gif`
+  4.6 MB → 0.4 MB and `showcase_tutorial.gif` 2.6 MB → 0.5 MB (pixel-identical) —
+  and ship `demo.gif` as a second pub.dev screenshot.
+* CHORE: add a `.pubignore` that excludes the example app's native scaffolding,
+  the maintainer publish script, and internal docs from the published archive,
+  dropping the package download from ~7 MB to ~0.9 MB.
+
 ## 1.6.1
 
 * DOCS: fix the README preview GIFs.

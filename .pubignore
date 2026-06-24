@@ -1,0 +1,57 @@
+# NOTE: a .pubignore is used INSTEAD of .gitignore by `dart pub publish`, so this
+# file must repeat the .gitignore exclusions (otherwise build artifacts, docs and
+# tooling caches would ship). Keep the top section in sync with .gitignore; the
+# bottom section adds publish-only exclusions to slim the pub.dev download.
+
+### Mirror of .gitignore ###
+# Flutter/Dart/Pub related
+**/doc/api/
+doc/
+.dart_tool/
+.flutter-plugins
+.packages
+.pub-cache/
+.pub/
+.idea/
+.vscode/
+build/
+
+# Android related
+**/android/**/gradle-wrapper.jar
+**/android/.gradle
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+
+# iOS/XCode related
+**/ios/**/Pods/
+**/ios/**/.symlinks/
+**/ios/**/xcuserdata
+**/ios/.generated/
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_assets/
+**/ios/Runner/GeneratedPluginRegistrant.*
+
+pubspec.lock
+
+### Publish-only exclusions (slim the pub.dev archive) ###
+
+# Maintainer-only helper for authenticating `dart pub publish` in CI.
+pub_login.sh
+
+# Internal planning notes — not useful to package consumers.
+ROADMAP.md
+
+# Example app native scaffolding. The example sources (example/lib) and its
+# assets still ship so the pub.dev "Example" tab works; the generated native
+# projects below are not needed to read the example and only add weight.
+example/android/
+example/ios/
+example/linux/
+example/macos/
+example/windows/
+example/web/

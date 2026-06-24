@@ -57,6 +57,10 @@ class ShowcaseStyle {
   /// Border radius of the default tooltip.
   final BorderRadius? tooltipBorderRadius;
 
+  /// Creates a [ShowcaseStyle].
+  ///
+  /// Every parameter is optional; any value left unset falls back to the
+  /// per-[Showcase] value first and then to the built-in default.
   const ShowcaseStyle({
     this.tooltipBackgroundColor,
     this.textColor,

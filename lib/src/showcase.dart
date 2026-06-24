@@ -37,6 +37,18 @@ import 'shape_clipper.dart';
 import 'tooltip_widget.dart';
 import 'utilities/_showcase_context_provider.dart';
 
+/// Highlights its [child] as a single step of a showcase tour.
+///
+/// Wrap each target widget in a [Showcase] with a unique [GlobalKey], place
+/// them under a [ShowCaseWidget], then start the tour with
+/// `ShowCaseWidget.of(context).startShowCase([...])`. While the step is active a
+/// dimmed overlay cuts out the target and shows a tooltip built from [title]
+/// and [description].
+///
+/// Use the default constructor for the built-in title/description tooltip, or
+/// [Showcase.withWidget] to supply a fully custom [container] tooltip. Styling
+/// values left unset fall back to [ShowCaseWidget.style] ([ShowcaseStyle]) and
+/// then to the built-in default.
 class Showcase extends StatefulWidget {
   /// A key that is unique across the entire app.
   ///
@@ -144,7 +156,7 @@ class Showcase extends StatefulWidget {
   /// Falls back to [ShowCaseWidget.style], then to [Colors.black].
   final Color? textColor;
 
-  /// If [enableAutoScroll] is sets to `true`, this widget will be shown above
+  /// If [ShowCaseWidget.enableAutoScroll] is sets to `true`, this widget will be shown above
   /// the overlay until the target widget is visible in the viewport.
   final Widget scrollLoadingWidget;
 
@@ -204,7 +216,7 @@ class Showcase extends StatefulWidget {
   /// Whether tooltip should have bouncing animation while showcasing
   ///
   /// If null value is provided,
-  /// [ShowCaseWidget.disableAnimation] will be considered.
+  /// [ShowCaseWidget.disableMovingAnimation] will be considered.
   final bool? disableMovingAnimation;
 
   /// Whether disabling initial scale animation for default tooltip when
@@ -279,7 +291,15 @@ class Showcase extends StatefulWidget {
 
   /// Tooltip action button widget
   final Widget? actions;
+
+  /// Container styling for the action buttons.
+  ///
+  /// Defaults to `const ActionsSettings()`.
   final ActionsSettings? actionSettings;
+
+  /// Manual placement of the action buttons within the tooltip.
+  ///
+  /// When `null` the buttons are positioned automatically.
   final ActionButtonsPosition? actionButtonsPosition;
 
   /// Defines vertical position of tooltip respective to Target widget
@@ -293,6 +313,11 @@ class Showcase extends StatefulWidget {
   /// Provides padding around the description. Default padding is zero.
   final EdgeInsets? descriptionPadding;
 
+  /// Creates a showcase step with the built-in title/description tooltip.
+  ///
+  /// [key] and [child] are required. Styling values left unset fall back to
+  /// [ShowCaseWidget.style] and then to the built-in default. Use
+  /// [Showcase.withWidget] instead to supply a custom [container] tooltip.
   const Showcase({
     required this.key,
     this.keys,
@@ -348,6 +373,11 @@ class Showcase extends StatefulWidget {
        ),
        super(key: key);
 
+  /// Creates a showcase step with a fully custom tooltip widget.
+  ///
+  /// Unlike the default [Showcase] constructor, the tooltip is the supplied
+  /// [container] sized by [height] and [width]; [title]/[description] and the
+  /// default tooltip styling do not apply.
   const Showcase.withWidget({
     required this.key,
     this.keys,
@@ -397,6 +427,7 @@ class Showcase extends StatefulWidget {
        descriptionPadding = null,
        assert(overlayOpacity >= 0.0 && overlayOpacity <= 1.0, "overlay opacity must be between 0 and 1.");
 
+  /// Creates the mutable state for this widget.
   @override
   State<Showcase> createState() => _ShowcaseState();
 }
