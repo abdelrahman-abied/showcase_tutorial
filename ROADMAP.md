@@ -51,11 +51,13 @@ complete as of **1.6.0**; the items below are optional.
       tour" feel. This is the biggest UX upgrade remaining, but also the largest
       change to the overlay rendering (it currently rebuilds per step).
 
-- [ ] **Tooltip & highlight styling**
+- [x] **Tooltip & highlight styling**
       Finer visual control for the default tooltip without writing a custom
-      `container`: custom arrow (color / size / hide it), highlight border or
-      glow color and width, and a per-step overlay color. Lets the default
-      tooltip match more design systems out of the box.
+      `container`: custom arrow (`arrowColor` / `arrowWidth` / `arrowHeight`, or
+      hide it with `showArrow: false`) and a highlight border
+      (`highlightBorderColor` / `highlightBorderWidth`) that follows the cut-out
+      shape. Each is also settable tour-wide via `ShowcaseStyle`. Per-step
+      overlay color was already supported via `Showcase.overlayColor`.
 
 - [ ] **Conditional / branching tours**
       Let a step decide the next step at runtime via a predicate/callback, so a
