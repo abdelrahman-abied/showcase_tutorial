@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.8.0
 
 * FEAT: **tooltip & highlight styling** — finer visual control for the default
   tooltip without a custom `container`. New per-`Showcase` options (each also
