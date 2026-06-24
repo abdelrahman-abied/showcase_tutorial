@@ -19,6 +19,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   final _multiA = GlobalKey();
   final _multiB = GlobalKey();
   final _exact = GlobalKey();
+  final _pulse = GlobalKey();
   final _conditional = GlobalKey();
   final _bottom = GlobalKey();
 
@@ -130,6 +131,21 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                       ),
                     ),
                   ),
+                  // Pulsing highlight ring — an animated ring pings outward
+                  // around the target to draw the eye.
+                  Positioned(
+                    top: 200,
+                    left: 16,
+                    child: Showcase(
+                      key: _pulse,
+                      targetShapeBorder: const CircleBorder(),
+                      title: 'Pulsing ring',
+                      description: 'An animated ring pulses around the target.',
+                      enablePulseAnimation: true,
+                      pulseColor: const Color(0xfff4a261),
+                      child: const _Dot('P'),
+                    ),
+                  ),
                   // Center step with custom action-button text.
                   Align(
                     child: Showcase(
@@ -215,6 +231,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                               _topRight,
                               _multiPrimary,
                               _exact,
+                              _pulse,
                               _center,
                               _conditional,
                               _bottom,

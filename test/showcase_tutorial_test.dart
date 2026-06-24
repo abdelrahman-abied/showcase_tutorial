@@ -465,6 +465,97 @@ void main() {
     });
   });
 
+  testWidgets('enablePulseAnimation renders the step without error and '
+      'animates over time', (tester) async {
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          // Leave the tooltip animations on default; the pulse runs its own
+          // repeating controller independently.
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Showcase(
+                  key: key,
+                  title: 'Pulse',
+                  description: 'Body',
+                  enablePulseAnimation: true,
+                  pulseColor: Colors.orange,
+                  pulseDuration: const Duration(milliseconds: 800),
+                  child: const SizedBox(width: 48, height: 48, child: Text('t')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t')));
+    state.startShowCase([key]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Pulse'), findsOneWidget);
+
+    // The repeating pulse keeps scheduling frames; advance through part of a
+    // cycle to make sure ticking the controller never throws.
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(tester.takeException(), isNull);
+
+    // Tear the overlay down so the pulse controller is disposed cleanly.
+    state.dismiss();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  });
+
+  testWidgets('enablePulseAnimation honors reduce-motion (no perpetual '
+      'animation)', (tester) async {
+    // The pulse reads disableAnimations from the root MediaQuery, which derives
+    // it from the platform accessibility features.
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Showcase(
+                  key: key,
+                  title: 'Pulse',
+                  description: 'Body',
+                  enablePulseAnimation: true,
+                  child: const SizedBox(width: 48, height: 48, child: Text('t')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Pulse'), findsOneWidget);
+
+    // With reduce-motion on the pulse controller stays idle, so the tree can
+    // fully settle instead of scheduling frames forever.
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('tooltip inherits RTL directionality', (tester) async {
     final key = GlobalKey();
     await tester.pumpWidget(
