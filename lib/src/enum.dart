@@ -21,14 +21,27 @@
  * SOFTWARE.
  */
 
+/// The side of the target on which a [Showcase] tooltip is placed.
+///
+/// Set it on [Showcase.tooltipPosition]. When left unset the tooltip is placed
+/// wherever vertical space is available.
 enum TooltipPosition {
+  /// Place the tooltip above the target.
   top,
+
+  /// Place the tooltip below the target.
   bottom,
+
+  /// Place the tooltip to the left of the target.
   left,
+
+  /// Place the tooltip to the right of the target.
   right;
 
+  /// Whether this position sits beside the target ([left] or [right]).
   bool get isHorizontal => this == left || this == right;
 
+  /// Whether this position sits above or below the target ([top] or [bottom]).
   bool get isVertical => this == top || this == bottom;
 }
 

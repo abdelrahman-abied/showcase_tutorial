@@ -1,6 +1,6 @@
 # showcase_tutorial
 
-[![pub package](https://img.shields.io/badge/showcase_tutorial-1.6.1-blue)](https://pub.dev/packages/showcase_tutorial)
+[![pub package](https://img.shields.io/badge/showcase_tutorial-1.6.2-blue)](https://pub.dev/packages/showcase_tutorial)
 [![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](https://github.com/abdelrahman-abied/showcase_tutorial)
 
 A Flutter package to **showcase / highlight your widgets step by step** — perfect for
@@ -35,16 +35,58 @@ onboarding tours and feature discovery.
 1. Add the dependency to your `pubspec.yaml` (get the latest version from the
    ['Installing' tab on pub.dev](https://pub.dev/packages/showcase_tutorial/install)):
 
-```yaml
-dependencies:
-  showcase_tutorial: <latest-version>
-```
+   ```yaml
+   dependencies:
+     showcase_tutorial: <latest-version>
+   ```
 
 2. Import it:
 
-```dart
-import 'package:showcase_tutorial/showcase_tutorial.dart';
-```
+   ```dart
+   import 'package:showcase_tutorial/showcase_tutorial.dart';
+   ```
+
+## Upgrading (1.4 → 1.6)
+
+Everything added since 1.4 is **additive and backward-compatible** — upgrading
+needs no code changes. Every new capability is opt-in, and the only defaults that
+changed are safe, focus-scoped accessibility improvements. At a glance:
+
+### 1.6
+
+- **Progress dots & Skip button** in the default tooltip — opt in with
+  `ShowCaseWidget(showProgress: true, showSkip: true)` (both default to `false`;
+  customize the label with `skipButtonText`). See
+  [Progress dots & Skip button](#progress-dots--skip-button).
+
+### 1.5
+
+- **Keyboard navigation** (Esc / arrows / Enter) via `enableKeyboardNavigation`
+  — **on by default**, but focus-scoped so it never hijacks your app's keys.
+- **Screen-reader announcements** of each step via `enableAutoAnnouncements`
+  — **on by default**; override the spoken text per step with
+  `Showcase.semanticLabel`. See
+  [Accessibility & keyboard navigation](#accessibility--keyboard-navigation).
+
+### 1.4
+
+- **Exact-shape highlight** — `Showcase(highlightExactShape: true)` hugs the
+  target's actual painted shape instead of a geometric box.
+- **Per-step lifecycle callbacks** — `Showcase(onShow: ..., onDismiss: ...)`.
+- **Background-tap behavior** — `ShowCaseWidget(barrierInteraction: ...)` with
+  `BarrierInteraction.next` (default, unchanged), `.dismiss`, or `.none`. The
+  legacy `disableBarrierInteraction: true` still works (equivalent to `.none`).
+- **Side tooltip positions** — `Showcase(tooltipPosition: TooltipPosition.left)`
+  or `.right`.
+- **Progress & jump-to API** on `ShowCaseWidget.of(context)`: `currentIndex`,
+  `totalSteps`, `isShowcaseRunning`, `goTo(index)`, `goToKey(key)`.
+- **Skip off-screen steps** — `ShowCaseWidget(autoSkipUnmountedSteps: true)`.
+- **RTL support** — automatic; the tooltip follows the ambient text direction.
+
+> Only two defaults changed across these releases — **keyboard navigation** and
+> **screen-reader announcements** (both 1.5, both on by default). Both are
+> additive and focus-scoped; set either flag to `false` to restore the pre-1.5
+> behavior.
 
 ## Basic usage
 
@@ -473,81 +515,81 @@ ShowCaseWidget(
 
 ## Properties of `ShowCaseWidget`
 
-| Name                      | Type                       | Default                       | Description                                                              |
-|---------------------------|----------------------------|-------------------------------|--------------------------------------------------------------------------|
-| builder                   | Builder                    | required                      | Builds the subtree that contains the `Showcase` widgets.                 |
-| style                     | ShowcaseStyle              | `const ShowcaseStyle()`       | Default tooltip styling for every `Showcase` in the tree.                |
-| blurValue                 | double                     | 0                             | Gaussian blur applied to the overlay.                                    |
-| autoPlay                  | bool                       | false                         | Automatically advance to the next showcase.                              |
-| autoPlayDelay             | Duration                   | `Duration(milliseconds: 2000)`| Visibility time of a showcase when `autoPlay` is enabled.                |
-| enableAutoPlayLock        | bool                       | false                         | Block user interaction on the overlay while auto-playing.                |
-| enableAutoScroll          | bool                       | false                         | Auto-scroll so the next target becomes visible.                          |
-| scrollDuration            | Duration                   | `Duration(milliseconds: 300)` | Duration of the auto-scroll animation.                                   |
-| barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`     | What a background tap does: `next` (advance), `dismiss` (end tour), `none`. |
-| disableBarrierInteraction | bool                       | false                         | Legacy flag; `true` makes the barrier inert (same as `BarrierInteraction.none`). |
-| disableScaleAnimation     | bool                       | false                         | Disable the tooltip scale transition for all showcases.                  |
-| disableMovingAnimation    | bool                       | false                         | Disable the bouncing/moving transition for all showcases.               |
-| onStart                   | Function(int?, GlobalKey)? |                               | Called on the start of each showcase.                                    |
-| onComplete                | Function(int?, GlobalKey)? |                               | Called on the completion of each showcase.                               |
-| onFinish                  | VoidCallback?              |                               | Called when all showcases are completed.                                 |
-| enableShowcase            | bool                       | true                          | Enable or disable showcasing globally.                                   |
-| autoSkipUnmountedSteps    | bool                       | false                         | Skip steps whose target widget is not currently mounted.                 |
-| enableKeyboardNavigation  | bool                       | true                          | Drive the active step with a hardware keyboard (Esc / arrows / Enter).   |
-| enableAutoAnnouncements   | bool                       | true                          | Announce each step's title/description to screen readers.                |
-| showProgress              | bool                       | false                         | Show built-in progress dots in the default tooltip.                      |
-| showSkip                  | bool                       | false                         | Show a "Skip" button in the default tooltip that ends the tour.          |
-| skipButtonText            | String                     | 'Skip'                        | Label for the skip button.                                               |
+| Name                      | Type                       | Default                        | Description                                                                      |
+| ------------------------- | -------------------------- | ------------------------------ | -------------------------------------------------------------------------------- |
+| builder                   | Builder                    | required                       | Builds the subtree that contains the `Showcase` widgets.                         |
+| style                     | ShowcaseStyle              | `const ShowcaseStyle()`        | Default tooltip styling for every `Showcase` in the tree.                        |
+| blurValue                 | double                     | 0                              | Gaussian blur applied to the overlay.                                            |
+| autoPlay                  | bool                       | false                          | Automatically advance to the next showcase.                                      |
+| autoPlayDelay             | Duration                   | `Duration(milliseconds: 2000)` | Visibility time of a showcase when `autoPlay` is enabled.                        |
+| enableAutoPlayLock        | bool                       | false                          | Block user interaction on the overlay while auto-playing.                        |
+| enableAutoScroll          | bool                       | false                          | Auto-scroll so the next target becomes visible.                                  |
+| scrollDuration            | Duration                   | `Duration(milliseconds: 300)`  | Duration of the auto-scroll animation.                                           |
+| barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`      | What a background tap does: `next` (advance), `dismiss` (end tour), `none`.      |
+| disableBarrierInteraction | bool                       | false                          | Legacy flag; `true` makes the barrier inert (same as `BarrierInteraction.none`). |
+| disableScaleAnimation     | bool                       | false                          | Disable the tooltip scale transition for all showcases.                          |
+| disableMovingAnimation    | bool                       | false                          | Disable the bouncing/moving transition for all showcases.                        |
+| onStart                   | Function(int?, GlobalKey)? |                                | Called on the start of each showcase.                                            |
+| onComplete                | Function(int?, GlobalKey)? |                                | Called on the completion of each showcase.                                       |
+| onFinish                  | VoidCallback?              |                                | Called when all showcases are completed.                                         |
+| enableShowcase            | bool                       | true                           | Enable or disable showcasing globally.                                           |
+| autoSkipUnmountedSteps    | bool                       | false                          | Skip steps whose target widget is not currently mounted.                         |
+| enableKeyboardNavigation  | bool                       | true                           | Drive the active step with a hardware keyboard (Esc / arrows / Enter).           |
+| enableAutoAnnouncements   | bool                       | true                           | Announce each step's title/description to screen readers.                        |
+| showProgress              | bool                       | false                          | Show built-in progress dots in the default tooltip.                              |
+| showSkip                  | bool                       | false                          | Show a "Skip" button in the default tooltip that ends the tour.                  |
+| skipButtonText            | String                     | 'Skip'                         | Label for the skip button.                                                       |
 
 ## Properties of `Showcase` and `Showcase.withWidget`
 
-| Name                         | Type             | Default                                          | Description                                                                                   | `Showcase` | `Showcase.withWidget` |
-|------------------------------|------------------|--------------------------------------------------|-----------------------------------------------------------------------------------------------|:----------:|:---------------------:|
-| key                          | GlobalKey        | required                                         | Unique global key for the showcase.                                                           | ✅ | ✅ |
-| child                        | Widget           | required                                         | The target widget to be showcased.                                                            | ✅ | ✅ |
-| keys                         | List<GlobalKey>? |                                                  | Extra widgets to highlight in the same step (wrap each in a `MultiView`).                      | ✅ | ✅ |
-| title                        | String?          |                                                  | Title of the default tooltip.                                                                 | ✅ | |
-| description                  | String?          |                                                  | Description of the default tooltip (optional).                                                | ✅ | |
-| container                    | Widget?          |                                                  | A fully custom tooltip widget.                                                                | | ✅ |
-| height                       | double?          |                                                  | Height of the custom tooltip.                                                                 | | ✅ |
-| width                        | double?          |                                                  | Width of the custom tooltip.                                                                  | | ✅ |
-| titleTextStyle               | TextStyle?       | `ShowcaseStyle`                                  | Text style of the title.                                                                      | ✅ | |
-| descTextStyle                | TextStyle?       | `ShowcaseStyle`                                  | Text style of the description.                                                                | ✅ | |
-| titleAlignment               | TextAlign        | `TextAlign.start`                                | Alignment of the title.                                                                       | ✅ | |
-| descriptionAlignment         | TextAlign        | `TextAlign.start`                                | Alignment of the description.                                                                 | ✅ | |
-| tooltipBackgroundColor       | Color?           | `ShowcaseStyle` → `Colors.white`                 | Background color of the default tooltip.                                                      | ✅ | |
-| textColor                    | Color?           | `ShowcaseStyle` → `Colors.black`                 | Text color of the default tooltip.                                                            | ✅ | |
-| tooltipBorderRadius          | BorderRadius?    | `ShowcaseStyle` → `BorderRadius.circular(8)`     | Border radius of the default tooltip.                                                         | ✅ | |
-| tooltipPadding               | EdgeInsets       | `EdgeInsets.symmetric(vertical: 8, horizontal: 8)` | Padding inside the tooltip.                                                                 | ✅ | |
-| titlePadding                 | EdgeInsets?      | `EdgeInsets.zero`                                | Padding around the title.                                                                     | ✅ | |
-| descriptionPadding           | EdgeInsets?      | `EdgeInsets.zero`                                | Padding around the description.                                                               | ✅ | |
-| showArrow                    | bool             | true                                             | Show the tooltip arrow pointing at the target.                                               | ✅ | |
-| tooltipPosition              | TooltipPosition? |                                                  | Force the tooltip above (`top`) or below (`bottom`) the target.                              | ✅ | ✅ |
-| actions                      | Widget?          |                                                  | Action buttons widget (e.g. `ShowCaseDefaultActions`).                                        | ✅ | ✅ |
-| actionSettings               | ActionsSettings? | `const ActionsSettings()`                        | Container styling for the action buttons.                                                     | ✅ | ✅ |
-| actionButtonsPosition        | ActionButtonsPosition? |                                            | Manual position for the action buttons.                                                       | ✅ | ✅ |
-| targetShapeBorder            | ShapeBorder      | `RoundedRectangleBorder(...)`                    | Shape applied to the highlighted target (used when `targetBorderRadius` is null).             | ✅ | ✅ |
-| highlightExactShape          | bool             | false                                            | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`.   | ✅ | ✅ |
-| targetBorderRadius           | BorderRadius?    |                                                  | Border radius of the highlighted target.                                                      | ✅ | ✅ |
-| targetPadding                | EdgeInsets       | `EdgeInsets.zero`                                | Padding around the highlighted target.                                                        | ✅ | ✅ |
-| overlayColor                 | Color            | `Colors.black45`                                 | Color of the overlay.                                                                          | ✅ | ✅ |
-| overlayOpacity               | double           | 0.75                                             | Opacity of the overlay.                                                                        | ✅ | ✅ |
-| blurValue                    | double?          | `ShowCaseWidget.blurValue`                       | Gaussian blur on the overlay.                                                                  | ✅ | ✅ |
-| disableDefaultTargetGestures | bool             | false                                            | Disable the default gestures on the target.                                                   | ✅ | ✅ |
-| disposeOnTap                 | bool?            |                                                  | Dismiss all showcases when the target/tooltip is tapped.                                       | ✅ | ✅ |
-| onTargetClick                | VoidCallback?    |                                                  | Called when the target is tapped (requires `disposeOnTap`).                                    | ✅ | ✅ |
-| onTargetDoubleTap            | VoidCallback?    |                                                  | Called when the target is double-tapped.                                                       | ✅ | ✅ |
-| onTargetLongPress            | VoidCallback?    |                                                  | Called when the target is long-pressed.                                                        | ✅ | ✅ |
-| onToolTipClick               | VoidCallback?    |                                                  | Called when the tooltip is tapped.                                                             | ✅ | |
-| onShow                       | VoidCallback?    |                                                  | Called when this step becomes the active showcase.                                            | ✅ | ✅ |
-| onDismiss                    | VoidCallback?    |                                                  | Called when this step stops being active (advanced past, navigated away, or dismissed).        | ✅ | ✅ |
-| semanticLabel                | String?          |                                                  | Text announced to screen readers for this step (defaults to title + description).             | ✅ | ✅ |
-| disableMovingAnimation       | bool?            | `ShowCaseWidget.disableMovingAnimation`          | Disable the bouncing/moving transition.                                                       | ✅ | ✅ |
-| disableScaleAnimation        | bool?            | `ShowCaseWidget.disableScaleAnimation`           | Disable the initial scale transition.                                                          | ✅ | |
-| movingAnimationDuration      | Duration         | `Duration(milliseconds: 2000)`                   | Duration of the moving animation.                                                             | ✅ | ✅ |
-| scaleAnimationDuration       | Duration         | `Duration(milliseconds: 300)`                    | Duration of the scale animation.                                                              | ✅ | |
-| scaleAnimationCurve          | Curve            | `Curves.easeIn`                                  | Curve of the scale animation.                                                                 | ✅ | |
-| scaleAnimationAlignment      | Alignment?       |                                                  | Origin of the scale animation.                                                                | ✅ | |
-| scrollLoadingWidget          | Widget           | `CircularProgressIndicator(...)`                 | Loading widget shown while auto-scrolling to the target.                                       | ✅ | ✅ |
+| Name                         | Type                   | Default                                            | Description                                                                                 | `Showcase` | `Showcase.withWidget` |
+| ---------------------------- | ---------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- | :--------: | :-------------------: |
+| key                          | GlobalKey              | required                                           | Unique global key for the showcase.                                                         |     ✅     |          ✅           |
+| child                        | Widget                 | required                                           | The target widget to be showcased.                                                          |     ✅     |          ✅           |
+| keys                         | List<GlobalKey>?       |                                                    | Extra widgets to highlight in the same step (wrap each in a `MultiView`).                   |     ✅     |          ✅           |
+| title                        | String?                |                                                    | Title of the default tooltip.                                                               |     ✅     |                       |
+| description                  | String?                |                                                    | Description of the default tooltip (optional).                                              |     ✅     |                       |
+| container                    | Widget?                |                                                    | A fully custom tooltip widget.                                                              |            |          ✅           |
+| height                       | double?                |                                                    | Height of the custom tooltip.                                                               |            |          ✅           |
+| width                        | double?                |                                                    | Width of the custom tooltip.                                                                |            |          ✅           |
+| titleTextStyle               | TextStyle?             | `ShowcaseStyle`                                    | Text style of the title.                                                                    |     ✅     |                       |
+| descTextStyle                | TextStyle?             | `ShowcaseStyle`                                    | Text style of the description.                                                              |     ✅     |                       |
+| titleAlignment               | TextAlign              | `TextAlign.start`                                  | Alignment of the title.                                                                     |     ✅     |                       |
+| descriptionAlignment         | TextAlign              | `TextAlign.start`                                  | Alignment of the description.                                                               |     ✅     |                       |
+| tooltipBackgroundColor       | Color?                 | `ShowcaseStyle` → `Colors.white`                   | Background color of the default tooltip.                                                    |     ✅     |                       |
+| textColor                    | Color?                 | `ShowcaseStyle` → `Colors.black`                   | Text color of the default tooltip.                                                          |     ✅     |                       |
+| tooltipBorderRadius          | BorderRadius?          | `ShowcaseStyle` → `BorderRadius.circular(8)`       | Border radius of the default tooltip.                                                       |     ✅     |                       |
+| tooltipPadding               | EdgeInsets             | `EdgeInsets.symmetric(vertical: 8, horizontal: 8)` | Padding inside the tooltip.                                                                 |     ✅     |                       |
+| titlePadding                 | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the title.                                                                   |     ✅     |                       |
+| descriptionPadding           | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the description.                                                             |     ✅     |                       |
+| showArrow                    | bool                   | true                                               | Show the tooltip arrow pointing at the target.                                              |     ✅     |                       |
+| tooltipPosition              | TooltipPosition?       |                                                    | Force the tooltip above (`top`) or below (`bottom`) the target.                             |     ✅     |          ✅           |
+| actions                      | Widget?                |                                                    | Action buttons widget (e.g. `ShowCaseDefaultActions`).                                      |     ✅     |          ✅           |
+| actionSettings               | ActionsSettings?       | `const ActionsSettings()`                          | Container styling for the action buttons.                                                   |     ✅     |          ✅           |
+| actionButtonsPosition        | ActionButtonsPosition? |                                                    | Manual position for the action buttons.                                                     |     ✅     |          ✅           |
+| targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlighted target (used when `targetBorderRadius` is null).           |     ✅     |          ✅           |
+| highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
+| targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlighted target.                                                    |     ✅     |          ✅           |
+| targetPadding                | EdgeInsets             | `EdgeInsets.zero`                                  | Padding around the highlighted target.                                                      |     ✅     |          ✅           |
+| overlayColor                 | Color                  | `Colors.black45`                                   | Color of the overlay.                                                                       |     ✅     |          ✅           |
+| overlayOpacity               | double                 | 0.75                                               | Opacity of the overlay.                                                                     |     ✅     |          ✅           |
+| blurValue                    | double?                | `ShowCaseWidget.blurValue`                         | Gaussian blur on the overlay.                                                               |     ✅     |          ✅           |
+| disableDefaultTargetGestures | bool                   | false                                              | Disable the default gestures on the target.                                                 |     ✅     |          ✅           |
+| disposeOnTap                 | bool?                  |                                                    | Dismiss all showcases when the target/tooltip is tapped.                                    |     ✅     |          ✅           |
+| onTargetClick                | VoidCallback?          |                                                    | Called when the target is tapped (requires `disposeOnTap`).                                 |     ✅     |          ✅           |
+| onTargetDoubleTap            | VoidCallback?          |                                                    | Called when the target is double-tapped.                                                    |     ✅     |          ✅           |
+| onTargetLongPress            | VoidCallback?          |                                                    | Called when the target is long-pressed.                                                     |     ✅     |          ✅           |
+| onToolTipClick               | VoidCallback?          |                                                    | Called when the tooltip is tapped.                                                          |     ✅     |                       |
+| onShow                       | VoidCallback?          |                                                    | Called when this step becomes the active showcase.                                          |     ✅     |          ✅           |
+| onDismiss                    | VoidCallback?          |                                                    | Called when this step stops being active (advanced past, navigated away, or dismissed).     |     ✅     |          ✅           |
+| semanticLabel                | String?                |                                                    | Text announced to screen readers for this step (defaults to title + description).           |     ✅     |          ✅           |
+| disableMovingAnimation       | bool?                  | `ShowCaseWidget.disableMovingAnimation`            | Disable the bouncing/moving transition.                                                     |     ✅     |          ✅           |
+| disableScaleAnimation        | bool?                  | `ShowCaseWidget.disableScaleAnimation`             | Disable the initial scale transition.                                                       |     ✅     |                       |
+| movingAnimationDuration      | Duration               | `Duration(milliseconds: 2000)`                     | Duration of the moving animation.                                                           |     ✅     |          ✅           |
+| scaleAnimationDuration       | Duration               | `Duration(milliseconds: 300)`                      | Duration of the scale animation.                                                            |     ✅     |                       |
+| scaleAnimationCurve          | Curve                  | `Curves.easeIn`                                    | Curve of the scale animation.                                                               |     ✅     |                       |
+| scaleAnimationAlignment      | Alignment?             |                                                    | Origin of the scale animation.                                                              |     ✅     |                       |
+| scrollLoadingWidget          | Widget                 | `CircularProgressIndicator(...)`                   | Loading widget shown while auto-scrolling to the target.                                    |     ✅     |          ✅           |
 
 ## Auto-scrolling to the active showcase
 

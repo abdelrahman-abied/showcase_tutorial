@@ -1,6 +1,6 @@
 name: showcase_tutorial
 description: A Flutter package to Showcase/Highlight widgets step by step.
-version: 1.6.1
+version: 1.6.2
 homepage: https://github.com/abdelrahman-abied/showcase_tutorial
 issue_tracker: https://github.com/abdelrahman-abied/showcase_tutorial/issues
 
@@ -12,6 +12,8 @@ topics:
   - walkthrough
 
 screenshots:
+  - description: "Feature walkthrough: tooltip positions, progress dots, exact-shape highlight, multi-widget steps, and lifecycle callbacks."
+    path: preview/demo.gif
   - description: "Step-by-step widget showcase walkthrough."
     path: preview/showcase_tutorial.gif
 
