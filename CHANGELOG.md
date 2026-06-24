@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.7.0
 
 * FEAT: **pulsing highlight ring** — opt in per step with
   `Showcase(enablePulseAnimation: true)` to draw an animated ring that pings
