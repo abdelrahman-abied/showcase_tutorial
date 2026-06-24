@@ -45,6 +45,15 @@ class ToolTipWidget extends StatefulWidget {
   final Color? tooltipBackgroundColor;
   final Color? textColor;
   final bool showArrow;
+
+  /// Color of the arrow. Falls back to [tooltipBackgroundColor] when null.
+  final Color? arrowColor;
+
+  /// Width (base) of the arrow.
+  final double arrowWidth;
+
+  /// Height (depth toward the target) of the arrow.
+  final double arrowHeight;
   final double? contentHeight;
   final double? contentWidth;
   final VoidCallback? onTooltipTap;
@@ -98,6 +107,9 @@ class ToolTipWidget extends StatefulWidget {
     required this.tooltipBackgroundColor,
     required this.textColor,
     required this.showArrow,
+    this.arrowColor,
+    this.arrowWidth = 18.0,
+    this.arrowHeight = 9.0,
     required this.contentHeight,
     required this.contentWidth,
     required this.onTooltipTap,
@@ -455,8 +467,8 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
   /// Builds the tooltip to the left or right of the target, with the arrow
   /// pointing horizontally at it and the tooltip vertically centred on it.
   Widget _buildHorizontalTooltip({required bool isLeft}) {
-    const arrowShort = 9.0; // arrow depth toward the target
-    const arrowLong = 18.0; // arrow span along the tooltip edge
+    final arrowShort = widget.arrowHeight; // arrow depth toward the target
+    final arrowLong = widget.arrowWidth; // arrow span along the tooltip edge
     const gap = 6.0;
     final showArrow = widget.showArrow;
 
@@ -491,7 +503,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
       height: arrowLong,
       child: CustomPaint(
         painter: _Arrow(
-          strokeColor: widget.tooltipBackgroundColor!,
+          strokeColor: widget.arrowColor ?? widget.tooltipBackgroundColor!,
           strokeWidth: 10,
           paintingStyle: PaintingStyle.fill,
           direction: isLeft ? _ArrowDirection.right : _ArrowDirection.left,
@@ -606,16 +618,19 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
     final num contentFractionalOffset =
         contentOffsetMultiplier.clamp(-1.0, 0.0);
 
-    var paddingTop = isArrowUp ? 22.0 : 0.0;
-    var paddingBottom = isArrowUp ? 0.0 : 27.0;
+    final arrowWidth = widget.arrowWidth;
+    final arrowHeight = widget.arrowHeight;
+
+    // Reserve room for the arrow plus the original fixed margin (13/18 at the
+    // default 9px arrow height), so a custom arrow height stays clear of the
+    // tooltip body.
+    var paddingTop = isArrowUp ? arrowHeight + 13.0 : 0.0;
+    var paddingBottom = isArrowUp ? 0.0 : arrowHeight + 18.0;
 
     if (!widget.showArrow) {
       paddingTop = 10;
       paddingBottom = 10;
     }
-
-    const arrowWidth = 18.0;
-    const arrowHeight = 9.0;
 
     if (!widget.disableScaleAnimation && widget.isTooltipDismissed) {
       _scaleAnimationController.reverse();
@@ -678,14 +693,15 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
                               right: _getArrowRight(arrowWidth),
                               child: CustomPaint(
                                 painter: _Arrow(
-                                  strokeColor: widget.tooltipBackgroundColor!,
+                                  strokeColor: widget.arrowColor ??
+                                      widget.tooltipBackgroundColor!,
                                   strokeWidth: 10,
                                   paintingStyle: PaintingStyle.fill,
                                   direction: isArrowUp
                                       ? _ArrowDirection.up
                                       : _ArrowDirection.down,
                                 ),
-                                child: const SizedBox(
+                                child: SizedBox(
                                   height: arrowHeight,
                                   width: arrowWidth,
                                 ),
