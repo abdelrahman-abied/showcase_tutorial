@@ -18,6 +18,7 @@ onboarding tours and feature discovery.
 - Default tooltip (title + description) or a fully custom tooltip widget.
 - Tooltip on any side — top / bottom / left / right — with full **RTL** support.
 - **Highlight any widget by its exact shape** — circle, pill, star, icon — with `highlightExactShape`.
+- **Pulsing highlight ring** — an optional animated ring that pings around the target to draw the eye.
 - **Highlight multiple widgets in a single step** (e.g. multi-select).
 - **Global tooltip styling** via `ShowcaseStyle` — set it once, not per step.
 - Built-in **action buttons** (Next / Previous / Stop) with customizable text.
@@ -239,6 +240,33 @@ overlay (the child is wrapped in a `RepaintBoundary` for you).
 > so it won't animate or update until the showcase moves on. For typical static
 > UI this is invisible. `targetShapeBorder`/`targetBorderRadius` are ignored for
 > the highlight when this is on.
+
+## Pulsing highlight ring
+
+For an extra nudge toward the target, set `enablePulseAnimation: true` to draw an
+animated ring that pings outward around the highlight — like a sonar ping — in
+addition to the static cut-out. Tune the look with `pulseColor` and
+`pulseDuration` (one full cycle; smaller is faster).
+
+```dart
+Showcase(
+  key: fabKey,
+  enablePulseAnimation: true,
+  pulseColor: Colors.amber,                       // defaults to white
+  pulseDuration: const Duration(milliseconds: 1200),
+  title: 'Compose',
+  description: 'Tap here to start a new message',
+  child: const Icon(Icons.add),
+);
+```
+
+The ring follows the highlight's shape (`targetShapeBorder` / `targetBorderRadius`);
+with `highlightExactShape` it pulses around the target's bounding box. Set a
+default color for the whole tour once via
+`ShowCaseWidget(style: ShowcaseStyle(pulseColor: ...))`.
+
+> Accessibility: when the platform **"reduce motion"** setting is on, the pulse
+> falls back to a single static ring instead of animating.
 
 ## Highlight multiple widgets in a single step
 
@@ -570,6 +598,9 @@ ShowCaseWidget(
 | targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlighted target (used when `targetBorderRadius` is null).           |     ✅     |          ✅           |
 | highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
 | targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlighted target.                                                    |     ✅     |          ✅           |
+| enablePulseAnimation         | bool                   | false                                              | Draw an animated ring that pulses outward around the highlight.                             |     ✅     |          ✅           |
+| pulseColor                   | Color?                 | `ShowcaseStyle` → `Colors.white`                   | Color of the pulsing ring.                                                                  |     ✅     |          ✅           |
+| pulseDuration                | Duration               | `Duration(milliseconds: 1500)`                     | Length of one full pulse cycle (smaller is faster).                                         |     ✅     |          ✅           |
 | targetPadding                | EdgeInsets             | `EdgeInsets.zero`                                  | Padding around the highlighted target.                                                      |     ✅     |          ✅           |
 | overlayColor                 | Color                  | `Colors.black45`                                   | Color of the overlay.                                                                       |     ✅     |          ✅           |
 | overlayOpacity               | double                 | 0.75                                               | Opacity of the overlay.                                                                     |     ✅     |          ✅           |

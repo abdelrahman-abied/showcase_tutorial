@@ -118,6 +118,30 @@ class Showcase extends StatefulWidget {
   /// Radius of rectangle box while target widget is being showcased.
   final BorderRadius? targetBorderRadius;
 
+  /// When `true`, an animated ring gently pulses outward around the highlighted
+  /// target — like a sonar ping — to draw the eye to it, in addition to the
+  /// static cut-out.
+  ///
+  /// The ring follows the highlight's shape ([targetShapeBorder] /
+  /// [targetBorderRadius]); with [highlightExactShape] it pulses around the
+  /// target's bounding box. Honors the platform "reduce motion" accessibility
+  /// setting by falling back to a single static ring.
+  ///
+  /// Defaults to `false`.
+  final bool enablePulseAnimation;
+
+  /// Color of the pulsing ring (see [enablePulseAnimation]).
+  ///
+  /// Falls back to [ShowCaseWidget.style] ([ShowcaseStyle.pulseColor]), then to
+  /// [Colors.white].
+  final Color? pulseColor;
+
+  /// Duration of one full pulse cycle (see [enablePulseAnimation]). A smaller
+  /// value pulses faster.
+  ///
+  /// Defaults to [Duration(milliseconds: 1500)].
+  final Duration pulseDuration;
+
   /// TextStyle for default tooltip title
   final TextStyle? titleTextStyle;
 
@@ -349,6 +373,9 @@ class Showcase extends StatefulWidget {
     this.targetPadding = EdgeInsets.zero,
     this.blurValue,
     this.targetBorderRadius,
+    this.enablePulseAnimation = false,
+    this.pulseColor,
+    this.pulseDuration = const Duration(milliseconds: 1500),
     this.onTargetLongPress,
     this.onTargetDoubleTap,
     this.tooltipBorderRadius,
@@ -389,6 +416,9 @@ class Showcase extends StatefulWidget {
     this.highlightExactShape = false,
     this.overlayColor = Colors.black45,
     this.targetBorderRadius,
+    this.enablePulseAnimation = false,
+    this.pulseColor,
+    this.pulseDuration = const Duration(milliseconds: 1500),
     this.overlayOpacity = 0.75,
     this.scrollLoadingWidget = const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.white)),
     this.onTargetClick,
@@ -810,6 +840,23 @@ class _ShowcaseState extends State<Showcase> {
                 ),
                 if (_isScrollRunning) Center(child: widget.scrollLoadingWidget),
                 if (!_isScrollRunning) ...[
+                  if (widget.enablePulseAnimation)
+                    _PulsingOverlay(
+                      // Match the static cut-out: the target bounds expanded by
+                      // the same target padding the clipper uses.
+                      targetRect: Rect.fromLTRB(
+                        rectBound.left - widget.targetPadding.left,
+                        rectBound.top - widget.targetPadding.top,
+                        rectBound.right + widget.targetPadding.right,
+                        rectBound.bottom + widget.targetPadding.bottom,
+                      ),
+                      isCircle: widget.targetShapeBorder is CircleBorder,
+                      borderRadius: widget.targetBorderRadius,
+                      color: widget.pulseColor ??
+                          showCaseWidgetState.style.pulseColor ??
+                          Colors.white,
+                      duration: widget.pulseDuration,
+                    ),
                   _TargetWidget(
                     offset: offset,
                     size: size,
@@ -946,4 +993,203 @@ class _TargetWidget extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Paints an animated ring that pulses outward around the highlighted target
+/// (see [Showcase.enablePulseAnimation]).
+///
+/// The pulse never covers the target itself — the rings expand from the
+/// highlight's edge into the dimmed area — and is purely decorative, so it is
+/// wrapped in an [IgnorePointer] and lets taps fall through to the barrier and
+/// the target. When the platform "reduce motion" accessibility setting is on it
+/// draws a single static ring instead of animating.
+class _PulsingOverlay extends StatefulWidget {
+  /// The highlighted region, in overlay (global) coordinates.
+  final Rect targetRect;
+
+  /// Whether the highlight is a circle ([CircleBorder]); affects ring corners.
+  final bool isCircle;
+
+  /// Corner radius of the rectangular highlight, when set.
+  final BorderRadius? borderRadius;
+
+  /// Ring color (alpha is modulated as each ring fades out).
+  final Color color;
+
+  /// Duration of one full pulse cycle.
+  final Duration duration;
+
+  const _PulsingOverlay({
+    required this.targetRect,
+    required this.isCircle,
+    required this.borderRadius,
+    required this.color,
+    required this.duration,
+  });
+
+  @override
+  State<_PulsingOverlay> createState() => _PulsingOverlayState();
+}
+
+class _PulsingOverlayState extends State<_PulsingOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller =
+      AnimationController(vsync: this, duration: widget.duration);
+
+  /// Whether the platform "reduce motion" accessibility setting is on. When it
+  /// is, the controller stays idle and a single static ring is drawn.
+  bool _reduceMotion = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _syncTicker();
+  }
+
+  @override
+  void didUpdateWidget(_PulsingOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.duration != widget.duration) {
+      _controller.duration = widget.duration;
+      if (!_reduceMotion) {
+        _controller
+          ..reset()
+          ..repeat();
+      }
+    }
+  }
+
+  /// Runs the controller only when motion is allowed, so a "reduce motion" user
+  /// never pays for an idle 60 fps animation.
+  void _syncTicker() {
+    if (_reduceMotion) {
+      if (_controller.isAnimating) _controller.stop();
+    } else if (!_controller.isAnimating) {
+      _controller.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Size the layer to the ring's reach instead of the whole screen, so the
+    // RepaintBoundary doesn't allocate a full-screen layer (and a smaller layer
+    // is cheaper to re-raster each frame) for a couple of thin rings.
+    const margin = _PulsingRingPainter._maxExtent + _PulsingRingPainter._strokeWidth;
+    final bounds = widget.targetRect.inflate(margin);
+    final localTarget = Rect.fromLTWH(
+      margin,
+      margin,
+      widget.targetRect.width,
+      widget.targetRect.height,
+    );
+
+    CustomPaint paintRing(double? progress) => CustomPaint(
+          size: bounds.size,
+          painter: _PulsingRingPainter(
+            targetRect: localTarget,
+            isCircle: widget.isCircle,
+            borderRadius: widget.borderRadius,
+            color: widget.color,
+            progress: progress,
+          ),
+        );
+
+    return Positioned.fromRect(
+      rect: bounds,
+      child: IgnorePointer(
+        child: RepaintBoundary(
+          // Under reduced motion the controller is idle, so skip the per-frame
+          // AnimatedBuilder rebuild entirely and draw a single static ring.
+          child: _reduceMotion
+              ? paintRing(null)
+              : AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, _) => paintRing(_controller.value),
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Draws the expanding, fading rings for [_PulsingOverlay].
+class _PulsingRingPainter extends CustomPainter {
+  final Rect targetRect;
+  final bool isCircle;
+  final BorderRadius? borderRadius;
+  final Color color;
+
+  /// Animation value in `[0, 1)`, or `null` to draw a single static ring
+  /// (reduced motion).
+  final double? progress;
+
+  /// Number of concurrent rings, phased evenly to read as a continuous wave.
+  static const _ringCount = 2;
+
+  /// How far (logical pixels) a ring travels outward over one cycle.
+  static const _maxExtent = 14.0;
+
+  static const _strokeWidth = 2.5;
+
+  _PulsingRingPainter({
+    required this.targetRect,
+    required this.isCircle,
+    required this.borderRadius,
+    required this.color,
+    required this.progress,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (targetRect.isEmpty) return;
+
+    // One reusable Paint for the frame; only its color changes per ring.
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = _strokeWidth;
+
+    final localProgress = progress;
+    if (localProgress == null) {
+      // Reduced motion: one steady ring hugging the target.
+      _drawRing(canvas, paint, expansion: 2.0, alpha: 0.9);
+      return;
+    }
+
+    for (var i = 0; i < _ringCount; i++) {
+      final t = (localProgress + i / _ringCount) % 1.0;
+      _drawRing(canvas, paint, expansion: _maxExtent * t, alpha: 1.0 - t);
+    }
+  }
+
+  void _drawRing(Canvas canvas, Paint paint, {required double expansion, required double alpha}) {
+    if (alpha <= 0.0) return;
+    final rect = targetRect.inflate(expansion);
+    paint.color = color.withValues(alpha: color.a * alpha.clamp(0.0, 1.0));
+
+    final Radius radius;
+    if (isCircle) {
+      radius = Radius.circular(rect.height);
+    } else {
+      // Keep the corners rounded as the ring grows, matching the cut-out's
+      // default 3px corner when no explicit radius is given.
+      final base = borderRadius?.topLeft.x ?? 3.0;
+      radius = Radius.circular(base + expansion);
+    }
+    canvas.drawRRect(RRect.fromRectAndRadius(rect, radius), paint);
+  }
+
+  @override
+  bool shouldRepaint(_PulsingRingPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.targetRect != targetRect ||
+      oldDelegate.color != color ||
+      oldDelegate.isCircle != isCircle ||
+      oldDelegate.borderRadius != borderRadius;
 }
