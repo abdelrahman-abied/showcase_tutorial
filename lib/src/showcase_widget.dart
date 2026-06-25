@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Simform Solutions
+
  * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -189,8 +189,7 @@ class ShowCaseWidget extends StatefulWidget {
   /// Not consulted by [ShowCaseWidgetState.previous],
   /// [ShowCaseWidgetState.goTo], or [ShowCaseWidgetState.goToKey], which are
   /// explicit navigation. Defaults to `null` (no branching).
-  final GlobalKey? Function(int currentIndex, GlobalKey currentKey)?
-      onResolveNextStep;
+  final GlobalKey? Function(int currentIndex, GlobalKey currentKey)? onResolveNextStep;
 
   /// Label for the skip button (see [showSkip]). Defaults to `'Skip'`.
   final String skipButtonText;
@@ -233,9 +232,7 @@ class ShowCaseWidget extends StatefulWidget {
   /// Reads the nearest [_InheritedShowCaseView], so callers rebuild when the
   /// active step changes.
   static GlobalKey? activeTargetWidget(BuildContext context) {
-    return context
-        .dependOnInheritedWidgetOfExactType<_InheritedShowCaseView>()
-        ?.activeWidgetIds;
+    return context.dependOnInheritedWidgetOfExactType<_InheritedShowCaseView>()?.activeWidgetIds;
   }
 
   /// Returns the [ShowCaseWidgetState] of the nearest [ShowCaseWidget] ancestor.
@@ -297,9 +294,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Resolved barrier behaviour. The legacy [ShowCaseWidget.disableBarrierInteraction]
   /// flag wins when `true`, mapping to [BarrierInteraction.none].
-  BarrierInteraction get barrierInteraction => widget.disableBarrierInteraction
-      ? BarrierInteraction.none
-      : widget.barrierInteraction;
+  BarrierInteraction get barrierInteraction =>
+      widget.disableBarrierInteraction ? BarrierInteraction.none : widget.barrierInteraction;
 
   /// Value of [ShowCaseWidget.enableShowcase].
   bool get enableShowcase => widget.enableShowcase;
@@ -386,9 +382,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// option is disabled.
   int _nextMountedIndex(int index, int direction) {
     if (!widget.autoSkipUnmountedSteps || ids == null) return index;
-    while (index >= 0 &&
-        index < ids!.length &&
-        ids![index].currentContext == null) {
+    while (index >= 0 && index < ids!.length && ids![index].currentContext == null) {
       index += direction;
     }
     return index;
@@ -513,22 +507,15 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// configured [ShowCaseWidget.builder] subtree.
   @override
   Widget build(BuildContext context) {
-    return _InheritedShowCaseView(
-      activeWidgetIds: ids?.elementAt(activeWidgetId!),
-      child: widget.builder,
-    );
+    return _InheritedShowCaseView(activeWidgetIds: ids?.elementAt(activeWidgetId!), child: widget.builder);
   }
 }
 
 class _InheritedShowCaseView extends InheritedWidget {
   final GlobalKey? activeWidgetIds;
 
-  const _InheritedShowCaseView({
-    required this.activeWidgetIds,
-    required super.child,
-  });
+  const _InheritedShowCaseView({required this.activeWidgetIds, required super.child});
 
   @override
-  bool updateShouldNotify(_InheritedShowCaseView oldWidget) =>
-      oldWidget.activeWidgetIds != activeWidgetIds;
+  bool updateShouldNotify(_InheritedShowCaseView oldWidget) => oldWidget.activeWidgetIds != activeWidgetIds;
 }

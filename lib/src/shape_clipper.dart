@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Simform Solutions
+
  * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,17 +30,11 @@ class RRectClipper extends CustomClipper<ui.Path> {
   final EdgeInsets overlayPadding;
   final Rect area;
 
-  RRectClipper({
-    this.isCircle = false,
-    this.radius,
-    this.overlayPadding = EdgeInsets.zero,
-    this.area = Rect.zero,
-  });
+  RRectClipper({this.isCircle = false, this.radius, this.overlayPadding = EdgeInsets.zero, this.area = Rect.zero});
 
   @override
   ui.Path getClip(ui.Size size) {
-    final customRadius =
-        isCircle ? Radius.circular(area.height) : const Radius.circular(3.0);
+    final customRadius = isCircle ? Radius.circular(area.height) : const Radius.circular(3.0);
 
     final rect = Rect.fromLTRB(
       area.left - overlayPadding.left,
