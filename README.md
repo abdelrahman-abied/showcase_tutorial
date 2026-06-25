@@ -42,8 +42,9 @@ controller API.
   `dismiss()`, plus live progress (`currentIndex`, `totalSteps`).
 - **Conditional / branching tours** — let a step decide the next step at runtime
   with `onResolveNextStep`.
-- **Per-step lifecycle callbacks** (`onShow` / `onDismiss`) and configurable
-  background-tap behavior.
+- **Lifecycle callbacks** — per-step (`onShow` / `onDismiss`) and tour-level
+  (`onStart` / `onComplete` / `onFinish`, plus `onDismiss` for early close), and
+  configurable background-tap behavior.
 - **Run the tour only once** for onboarding, and **auto-skip** steps whose target
   isn't on screen.
 - **Accessibility** built in — keyboard navigation (Esc / arrows / Enter) and
@@ -441,9 +442,18 @@ ShowCaseWidget(
   onStart: (index, key) => debugPrint('started step $index'),
   onComplete: (index, key) => debugPrint('finished step $index'),
   onFinish: () => debugPrint('tour complete'),
+  // Fired only when the tour is closed early (barrier-dismiss, Esc, skip,
+  // or dismiss()); `key` is the step the user left off on, or null.
+  onDismiss: (key) => debugPrint('tour dismissed at $key'),
   builder: Builder(builder: (context) => const HomePage()),
 );
 ```
+
+`onFinish` fires when the tour completes normally (advances past the last step);
+`onDismiss` fires when it's closed early. Exactly one of them runs per tour. Use
+`onDismiss` to measure onboarding drop-off — it tells you *which* step the user
+bailed on. (This is the tour-level callback; the per-step `Showcase.onDismiss`
+fires for every step the tour leaves.)
 
 ## Conditional / branching tours
 
@@ -676,7 +686,8 @@ ShowCaseWidget(
 | disableMovingAnimation    | bool                       | false                          | Disable the bouncing/moving transition for all steps.                            |
 | onStart                   | Function(int?, GlobalKey)? |                                | Called on the start of each step.                                                |
 | onComplete                | Function(int?, GlobalKey)? |                                | Called on the completion of each step.                                           |
-| onFinish                  | VoidCallback?              |                                | Called when all steps are completed.                                             |
+| onFinish                  | VoidCallback?              |                                | Called when all steps are completed (normal finish).                             |
+| onDismiss                  | `void Function(GlobalKey?)?` |                              | Called when the tour is closed early; receives the step it was dismissed at.     |
 | enableShowcase            | bool                       | true                           | Enable or disable showcasing globally.                                           |
 | autoSkipUnmountedSteps    | bool                       | false                          | Skip steps whose target widget is not currently mounted.                         |
 | enableKeyboardNavigation  | bool                       | true                           | Drive the active step with a hardware keyboard (Esc / arrows / Enter).           |

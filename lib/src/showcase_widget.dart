@@ -47,6 +47,18 @@ class ShowCaseWidget extends StatefulWidget {
   /// Triggered every time on completion of each showcase
   final Function(int?, GlobalKey)? onComplete;
 
+  /// Triggered when the tour is dismissed early via [ShowCaseWidgetState.dismiss]
+  /// — for example a barrier tap with [BarrierInteraction.dismiss], the
+  /// <kbd>Esc</kbd> key, the built-in skip button, a `disposeOnTap` tap, or a
+  /// manual `ShowCaseWidget.of(context).dismiss()` call.
+  ///
+  /// Receives the [GlobalKey] of the step that was active when the tour was
+  /// dismissed, or `null` if no step was active. It is **not** called when the
+  /// tour finishes normally by advancing past the last step — use [onFinish] for
+  /// that. Distinct from the per-step [Showcase.onDismiss], which fires for every
+  /// step as the tour leaves it.
+  final void Function(GlobalKey? dismissedAt)? onDismiss;
+
   /// Whether all showcases will auto sequentially start
   /// having time interval of [autoPlayDelay] .
   ///
@@ -202,6 +214,7 @@ class ShowCaseWidget extends StatefulWidget {
     this.onFinish,
     this.onStart,
     this.onComplete,
+    this.onDismiss,
     this.autoPlay = false,
     this.autoPlayDelay = const Duration(milliseconds: 2000),
     this.enableAutoPlayLock = false,
@@ -485,7 +498,17 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Dismiss entire showcase view
   void dismiss() {
-    if (mounted) setState(_cleanupAfterSteps);
+    if (!mounted) return;
+    // Capture the active step before clearing state so [ShowCaseWidget.onDismiss]
+    // can report where the user left off.
+    final dismissedAt = (ids != null &&
+            activeWidgetId != null &&
+            activeWidgetId! >= 0 &&
+            activeWidgetId! < ids!.length)
+        ? ids![activeWidgetId!]
+        : null;
+    setState(_cleanupAfterSteps);
+    widget.onDismiss?.call(dismissedAt);
   }
 
   void _onStart() {
