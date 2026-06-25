@@ -1332,6 +1332,33 @@ void main() {
       expect(state.currentIndex, 1);
       expect(find.text('Two'), findsOneWidget);
     });
+
+    testWidgets('branching to the last step still finishes on the next advance',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      final k4 = GlobalKey();
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
+          onResolveNextStep: (index, key) => key == k1 ? k4 : null));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2, k3, k4]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.next(); // branch k1 -> k4 (the last step)
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(state.currentIndex, 3);
+      expect(state.isShowcaseRunning, isTrue);
+
+      state.next(); // from k4 the resolver returns null -> tour finishes
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(state.isShowcaseRunning, isFalse);
+      expect(find.text('Four'), findsNothing);
+    });
   });
 }
 
