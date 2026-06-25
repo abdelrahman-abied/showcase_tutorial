@@ -343,12 +343,15 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
   }
 
   double _getSpace() {
+    final screenWidth = widget.screenSize!.width;
     var space = widget.position!.getCenter() - (widget.contentWidth! / 2);
-    if (space + widget.contentWidth! > widget.screenSize!.width) {
-      space = widget.screenSize!.width - widget.contentWidth! - 8;
-    } else if (space < (widget.contentWidth! / 2)) {
-      space = 16;
-    }
+    // Keep the custom container (Showcase.withWidget) within the screen-edge
+    // margins, mirroring how the default tooltip clamps to toolTipMargin.
+    final maxLeft = max(
+      widget.toolTipMargin.left,
+      screenWidth - widget.contentWidth! - widget.toolTipMargin.right,
+    );
+    space = space.clamp(widget.toolTipMargin.left, maxLeft);
     return space;
   }
 

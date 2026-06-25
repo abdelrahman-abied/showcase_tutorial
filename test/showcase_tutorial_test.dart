@@ -1834,6 +1834,48 @@ void main() {
     // A 40px-larger left margin pushes the clamped tooltip 40px further inward.
     expect(left60 - left20, closeTo(40, 1));
   });
+
+  testWidgets(
+      'toolTipMargin keeps a Showcase.withWidget container clear of the screen edge',
+      (tester) async {
+    // A custom container on an edge-hugging target is clamped to toolTipMargin.left
+    // (the old hardcoded behaviour would have pinned it at 16).
+    const margin = EdgeInsets.all(50);
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: Showcase.withWidget(
+                  key: key,
+                  height: 80,
+                  width: 140,
+                  toolTipMargin: margin,
+                  container: const SizedBox(
+                    width: 140,
+                    height: 80,
+                    child: Text('Box'),
+                  ),
+                  child:
+                      const SizedBox(width: 30, height: 30, child: Text('t')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    // The container is clamped to the left margin rather than the old 16px.
+    expect(tester.getTopLeft(find.text('Box')).dx, closeTo(50, 1));
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this
