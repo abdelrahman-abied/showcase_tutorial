@@ -4,18 +4,7 @@
 
 * DOCS: rewrote the README as standalone documentation — added a table of
   contents, a fuller API reference (controller methods and getters, complete
-  `ShowCaseWidget` and `Showcase` / `Showcase.withWidget` property tables), and a
-  License section.
-* DOCS: refined `ROADMAP.md` for the package and added a "Planned features" list
-  for future work.
-* CHORE: rebranded the bundled example app — application / bundle identifier set
-  to `io.amacraft.example` across Android, iOS, Linux, macOS, and Windows; moved
-  the Android Kotlin package to `io/amacraft/example`; renamed the demo avatar
-  asset; and updated the `CONTRIBUTING`, pull-request-template, and
-  code-of-conduct references.
-
-> No library code changes — this is a documentation and example-app release; no
-> code changes are needed to upgrade.
+  `ShowCaseWidget` and `Showcase` / `Showcase.withWidget` property tables).
 
 ## 1.10.0
 
