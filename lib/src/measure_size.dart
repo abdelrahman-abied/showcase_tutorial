@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Simform Solutions
+
  * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,15 +33,10 @@ typedef OnWidgetSizeChange = void Function(Size? size);
 class MeasureSize extends SingleChildRenderObjectWidget {
   final OnWidgetSizeChange onSizeChange;
 
-  const MeasureSize({
-    super.key,
-    required this.onSizeChange,
-    super.child,
-  });
+  const MeasureSize({super.key, required this.onSizeChange, super.child});
 
   @override
-  RenderObject createRenderObject(BuildContext context) =>
-      _MeasureSizeRenderObject(onSizeChange);
+  RenderObject createRenderObject(BuildContext context) => _MeasureSizeRenderObject(onSizeChange);
 
   @override
   void updateRenderObject(BuildContext context, RenderObject renderObject) {

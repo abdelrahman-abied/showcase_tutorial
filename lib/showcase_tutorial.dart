@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Simform Solutions
+
  * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy

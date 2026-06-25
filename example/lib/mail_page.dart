@@ -64,7 +64,7 @@ class _MailPageState extends State<MailPage> {
         isUnread: false,
       ),
       Mail(
-        sender: 'Simform',
+        sender: 'Abdulrahman',
         sub: 'Credit card Plugin',
         msg: 'Check out our credit card plugin',
         date: '5 May',
@@ -85,7 +85,7 @@ class _MailPageState extends State<MailPage> {
         isUnread: false,
       ),
       Mail(
-        sender: 'Simform',
+        sender: 'Abdulrahman',
         sub: 'Credit card Plugin',
         msg: 'Check out our credit card plugin',
         date: '8 May',
@@ -240,7 +240,7 @@ class _MailPageState extends State<MailPage> {
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                         ),
-                        child: Image.asset('assets/simform.png'),
+                        child: Image.asset('assets/abdulrahman.png'),
                       ),
                     ),
                     const SizedBox(

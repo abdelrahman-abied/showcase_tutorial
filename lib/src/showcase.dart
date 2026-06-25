@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021 Simform Solutions
+
  * Copyright (c) 2026 Abdulrahman Mohamed
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -600,12 +600,12 @@ class _ShowcaseState extends State<Showcase> {
   /// to screen readers. A no-op when no screen reader is active.
   void _announceForAccessibility() {
     if (!showCaseWidgetState.enableAutoAnnouncements) return;
-    final label = widget.semanticLabel ??
-        [widget.title, widget.description]
-            .whereType<String>()
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .join('. ');
+    final label =
+        widget.semanticLabel ??
+        [
+          widget.title,
+          widget.description,
+        ].whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty).join('. ');
     if (label.isEmpty) return;
     final textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
     // `announce` is kept for compatibility with the package's Flutter floor
@@ -630,8 +630,7 @@ class _ShowcaseState extends State<Showcase> {
       _nextIfAny();
       return KeyEventResult.handled;
     }
-    if (key == LogicalKeyboardKey.arrowLeft ||
-        key == LogicalKeyboardKey.arrowUp) {
+    if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowUp) {
       showCaseWidgetState.previous();
       return KeyEventResult.handled;
     }
@@ -677,9 +676,7 @@ class _ShowcaseState extends State<Showcase> {
         showOverlay: true,
         // Wrap in a RepaintBoundary so the target can be captured as a snapshot
         // and highlighted in its exact painted shape.
-        child: widget.highlightExactShape
-            ? RepaintBoundary(key: _childBoundaryKey, child: widget.child)
-            : widget.child,
+        child: widget.highlightExactShape ? RepaintBoundary(key: _childBoundaryKey, child: widget.child) : widget.child,
       );
     }
     return widget.child;
@@ -737,10 +734,7 @@ class _ShowcaseState extends State<Showcase> {
               width: boundary.size.width,
               height: boundary.size.height,
               decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: MemoryImage(byteData.buffer.asUint8List()),
-                  fit: BoxFit.fill,
-                ),
+                image: DecorationImage(image: MemoryImage(byteData.buffer.asUint8List()), fit: BoxFit.fill),
               ),
             ),
           ),
@@ -836,182 +830,170 @@ class _ShowcaseState extends State<Showcase> {
     // Resolve the optional highlight border (per-Showcase wins, then the global
     // ShowcaseStyle). A null color means no border is drawn.
     final style = showCaseWidgetState.style;
-    final highlightBorderColor =
-        widget.highlightBorderColor ?? style.highlightBorderColor;
-    final highlightBorderWidth =
-        widget.highlightBorderWidth ?? style.highlightBorderWidth ?? 2.0;
+    final highlightBorderColor = widget.highlightBorderColor ?? style.highlightBorderColor;
+    final highlightBorderWidth = widget.highlightBorderWidth ?? style.highlightBorderWidth ?? 2.0;
 
     final Widget overlay = Directionality(
       textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
       child: ShowcaseContextProvider(
-            context: context,
-            child: Stack(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    switch (showCaseWidgetState.barrierInteraction) {
-                      case BarrierInteraction.next:
-                        _nextIfAny();
-                        break;
-                      case BarrierInteraction.dismiss:
-                        _dismissShowcaseTour();
-                        break;
-                      case BarrierInteraction.none:
-                        break;
+        context: context,
+        child: Stack(
+          children: [
+            GestureDetector(
+              onTap: () {
+                switch (showCaseWidgetState.barrierInteraction) {
+                  case BarrierInteraction.next:
+                    _nextIfAny();
+                    break;
+                  case BarrierInteraction.dismiss:
+                    _dismissShowcaseTour();
+                    break;
+                  case BarrierInteraction.none:
+                    break;
+                }
+              },
+              child: ClipPath(
+                clipper: RRectClipper(
+                  // With an exact-shape highlight the snapshot provides the
+                  // cut-out, so the overlay dims the whole screen (no hole).
+                  area: (_isScrollRunning || widget.highlightExactShape) ? Rect.zero : rectBound,
+                  isCircle: widget.targetShapeBorder is CircleBorder,
+                  radius: _isScrollRunning ? BorderRadius.zero : widget.targetBorderRadius,
+                  overlayPadding: _isScrollRunning ? EdgeInsets.zero : widget.targetPadding,
+                ),
+                child: blur != 0
+                    ? BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                        child: Container(
+                          width: MediaQuery.sizeOf(context).width,
+                          height: MediaQuery.sizeOf(context).height,
+                          decoration: BoxDecoration(
+                            color: widget.overlayColor.withValues(alpha: widget.overlayOpacity),
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: MediaQuery.sizeOf(context).width,
+                        height: MediaQuery.sizeOf(context).height,
+                        decoration: BoxDecoration(color: widget.overlayColor.withValues(alpha: widget.overlayOpacity)),
+                      ),
+              ),
+            ),
+            if (_isScrollRunning) Center(child: widget.scrollLoadingWidget),
+            if (!_isScrollRunning) ...[
+              if (widget.enablePulseAnimation)
+                _PulsingOverlay(
+                  // Match the static cut-out: the target bounds expanded by
+                  // the same target padding the clipper uses.
+                  targetRect: Rect.fromLTRB(
+                    rectBound.left - widget.targetPadding.left,
+                    rectBound.top - widget.targetPadding.top,
+                    rectBound.right + widget.targetPadding.right,
+                    rectBound.bottom + widget.targetPadding.bottom,
+                  ),
+                  isCircle: widget.targetShapeBorder is CircleBorder,
+                  borderRadius: widget.targetBorderRadius,
+                  color: widget.pulseColor ?? showCaseWidgetState.style.pulseColor ?? Colors.white,
+                  duration: widget.pulseDuration,
+                ),
+              _TargetWidget(
+                offset: offset,
+                size: size,
+                onTap: _getOnTargetTap,
+                radius: widget.targetBorderRadius,
+                onDoubleTap: widget.onTargetDoubleTap,
+                onLongPress: widget.onTargetLongPress,
+                shapeBorder: widget.targetShapeBorder,
+                disableDefaultChildGestures: widget.disableDefaultTargetGestures,
+              ),
+              if (widget.keys != null && widget.keys!.isNotEmpty) ...[
+                FutureBuilder<List<Widget>>(
+                  future: _buildCopys(context),
+                  builder: (context, AsyncSnapshot<List<Widget>> snapshot) {
+                    if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+                      return Stack(children: snapshot.data!);
+                    } else {
+                      return const SizedBox.shrink();
                     }
                   },
-                  child: ClipPath(
-                    clipper: RRectClipper(
-                      // With an exact-shape highlight the snapshot provides the
-                      // cut-out, so the overlay dims the whole screen (no hole).
-                      area: (_isScrollRunning || widget.highlightExactShape) ? Rect.zero : rectBound,
-                      isCircle: widget.targetShapeBorder is CircleBorder,
-                      radius: _isScrollRunning ? BorderRadius.zero : widget.targetBorderRadius,
-                      overlayPadding: _isScrollRunning ? EdgeInsets.zero : widget.targetPadding,
-                    ),
-                    child: blur != 0
-                        ? BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                            child: Container(
-                              width: MediaQuery.sizeOf(context).width,
-                              height: MediaQuery.sizeOf(context).height,
-                              decoration: BoxDecoration(
-                                color: widget.overlayColor.withValues(alpha: widget.overlayOpacity),
-                              ),
-                            ),
-                          )
-                        : Container(
-                            width: MediaQuery.sizeOf(context).width,
-                            height: MediaQuery.sizeOf(context).height,
-                            decoration: BoxDecoration(
-                              color: widget.overlayColor.withValues(alpha: widget.overlayOpacity),
-                            ),
-                          ),
-                  ),
                 ),
-                if (_isScrollRunning) Center(child: widget.scrollLoadingWidget),
-                if (!_isScrollRunning) ...[
-                  if (widget.enablePulseAnimation)
-                    _PulsingOverlay(
-                      // Match the static cut-out: the target bounds expanded by
-                      // the same target padding the clipper uses.
-                      targetRect: Rect.fromLTRB(
-                        rectBound.left - widget.targetPadding.left,
-                        rectBound.top - widget.targetPadding.top,
-                        rectBound.right + widget.targetPadding.right,
-                        rectBound.bottom + widget.targetPadding.bottom,
-                      ),
-                      isCircle: widget.targetShapeBorder is CircleBorder,
-                      borderRadius: widget.targetBorderRadius,
-                      color: widget.pulseColor ??
-                          showCaseWidgetState.style.pulseColor ??
-                          Colors.white,
-                      duration: widget.pulseDuration,
-                    ),
-                  _TargetWidget(
-                    offset: offset,
-                    size: size,
-                    onTap: _getOnTargetTap,
-                    radius: widget.targetBorderRadius,
-                    onDoubleTap: widget.onTargetDoubleTap,
-                    onLongPress: widget.onTargetLongPress,
-                    shapeBorder: widget.targetShapeBorder,
-                    disableDefaultChildGestures: widget.disableDefaultTargetGestures,
-                  ),
-                  if (widget.keys != null && widget.keys!.isNotEmpty) ...[
-                    FutureBuilder<List<Widget>>(
-                      future: _buildCopys(context),
-                      builder: (context, AsyncSnapshot<List<Widget>> snapshot) {
-                        if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
-                          return Stack(children: snapshot.data!);
-                        } else {
-                          return const SizedBox.shrink();
-                        }
-                      },
-                    ),
-                  ],
-                  if (widget.highlightExactShape)
-                    FutureBuilder<Widget?>(
-                      future: _buildExactShapeCopy(context),
-                      builder: (context, AsyncSnapshot<Widget?> snapshot) {
-                        return snapshot.data ?? const SizedBox.shrink();
-                      },
-                    ),
-                  if (highlightBorderColor != null)
-                    _HighlightBorder(
-                      // Same rect as the cut-out: target bounds expanded by the
-                      // target padding the clipper uses.
-                      targetRect: Rect.fromLTRB(
-                        rectBound.left - widget.targetPadding.left,
-                        rectBound.top - widget.targetPadding.top,
-                        rectBound.right + widget.targetPadding.right,
-                        rectBound.bottom + widget.targetPadding.bottom,
-                      ),
-                      isCircle: widget.targetShapeBorder is CircleBorder,
-                      borderRadius: widget.targetBorderRadius,
-                      color: highlightBorderColor,
-                      strokeWidth: highlightBorderWidth,
-                    ),
-                  ToolTipWidget(
-                    position: position,
-                    offset: offset,
-                    screenSize: screenSize,
-                    title: widget.title,
-                    titleAlignment: widget.titleAlignment,
-                    description: widget.description,
-                    descriptionAlignment: widget.descriptionAlignment,
-                    titleTextStyle: widget.titleTextStyle ?? showCaseWidgetState.style.titleTextStyle,
-                    descTextStyle: widget.descTextStyle ?? showCaseWidgetState.style.descTextStyle,
-                    container: widget.container,
-                    tooltipBackgroundColor: widget.tooltipBackgroundColor ??
-                        showCaseWidgetState.style.tooltipBackgroundColor ??
-                        Colors.white,
-                    textColor: widget.textColor ?? showCaseWidgetState.style.textColor ?? Colors.black,
-                    showArrow: widget.showArrow,
-                    arrowColor: widget.arrowColor ?? style.arrowColor,
-                    arrowWidth: widget.arrowWidth ?? style.arrowWidth ?? 18.0,
-                    arrowHeight: widget.arrowHeight ?? style.arrowHeight ?? 9.0,
-                    contentHeight: widget.height,
-                    contentWidth: widget.width,
-                    onTooltipTap: _getOnTooltipTap,
-                    tooltipPadding: widget.tooltipPadding,
-                    disableMovingAnimation: widget.disableMovingAnimation ?? showCaseWidgetState.disableMovingAnimation,
-                    disableScaleAnimation: widget.disableScaleAnimation ?? showCaseWidgetState.disableScaleAnimation,
-                    movingAnimationDuration: widget.movingAnimationDuration,
-                    tooltipBorderRadius: widget.tooltipBorderRadius ?? showCaseWidgetState.style.tooltipBorderRadius,
-                    scaleAnimationDuration: widget.scaleAnimationDuration,
-                    scaleAnimationCurve: widget.scaleAnimationCurve,
-                    scaleAnimationAlignment: widget.scaleAnimationAlignment,
-                    isTooltipDismissed: _isTooltipDismissed,
-                    tooltipPosition: widget.tooltipPosition,
-                    titlePadding: widget.titlePadding,
-                    descriptionPadding: widget.descriptionPadding,
-                    actions: widget.actions,
-                    actionSettings: widget.actionSettings,
-                    actionButtonsPosition: widget.actionButtonsPosition,
-                    showProgress: showCaseWidgetState.showProgress,
-                    progressStyle: showCaseWidgetState.progressStyle,
-                    showSkip: showCaseWidgetState.showSkip,
-                    skipText: showCaseWidgetState.skipButtonText,
-                    currentStep: showCaseWidgetState.currentIndex ?? 0,
-                    totalSteps: showCaseWidgetState.totalSteps,
-                    onSkip: _dismissShowcaseTour,
-                  ),
-                ],
               ],
-            ),
-          ),
+              if (widget.highlightExactShape)
+                FutureBuilder<Widget?>(
+                  future: _buildExactShapeCopy(context),
+                  builder: (context, AsyncSnapshot<Widget?> snapshot) {
+                    return snapshot.data ?? const SizedBox.shrink();
+                  },
+                ),
+              if (highlightBorderColor != null)
+                _HighlightBorder(
+                  // Same rect as the cut-out: target bounds expanded by the
+                  // target padding the clipper uses.
+                  targetRect: Rect.fromLTRB(
+                    rectBound.left - widget.targetPadding.left,
+                    rectBound.top - widget.targetPadding.top,
+                    rectBound.right + widget.targetPadding.right,
+                    rectBound.bottom + widget.targetPadding.bottom,
+                  ),
+                  isCircle: widget.targetShapeBorder is CircleBorder,
+                  borderRadius: widget.targetBorderRadius,
+                  color: highlightBorderColor,
+                  strokeWidth: highlightBorderWidth,
+                ),
+              ToolTipWidget(
+                position: position,
+                offset: offset,
+                screenSize: screenSize,
+                title: widget.title,
+                titleAlignment: widget.titleAlignment,
+                description: widget.description,
+                descriptionAlignment: widget.descriptionAlignment,
+                titleTextStyle: widget.titleTextStyle ?? showCaseWidgetState.style.titleTextStyle,
+                descTextStyle: widget.descTextStyle ?? showCaseWidgetState.style.descTextStyle,
+                container: widget.container,
+                tooltipBackgroundColor:
+                    widget.tooltipBackgroundColor ?? showCaseWidgetState.style.tooltipBackgroundColor ?? Colors.white,
+                textColor: widget.textColor ?? showCaseWidgetState.style.textColor ?? Colors.black,
+                showArrow: widget.showArrow,
+                arrowColor: widget.arrowColor ?? style.arrowColor,
+                arrowWidth: widget.arrowWidth ?? style.arrowWidth ?? 18.0,
+                arrowHeight: widget.arrowHeight ?? style.arrowHeight ?? 9.0,
+                contentHeight: widget.height,
+                contentWidth: widget.width,
+                onTooltipTap: _getOnTooltipTap,
+                tooltipPadding: widget.tooltipPadding,
+                disableMovingAnimation: widget.disableMovingAnimation ?? showCaseWidgetState.disableMovingAnimation,
+                disableScaleAnimation: widget.disableScaleAnimation ?? showCaseWidgetState.disableScaleAnimation,
+                movingAnimationDuration: widget.movingAnimationDuration,
+                tooltipBorderRadius: widget.tooltipBorderRadius ?? showCaseWidgetState.style.tooltipBorderRadius,
+                scaleAnimationDuration: widget.scaleAnimationDuration,
+                scaleAnimationCurve: widget.scaleAnimationCurve,
+                scaleAnimationAlignment: widget.scaleAnimationAlignment,
+                isTooltipDismissed: _isTooltipDismissed,
+                tooltipPosition: widget.tooltipPosition,
+                titlePadding: widget.titlePadding,
+                descriptionPadding: widget.descriptionPadding,
+                actions: widget.actions,
+                actionSettings: widget.actionSettings,
+                actionButtonsPosition: widget.actionButtonsPosition,
+                showProgress: showCaseWidgetState.showProgress,
+                progressStyle: showCaseWidgetState.progressStyle,
+                showSkip: showCaseWidgetState.showSkip,
+                skipText: showCaseWidgetState.skipButtonText,
+                currentStep: showCaseWidgetState.currentIndex ?? 0,
+                totalSteps: showCaseWidgetState.totalSteps,
+                onSkip: _dismissShowcaseTour,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
 
     if (!showCaseWidgetState.enableKeyboardNavigation) return overlay;
     // Focus-scoped: keys are handled only while this overlay holds focus, so
     // navigation never hijacks keys from the rest of the app.
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: true,
-      onKeyEvent: _handleKeyEvent,
-      child: overlay,
-    );
+    return Focus(focusNode: _focusNode, autofocus: true, onKeyEvent: _handleKeyEvent, child: overlay);
   }
 }
 
@@ -1101,10 +1083,8 @@ class _PulsingOverlay extends StatefulWidget {
   State<_PulsingOverlay> createState() => _PulsingOverlayState();
 }
 
-class _PulsingOverlayState extends State<_PulsingOverlay>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller =
-      AnimationController(vsync: this, duration: widget.duration);
+class _PulsingOverlayState extends State<_PulsingOverlay> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(vsync: this, duration: widget.duration);
 
   /// Whether the platform "reduce motion" accessibility setting is on. When it
   /// is, the controller stays idle and a single static ring is drawn.
@@ -1153,23 +1133,18 @@ class _PulsingOverlayState extends State<_PulsingOverlay>
     // is cheaper to re-raster each frame) for a couple of thin rings.
     const margin = _PulsingRingPainter._maxExtent + _PulsingRingPainter._strokeWidth;
     final bounds = widget.targetRect.inflate(margin);
-    final localTarget = Rect.fromLTWH(
-      margin,
-      margin,
-      widget.targetRect.width,
-      widget.targetRect.height,
-    );
+    final localTarget = Rect.fromLTWH(margin, margin, widget.targetRect.width, widget.targetRect.height);
 
     CustomPaint paintRing(double? progress) => CustomPaint(
-          size: bounds.size,
-          painter: _PulsingRingPainter(
-            targetRect: localTarget,
-            isCircle: widget.isCircle,
-            borderRadius: widget.borderRadius,
-            color: widget.color,
-            progress: progress,
-          ),
-        );
+      size: bounds.size,
+      painter: _PulsingRingPainter(
+        targetRect: localTarget,
+        isCircle: widget.isCircle,
+        borderRadius: widget.borderRadius,
+        color: widget.color,
+        progress: progress,
+      ),
+    );
 
     return Positioned.fromRect(
       rect: bounds,
@@ -1179,10 +1154,7 @@ class _PulsingOverlayState extends State<_PulsingOverlay>
           // AnimatedBuilder rebuild entirely and draw a single static ring.
           child: _reduceMotion
               ? paintRing(null)
-              : AnimatedBuilder(
-                  animation: _controller,
-                  builder: (context, _) => paintRing(_controller.value),
-                ),
+              : AnimatedBuilder(animation: _controller, builder: (context, _) => paintRing(_controller.value)),
         ),
       ),
     );
@@ -1300,12 +1272,7 @@ class _HighlightBorder extends StatelessWidget {
     // width beyond the edge) rather than the whole screen.
     final margin = strokeWidth;
     final bounds = targetRect.inflate(margin);
-    final localTarget = Rect.fromLTWH(
-      margin,
-      margin,
-      targetRect.width,
-      targetRect.height,
-    );
+    final localTarget = Rect.fromLTWH(margin, margin, targetRect.width, targetRect.height);
 
     return Positioned.fromRect(
       rect: bounds,
