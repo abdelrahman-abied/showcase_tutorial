@@ -841,6 +841,9 @@ class _ShowcaseState extends State<Showcase> {
           children: [
             GestureDetector(
               onTap: () {
+                // Notify the barrier-tap listener first, regardless of what the
+                // tap is configured to do (it fires even for `.none`).
+                showCaseWidgetState.onBarrierClick?.call();
                 switch (showCaseWidgetState.barrierInteraction) {
                   case BarrierInteraction.next:
                     _nextIfAny();
