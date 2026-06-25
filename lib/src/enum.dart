@@ -45,6 +45,18 @@ enum TooltipPosition {
   bool get isVertical => this == top || this == bottom;
 }
 
+/// How the built-in step indicator is rendered in the default tooltip.
+///
+/// Set it on [ShowCaseWidget.progressStyle] (only applies when
+/// [ShowCaseWidget.showProgress] is `true`).
+enum ShowcaseProgressStyle {
+  /// One dot per step, with the active step highlighted (the default).
+  dots,
+
+  /// A compact "current / total" counter, e.g. `1/6`.
+  numeric,
+}
+
 /// What happens when the user taps the dimmed background (the barrier) while a
 /// showcase step is visible.
 ///
