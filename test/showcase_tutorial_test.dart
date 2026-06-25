@@ -1158,6 +1158,181 @@ void main() {
     expect(find.text('Skip tour'), findsOneWidget);
     expect(find.text('Skip'), findsNothing);
   });
+
+  // Builds a four-step showcase wired with a branching resolver.
+  Widget buildBranchApp(
+    GlobalKey k1,
+    GlobalKey k2,
+    GlobalKey k3,
+    GlobalKey k4, {
+    GlobalKey? Function(int, GlobalKey)? onResolveNextStep,
+  }) {
+    return MaterialApp(
+      home: ShowCaseWidget(
+        disableMovingAnimation: true,
+        disableScaleAnimation: true,
+        onResolveNextStep: onResolveNextStep,
+        builder: Builder(
+          builder: (context) => Scaffold(
+            body: Column(
+              children: [
+                Showcase(
+                    key: k1, title: 'One', description: 'd', child: const Text('t1')),
+                Showcase(
+                    key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                Showcase(
+                    key: k3, title: 'Three', description: 'd', child: const Text('t3')),
+                Showcase(
+                    key: k4, title: 'Four', description: 'd', child: const Text('t4')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  group('conditional / branching tours (onResolveNextStep)', () {
+    testWidgets('next() branches ahead to the resolved step', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      final k4 = GlobalKey();
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
+          onResolveNextStep: (index, key) => key == k1 ? k4 : null));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2, k3, k4]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('One'), findsOneWidget);
+
+      state.next(); // resolver branches k1 -> k4, skipping k2 and k3
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(state.currentIndex, 3);
+      expect(find.text('Four'), findsOneWidget);
+      expect(find.text('Two'), findsNothing);
+    });
+
+    testWidgets('completed() (Next button / tap path) honors the branch',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      final k4 = GlobalKey();
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
+          onResolveNextStep: (index, key) => key == k1 ? k3 : null));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2, k3, k4]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // completed() is what the default Next button, target tap and barrier use.
+      state.completed(k1);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(state.currentIndex, 2);
+      expect(find.text('Three'), findsOneWidget);
+    });
+
+    testWidgets('returning null falls through to the normal next step',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      final k4 = GlobalKey();
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
+          onResolveNextStep: (index, key) => null));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2, k3, k4]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(state.currentIndex, 1);
+      expect(find.text('Two'), findsOneWidget);
+    });
+
+    testWidgets('resolver receives the current index and key', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      final k4 = GlobalKey();
+      int? seenIndex;
+      GlobalKey? seenKey;
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
+          onResolveNextStep: (index, key) {
+        seenIndex = index;
+        seenKey = key;
+        return null;
+      }));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2, k3, k4]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.next();
+      expect(seenIndex, 0);
+      expect(seenKey, k1);
+    });
+
+    testWidgets('a branch can jump backward to an earlier step',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      final k4 = GlobalKey();
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
+          onResolveNextStep: (index, key) => key == k3 ? k1 : null));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2, k3, k4]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.goTo(2); // jump to k3 (goTo ignores the resolver)
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Three'), findsOneWidget);
+
+      state.next(); // resolver branches k3 -> k1
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(state.currentIndex, 0);
+      expect(find.text('One'), findsOneWidget);
+    });
+
+    testWidgets('previous() ignores the resolver', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      final k4 = GlobalKey();
+      // Resolver would always branch forward to k4 if it were consulted.
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
+          onResolveNextStep: (index, key) => k4));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2, k3, k4]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.goTo(2); // k3
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.previous(); // must step back to k2, not branch to k4
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(state.currentIndex, 1);
+      expect(find.text('Two'), findsOneWidget);
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

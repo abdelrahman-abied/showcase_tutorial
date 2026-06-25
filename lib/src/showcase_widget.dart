@@ -170,6 +170,28 @@ class ShowCaseWidget extends StatefulWidget {
   /// whole tour. Defaults to `false`.
   final bool showSkip;
 
+  /// Resolves the next step at runtime, enabling conditional / branching tours.
+  ///
+  /// Called whenever the tour advances **forward** from the step at
+  /// [currentIndex] (whose target is [currentKey]) — via the Next button, a tap
+  /// on the target or tooltip, the barrier, the keyboard, autoplay, or
+  /// [ShowCaseWidgetState.next]. Return the [GlobalKey] of the step to jump to,
+  /// which must be one of the keys passed to
+  /// [ShowCaseWidgetState.startShowCase], to branch or skip ahead; return `null`
+  /// to fall through to the normal next step.
+  ///
+  /// The returned step may be ahead of or behind the current one, so a tour can
+  /// skip steps or revisit an earlier one based on app state (e.g. "if the user
+  /// already has items, jump to the checkout step"). A branch is treated as an
+  /// explicit jump, like [ShowCaseWidgetState.goTo], so
+  /// [autoSkipUnmountedSteps] is not applied to the target.
+  ///
+  /// Not consulted by [ShowCaseWidgetState.previous],
+  /// [ShowCaseWidgetState.goTo], or [ShowCaseWidgetState.goToKey], which are
+  /// explicit navigation. Defaults to `null` (no branching).
+  final GlobalKey? Function(int currentIndex, GlobalKey currentKey)?
+      onResolveNextStep;
+
   /// Label for the skip button (see [showSkip]). Defaults to `'Skip'`.
   final String skipButtonText;
 
@@ -202,6 +224,7 @@ class ShowCaseWidget extends StatefulWidget {
     this.progressStyle = ShowcaseProgressStyle.dots,
     this.showSkip = false,
     this.skipButtonText = 'Skip',
+    this.onResolveNextStep,
   });
 
   /// Returns the [GlobalKey] of the currently active step's target, or `null`
@@ -371,13 +394,38 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     return index;
   }
 
+  /// Resolves the index to advance to when moving forward from [fromIndex].
+  ///
+  /// Consults [ShowCaseWidget.onResolveNextStep] for conditional / branching
+  /// tours: when it returns a [GlobalKey] that is part of the running tour, that
+  /// step's index is used as an explicit jump (no [_nextMountedIndex] applied,
+  /// mirroring [goTo]). Otherwise the default next index — [fromIndex] + 1,
+  /// adjusted for [ShowCaseWidget.autoSkipUnmountedSteps] — is returned.
+  int _forwardTargetIndex(int fromIndex) {
+    final resolver = widget.onResolveNextStep;
+    if (resolver != null && ids != null) {
+      final target = resolver(fromIndex, ids![fromIndex]);
+      if (target != null) {
+        final branchIndex = ids!.indexOf(target);
+        assert(
+          branchIndex != -1,
+          'onResolveNextStep returned a GlobalKey that is not part of the '
+          'running showcase tour. Return one of the keys passed to '
+          'startShowCase, or null to advance to the next step normally.',
+        );
+        if (branchIndex != -1) return branchIndex;
+      }
+    }
+    return _nextMountedIndex(fromIndex + 1, 1);
+  }
+
   /// Completes showcase of given key and starts next one
   /// otherwise will finish the entire showcase view
   void completed(GlobalKey? key) {
     if (ids != null && ids![activeWidgetId!] == key && mounted) {
       setState(() {
         _onComplete();
-        activeWidgetId = _nextMountedIndex(activeWidgetId! + 1, 1);
+        activeWidgetId = _forwardTargetIndex(activeWidgetId!);
         _onStart();
 
         if (activeWidgetId! >= ids!.length) {
@@ -394,7 +442,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     if (ids != null && mounted) {
       setState(() {
         _onComplete();
-        activeWidgetId = _nextMountedIndex(activeWidgetId! + 1, 1);
+        activeWidgetId = _forwardTargetIndex(activeWidgetId!);
         _onStart();
 
         if (activeWidgetId! >= ids!.length) {
