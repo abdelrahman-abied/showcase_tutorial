@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.10.0
+
+* FEAT: **conditional / branching tours** — a new `ShowCaseWidget.onResolveNextStep`
+  callback lets a step decide the next step at runtime, so a tour can skip ahead
+  or branch based on app state (e.g. "if the user already has items, jump to the
+  checkout step"). It's consulted on every forward path (the Next button, a tap,
+  the barrier, the keyboard, auto-play, and `next()`); return the `GlobalKey` of
+  the step to jump to, or `null` to advance normally. Backward and forward jumps
+  are both allowed, and a branch is treated as an explicit jump (like `goTo`).
+  `previous()`, `goTo()`, and `goToKey()` are unaffected. Additive and
+  backward-compatible — the default is `null` (no branching).
+
 ## 1.9.0
 
 * FEAT: **numeric progress indicator** — `ShowCaseWidget.progressStyle` chooses

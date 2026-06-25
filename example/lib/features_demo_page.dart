@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
 
-/// A scratch page to manually exercise the 1.4.0 features:
+/// A scratch page to manually exercise the package features:
 /// left/right tooltip positions, the progress API, auto-skip of unmounted
-/// steps, RTL, and custom action-button text.
+/// steps, RTL, custom action-button text, and conditional / branching tours
+/// (`onResolveNextStep`).
 class FeaturesDemoPage extends StatefulWidget {
   const FeaturesDemoPage({super.key});
 
@@ -27,6 +28,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   bool _rtl = false;
   bool _numericProgress = false; // dots vs "1/6" progress indicator
   bool _includeConditional = false; // off => that step is auto-skipped
+  bool _branchSkipAhead = false; // on => branch from P straight to the last step
   int _step = 0;
   int _total = 0;
   BarrierInteraction _barrier = BarrierInteraction.next;
@@ -44,6 +46,13 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
             ? ShowcaseProgressStyle.numeric
             : ShowcaseProgressStyle.dots,
         showSkip: true,
+        // Conditional / branching tour: when the toggle is on, advancing past
+        // the pulsing "P" step jumps straight to the last "B" step, skipping
+        // the styled / custom-buttons / conditional steps in between.
+        onResolveNextStep: (index, key) {
+          if (_branchSkipAhead && key == _pulse) return _bottom;
+          return null; // fall through to the normal next step
+        },
         onStart: (index, key) => setState(() => _step = (index ?? 0) + 1),
         builder: Builder(
           builder: (context) {
@@ -235,6 +244,14 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                               setState(() => _includeConditional = v ?? false),
                           title: const Text(
                               'Include conditional step (off → auto-skipped)'),
+                        ),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _branchSkipAhead,
+                          onChanged: (v) =>
+                              setState(() => _branchSkipAhead = v ?? false),
+                          title: const Text(
+                              'Branch: skip from P straight to the last step'),
                         ),
                         // Barrier-tap behavior: tap the dimmed background to see it.
                         SegmentedButton<BarrierInteraction>(

@@ -26,6 +26,7 @@ onboarding tours and feature discovery.
 - Built-in **progress indicator** (dots or a `1/6` counter) and a **Skip** button in the default tooltip.
 - Auto-play, auto-scroll, and background blur.
 - Programmatic control & progress: `next()`, `previous()`, `goTo()`, `dismiss()`, "Step x of y".
+- **Conditional / branching tours** — let a step decide the next step at runtime (`onResolveNextStep`).
 - Per-step **lifecycle callbacks** (`onShow` / `onDismiss`) and configurable background-tap behavior.
 - **Show the tour only once** for onboarding, and auto-skip steps not on screen.
 - **Accessibility**: keyboard navigation (Esc / arrows / Enter) and screen-reader announcements.
@@ -426,6 +427,32 @@ ShowCaseWidget(
 );
 ```
 
+## Conditional / branching tours
+
+Let a step decide the next step at runtime so the tour can skip ahead or branch
+based on app state. Set `onResolveNextStep` on `ShowCaseWidget`: it's called
+whenever the tour advances **forward** and returns the `GlobalKey` of the step
+to jump to (one of the keys passed to `startShowCase`), or `null` to advance to
+the normal next step.
+
+```dart
+ShowCaseWidget(
+  onResolveNextStep: (currentIndex, currentKey) {
+    // e.g. if the user already has items, skip the "add to cart" step
+    // and jump straight to checkout.
+    if (currentKey == cartKey && userHasItems) return checkoutKey;
+    return null; // otherwise advance normally
+  },
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+The resolver is honored by **every** forward path — the Next button, a tap on
+the target or tooltip, the barrier, the keyboard, auto-play, and `next()`. The
+returned step may be ahead of or behind the current one, and a branch is treated
+as an explicit jump (like `goTo`), so `autoSkipUnmountedSteps` is not applied to
+the target. `previous()`, `goTo()`, and `goToKey()` ignore the resolver.
+
 ## Target interactions
 
 Respond to taps on the highlighted widget. `onTargetClick` requires
@@ -607,6 +634,7 @@ ShowCaseWidget(
 | progressStyle             | ShowcaseProgressStyle      | ShowcaseProgressStyle.dots     | Indicator style: dots or a `1/6` numeric counter.                                |
 | showSkip                  | bool                       | false                          | Show a "Skip" button in the default tooltip that ends the tour.                  |
 | skipButtonText            | String                     | 'Skip'                         | Label for the skip button.                                                       |
+| onResolveNextStep         | Function(int, GlobalKey)?  |                                | Decide the next step at runtime: return a step key to branch, or null.           |
 
 ## Properties of `Showcase` and `Showcase.withWidget`
 
