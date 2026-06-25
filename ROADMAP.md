@@ -24,11 +24,6 @@ complete as of **1.6.0**; the items below are optional.
       an ordered-list prefix). They render fine but tidying them keeps the source
       clean and silences the IDE warnings.
 
-- [x] **Migration / upgrade note in the README**
-      A short "Upgrading" section summarizing what landed across 1.4 → 1.6 (exact
-      shape, lifecycle callbacks, barrier behavior, accessibility, progress/skip)
-      so existing users can see what's new and how to opt in at a glance.
-
 - [x] **Ship `demo.gif` as a pub.dev screenshot**
       pub.dev shows `screenshots:` from the pubspec in a dedicated carousel, but
       each file must be under 4 MiB. `demo.gif` is 4.59 MiB, so it's currently
@@ -64,12 +59,11 @@ complete as of **1.6.0**; the items below are optional.
       tour can skip ahead or branch based on app state (e.g. "if the user already
       has items, jump to step 5"). Builds on the existing `goTo` / `goToKey` API.
 
-## Upstream parity (missing vs Simform showcaseview ≤ 5.1.0)
+## Planned features
 
-Features present in upstream `showcaseview` (through 5.1.0) that this fork does not
-yet have. All are additive and backward-compatible. The contextless `ShowcaseView` /
-`ShowcaseService` rewrite is intentionally **out of scope** — this fork keeps the
-context-based `ShowCaseWidget`.
+Candidate additions for a future release — kept here to implement later. All are
+additive and backward-compatible (new options default to today's behavior), so each
+can be picked up and shipped independently.
 
 ### Quick-win options
 
