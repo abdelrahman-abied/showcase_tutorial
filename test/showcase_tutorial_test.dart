@@ -1749,6 +1749,50 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(state.isShowcaseRunning, isFalse);
   });
+
+  testWidgets('targetTooltipGap pushes the tooltip further from the target',
+      (tester) async {
+    // Returns the tooltip's top y for a given gap. The target sits at a fixed
+    // position near the top, so the tooltip renders below it (arrow up) and its
+    // top shifts down by exactly the gap.
+    Future<double> tooltipTopForGap(double gap) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Align(
+                  alignment: Alignment.topCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 40),
+                    child: Showcase(
+                      key: key,
+                      description: 'Body',
+                      targetTooltipGap: gap,
+                      child:
+                          const SizedBox(width: 40, height: 40, child: Text('t')),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      return tester.getTopLeft(find.text('Body')).dy;
+    }
+
+    final top0 = await tooltipTopForGap(0);
+    final top40 = await tooltipTopForGap(40);
+    // A 40px gap moves the tooltip 40px further down, away from the target.
+    expect(top40 - top0, closeTo(40, 1));
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

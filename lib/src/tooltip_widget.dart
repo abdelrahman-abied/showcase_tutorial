@@ -54,6 +54,10 @@ class ToolTipWidget extends StatefulWidget {
 
   /// Height (depth toward the target) of the arrow.
   final double arrowHeight;
+
+  /// Extra space (logical pixels) between the target and the tooltip, added on
+  /// top of the default offset. `0` keeps the original spacing.
+  final double targetTooltipGap;
   final double? contentHeight;
   final double? contentWidth;
   final VoidCallback? onTooltipTap;
@@ -113,6 +117,7 @@ class ToolTipWidget extends StatefulWidget {
     this.arrowColor,
     this.arrowWidth = 18.0,
     this.arrowHeight = 9.0,
+    this.targetTooltipGap = 0.0,
     required this.contentHeight,
     required this.contentWidth,
     required this.onTooltipTap,
@@ -442,7 +447,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
   Widget _buildHorizontalTooltip({required bool isLeft}) {
     final arrowShort = widget.arrowHeight; // arrow depth toward the target
     final arrowLong = widget.arrowWidth; // arrow span along the tooltip edge
-    const gap = 6.0;
+    final gap = 6.0 + widget.targetTooltipGap;
     final showArrow = widget.showArrow;
 
     // Use getRect() for the target's edges: GetPosition.getLeft()/getRight()
@@ -570,9 +575,13 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     final contentOffsetMultiplier = contentOrientation == TooltipPosition.bottom ? 1.0 : -1.0;
     isArrowUp = contentOffsetMultiplier == 1.0;
 
+    // The base 3px offset plus any caller-requested gap, pushed away from the
+    // target in whichever direction the tooltip sits (multiplier is +1 below the
+    // target, -1 above it).
+    final targetOffset = 3 + widget.targetTooltipGap;
     final contentY = isArrowUp
-        ? widget.position!.getBottom() + (contentOffsetMultiplier * 3)
-        : widget.position!.getTop() + (contentOffsetMultiplier * 3);
+        ? widget.position!.getBottom() + (contentOffsetMultiplier * targetOffset)
+        : widget.position!.getTop() + (contentOffsetMultiplier * targetOffset);
 
     final num contentFractionalOffset = contentOffsetMultiplier.clamp(-1.0, 0.0);
 

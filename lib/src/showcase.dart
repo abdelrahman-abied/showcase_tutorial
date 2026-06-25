@@ -388,6 +388,13 @@ class Showcase extends StatefulWidget {
   /// no effect unless `autoPlay` is enabled.
   final Duration? autoPlayDelay;
 
+  /// Extra space, in logical pixels, between the target and the tooltip — added
+  /// on top of the default offset.
+  ///
+  /// Applies to all tooltip positions (top / bottom / left / right). Defaults to
+  /// `0`, which keeps the original spacing.
+  final double targetTooltipGap;
+
   /// Creates a showcase step with the built-in title/description tooltip.
   ///
   /// [key] and [child] are required. Styling values left unset fall back to
@@ -447,6 +454,7 @@ class Showcase extends StatefulWidget {
     this.actionButtonsPosition,
     this.floatingActionWidget,
     this.autoPlayDelay,
+    this.targetTooltipGap = 0.0,
   }) : height = null,
        width = null,
        container = null,
@@ -499,6 +507,7 @@ class Showcase extends StatefulWidget {
     this.actionButtonsPosition,
     this.floatingActionWidget,
     this.autoPlayDelay,
+    this.targetTooltipGap = 0.0,
   }) : showArrow = false,
        arrowColor = null,
        arrowWidth = null,
@@ -995,6 +1004,7 @@ class _ShowcaseState extends State<Showcase> {
                 arrowColor: widget.arrowColor ?? style.arrowColor,
                 arrowWidth: widget.arrowWidth ?? style.arrowWidth ?? 18.0,
                 arrowHeight: widget.arrowHeight ?? style.arrowHeight ?? 9.0,
+                targetTooltipGap: widget.targetTooltipGap,
                 contentHeight: widget.height,
                 contentWidth: widget.width,
                 onTooltipTap: _getOnTooltipTap,

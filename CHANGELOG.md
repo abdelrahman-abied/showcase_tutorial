@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.14.0
+
+* FEAT: **`targetTooltipGap`** — `Showcase.targetTooltipGap` adds extra space (in
+  logical pixels) between the target and its tooltip, on top of the default
+  offset. It applies to every tooltip position (top / bottom / left / right).
+  Additive and backward-compatible — defaults to `0`, which keeps the original
+  spacing.
+
 ## 1.13.0
 
 * FEAT: **floating action widget** — pin a screen-anchored control (e.g. a fixed
