@@ -31,6 +31,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   bool _branchSkipAhead = false; // on => branch from P straight to the last step
   bool _autoPlay = false; // on => the tour auto-advances (1.5s/step)
   bool _wideGap = false; // on => the "C" step's tooltip sits further from it
+  bool _wideMargin = false; // on => the "R" step's tooltip is held further from the edges
   int _step = 0;
   int _total = 0;
   BarrierInteraction _barrier = BarrierInteraction.next;
@@ -106,8 +107,17 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                     child: Showcase(
                       key: _topLeft,
                       targetShapeBorder: const CircleBorder(),
-                      description: 'tooltipPosition.right',
+                      description: _wideMargin
+                          ? 'toolTipMargin: held 96px from the edges'
+                          : 'tooltipPosition.right',
                       tooltipPosition: TooltipPosition.right,
+                      // toolTipMargin: minimum gap kept from every screen edge.
+                      // This edge-hugging target makes the clamp visible — a wide
+                      // margin pushes the tooltip down/in from the top-left corner.
+                      // (Also applies to Showcase.withWidget containers.)
+                      toolTipMargin: _wideMargin
+                          ? const EdgeInsets.all(96)
+                          : const EdgeInsets.all(20),
                       onShow: () => setState(() => _lastEvent = 'onShow: R'),
                       onDismiss: () =>
                           setState(() => _lastEvent = 'onDismiss: R'),
@@ -293,6 +303,14 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                               setState(() => _wideGap = v ?? false),
                           title: const Text(
                               'Wide tooltip gap (the "C" step sits further away)'),
+                        ),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _wideMargin,
+                          onChanged: (v) =>
+                              setState(() => _wideMargin = v ?? false),
+                          title: const Text(
+                              'Wide tooltip margin (the "R" step held in from the edges)'),
                         ),
                         // Barrier-tap behavior: tap the dimmed background to see it.
                         SegmentedButton<BarrierInteraction>(

@@ -1,25 +1,5 @@
 # Changelog
 
-## 1.15.0
-
-* FEAT: **`toolTipMargin`** — `Showcase.toolTipMargin` (an `EdgeInsets`, default
-  `EdgeInsets.all(20)`) sets the minimum margin kept between the tooltip and the
-  screen edges: the tooltip is clamped to stay at least this far from each edge,
-  and its width/height are capped to fit within the margins. Useful to leave room
-  for a status bar, notch, or your own fixed UI. Completes the tooltip-spacing
-  pair with `targetTooltipGap`. Backward-compatible — the default reproduces the
-  previous edge spacing for ordinary tooltips.
-
-## 1.14.0
-
-* FEAT: **`targetTooltipGap`** — `Showcase.targetTooltipGap` adds extra space (in
-  logical pixels) between the target and its tooltip, on top of the default
-  offset. It applies to every tooltip position (top / bottom / left / right).
-  Additive and backward-compatible — defaults to `0`, which keeps the original
-  spacing.
-* CHORE: the example "Feature demos" page adds a "Wide tooltip gap" toggle that
-  demonstrates `targetTooltipGap` on the center step.
-
 ## 1.13.0
 
 * FEAT: **floating action widget** — pin a screen-anchored control (e.g. a fixed
@@ -37,9 +17,25 @@
   linger longer (or advance quicker) than the rest during auto-play. Defaults to
   `null` (use the tour-wide delay). As part of this, the auto-play delay now uses
   the full `Duration` instead of being truncated to whole seconds.
+* FEAT: **`targetTooltipGap`** — `Showcase.targetTooltipGap` adds extra space (in
+  logical pixels) between the target and its tooltip, on top of the default
+  offset. It applies to every tooltip position (top / bottom / left / right).
+  Additive and backward-compatible — defaults to `0`, which keeps the original
+  spacing.
+* FEAT: **`toolTipMargin`** — `Showcase.toolTipMargin` (an `EdgeInsets`, default
+  `EdgeInsets.all(20)`) sets the minimum margin kept between the tooltip and the
+  screen edges: the tooltip is clamped to stay at least this far from each edge,
+  and its width/height are capped to fit within the margins. Useful to leave room
+  for a status bar, notch, or your own fixed UI. Completes the tooltip-spacing
+  pair with `targetTooltipGap`. Backward-compatible — the default reproduces the
+  previous edge spacing for ordinary tooltips. Also applies to the custom
+  `Showcase.withWidget` container, which is now clamped within the same margins.
 * CHORE: the example app's "Feature demos" page now demonstrates the floating
-  action widget (a pinned "End tour" button, hidden on the last step) and per-step
-  `autoPlayDelay` (an "Auto-play" toggle where the star step lingers longer).
+  action widget (a pinned "End tour" button, hidden on the last step), per-step
+  `autoPlayDelay` (an "Auto-play" toggle where the star step lingers longer), a
+  "Wide tooltip gap" toggle for `targetTooltipGap` on the center step, and a "Wide
+  tooltip margin" toggle that pushes the edge-hugging "R" step's tooltip further in
+  from the screen edge.
 
 ## 1.12.0
 
