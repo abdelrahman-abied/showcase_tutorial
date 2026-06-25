@@ -29,8 +29,6 @@ import '../showcase_tutorial.dart';
 import 'get_position.dart';
 import 'measure_size.dart';
 
-const _kDefaultPaddingFromParent = 14.0;
-
 class ToolTipWidget extends StatefulWidget {
   final GetPosition? position;
   final Offset? offset;
@@ -58,6 +56,9 @@ class ToolTipWidget extends StatefulWidget {
   /// Extra space (logical pixels) between the target and the tooltip, added on
   /// top of the default offset. `0` keeps the original spacing.
   final double targetTooltipGap;
+
+  /// Minimum margin between the tooltip and the screen edges.
+  final EdgeInsets toolTipMargin;
   final double? contentHeight;
   final double? contentWidth;
   final VoidCallback? onTooltipTap;
@@ -118,6 +119,7 @@ class ToolTipWidget extends StatefulWidget {
     this.arrowWidth = 18.0,
     this.arrowHeight = 9.0,
     this.targetTooltipGap = 0.0,
+    this.toolTipMargin = const EdgeInsets.all(20),
     required this.contentHeight,
     required this.contentWidth,
     required this.onTooltipTap,
@@ -163,7 +165,6 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
   double tooltipWidth = 0;
   double tooltipHeight = 0;
   double actionWidgetHeight = 0;
-  double tooltipScreenEdgePadding = 20;
   double tooltipTextPadding = 15;
 
   TooltipPosition findPositionForContent(Offset position) {
@@ -203,8 +204,8 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
               (widget.descriptionPadding?.right ?? 0) +
               (widget.descriptionPadding?.left ?? 0));
     var maxTextWidth = max(max(titleLength, descriptionLength), _footerWidth);
-    if (maxTextWidth > widget.screenSize!.width - tooltipScreenEdgePadding) {
-      tooltipWidth = widget.screenSize!.width - tooltipScreenEdgePadding;
+    if (maxTextWidth > widget.screenSize!.width - widget.toolTipMargin.horizontal) {
+      tooltipWidth = widget.screenSize!.width - widget.toolTipMargin.horizontal;
     } else {
       tooltipWidth = maxTextWidth + tooltipTextPadding;
     }
@@ -224,8 +225,8 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
               widget.tooltipPadding!.bottom +
               widget.tooltipPadding!.top);
     var maxTextHeight = titleLength + descriptionLength + _footerHeight;
-    if (maxTextHeight > widget.screenSize!.height - tooltipScreenEdgePadding) {
-      tooltipHeight = widget.screenSize!.height - tooltipScreenEdgePadding;
+    if (maxTextHeight > widget.screenSize!.height - widget.toolTipMargin.vertical) {
+      tooltipHeight = widget.screenSize!.height - widget.toolTipMargin.vertical;
     } else {
       tooltipHeight = maxTextHeight + tooltipTextPadding;
     }
@@ -316,8 +317,8 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
       double leftPositionValue = widget.position!.getCenter() - (width * 0.5);
       if ((leftPositionValue + width) > MediaQuery.sizeOf(context).width) {
         return null;
-      } else if ((leftPositionValue) < _kDefaultPaddingFromParent) {
-        return _kDefaultPaddingFromParent;
+      } else if ((leftPositionValue) < widget.toolTipMargin.left) {
+        return widget.toolTipMargin.left;
       } else {
         return leftPositionValue;
       }
@@ -333,7 +334,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
       if (left == null || (left + width) > MediaQuery.sizeOf(context).width) {
         final rightPosition = widget.position!.getCenter() + (width * 0.5);
 
-        return (rightPosition + width) > MediaQuery.sizeOf(context).width ? _kDefaultPaddingFromParent : null;
+        return (rightPosition + width) > MediaQuery.sizeOf(context).width ? widget.toolTipMargin.right : null;
       } else {
         return null;
       }
@@ -461,11 +462,13 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     final totalWidth = tooltipWidth + arrowSpace;
 
     double left = isLeft ? rect.left - gap - totalWidth : rect.right + gap;
-    final maxLeft = max(tooltipScreenEdgePadding, screenW - totalWidth - tooltipScreenEdgePadding);
-    left = left.clamp(tooltipScreenEdgePadding, maxLeft);
+    final maxLeft =
+        max(widget.toolTipMargin.left, screenW - totalWidth - widget.toolTipMargin.right);
+    left = left.clamp(widget.toolTipMargin.left, maxLeft);
 
-    final maxTop = max(tooltipScreenEdgePadding, screenH - tooltipHeight - tooltipScreenEdgePadding);
-    final top = (targetCenterY - tooltipHeight / 2).clamp(tooltipScreenEdgePadding, maxTop);
+    final maxTop =
+        max(widget.toolTipMargin.top, screenH - tooltipHeight - widget.toolTipMargin.bottom);
+    final top = (targetCenterY - tooltipHeight / 2).clamp(widget.toolTipMargin.top, maxTop);
 
     if (!widget.disableScaleAnimation && widget.isTooltipDismissed) {
       _scaleAnimationController.reverse();

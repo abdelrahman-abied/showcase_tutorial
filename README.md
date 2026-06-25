@@ -687,6 +687,20 @@ Showcase(
 );
 ```
 
+Keep the tooltip clear of the screen edges with `toolTipMargin` (default
+`EdgeInsets.all(20)`). The tooltip is clamped to stay at least this far from each
+edge, and its size is capped to fit within the margins — useful to leave room
+for a status bar, notch, or your own fixed UI:
+
+```dart
+Showcase(
+  key: _one,
+  description: 'Stays clear of the edges',
+  toolTipMargin: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+  child: const Icon(Icons.menu),
+);
+```
+
 ## Skip off-screen steps
 
 If some showcased widgets are rendered conditionally, enable
@@ -823,6 +837,7 @@ ShowCaseWidget(
 | floatingActionWidget         | Widget?                |                                                    | Screen-anchored widget shown while this step is active (overrides the global one).          |     ✅     |          ✅           |
 | autoPlayDelay                | Duration?              | `ShowCaseWidget.autoPlayDelay`                     | Per-step auto-play visibility time, overriding the tour-wide delay.                          |     ✅     |          ✅           |
 | targetTooltipGap             | double                 | `0`                                                | Extra space (logical px) between the target and the tooltip; applies to all sides.          |     ✅     |          ✅           |
+| toolTipMargin                | EdgeInsets             | `EdgeInsets.all(20)`                               | Minimum margin between the tooltip and the screen edges (also caps its size).               |     ✅     |          ✅           |
 | targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlight (used when `targetBorderRadius` is null).                    |     ✅     |          ✅           |
 | highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
 | targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlight.                                                             |     ✅     |          ✅           |

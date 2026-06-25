@@ -395,6 +395,13 @@ class Showcase extends StatefulWidget {
   /// `0`, which keeps the original spacing.
   final double targetTooltipGap;
 
+  /// Minimum margin kept between the tooltip and the screen edges.
+  ///
+  /// The tooltip is clamped to stay at least this far from each edge, and its
+  /// width/height are capped to fit within these margins. Defaults to
+  /// `EdgeInsets.all(20)`.
+  final EdgeInsets toolTipMargin;
+
   /// Creates a showcase step with the built-in title/description tooltip.
   ///
   /// [key] and [child] are required. Styling values left unset fall back to
@@ -455,6 +462,7 @@ class Showcase extends StatefulWidget {
     this.floatingActionWidget,
     this.autoPlayDelay,
     this.targetTooltipGap = 0.0,
+    this.toolTipMargin = const EdgeInsets.all(20),
   }) : height = null,
        width = null,
        container = null,
@@ -508,6 +516,7 @@ class Showcase extends StatefulWidget {
     this.floatingActionWidget,
     this.autoPlayDelay,
     this.targetTooltipGap = 0.0,
+    this.toolTipMargin = const EdgeInsets.all(20),
   }) : showArrow = false,
        arrowColor = null,
        arrowWidth = null,
@@ -1005,6 +1014,7 @@ class _ShowcaseState extends State<Showcase> {
                 arrowWidth: widget.arrowWidth ?? style.arrowWidth ?? 18.0,
                 arrowHeight: widget.arrowHeight ?? style.arrowHeight ?? 9.0,
                 targetTooltipGap: widget.targetTooltipGap,
+                toolTipMargin: widget.toolTipMargin,
                 contentHeight: widget.height,
                 contentWidth: widget.width,
                 onTooltipTap: _getOnTooltipTap,
