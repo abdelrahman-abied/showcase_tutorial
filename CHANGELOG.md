@@ -7,6 +7,8 @@
   offset. It applies to every tooltip position (top / bottom / left / right).
   Additive and backward-compatible — defaults to `0`, which keeps the original
   spacing.
+* CHORE: the example "Feature demos" page adds a "Wide tooltip gap" toggle that
+  demonstrates `targetTooltipGap` on the center step.
 
 ## 1.13.0
 

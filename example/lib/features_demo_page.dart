@@ -30,6 +30,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   bool _includeConditional = false; // off => that step is auto-skipped
   bool _branchSkipAhead = false; // on => branch from P straight to the last step
   bool _autoPlay = false; // on => the tour auto-advances (1.5s/step)
+  bool _wideGap = false; // on => the "C" step's tooltip sits further from it
   int _step = 0;
   int _total = 0;
   BarrierInteraction _barrier = BarrierInteraction.next;
@@ -214,6 +215,8 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                       targetShapeBorder: const CircleBorder(),
                       title: 'Custom buttons',
                       description: 'Action buttons with custom text.',
+                      // Extra space between the target and the tooltip.
+                      targetTooltipGap: _wideGap ? 28 : 0,
                       actions: ShowCaseDefaultActions(
                         previous: const ActionButtonConfig(text: 'Back'),
                         stop: const ActionButtonConfig(text: 'Skip'),
@@ -282,6 +285,14 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                               setState(() => _autoPlay = v ?? false),
                           title: const Text(
                               'Auto-play (1.5s/step; the star step lingers 4s)'),
+                        ),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _wideGap,
+                          onChanged: (v) =>
+                              setState(() => _wideGap = v ?? false),
+                          title: const Text(
+                              'Wide tooltip gap (the "C" step sits further away)'),
                         ),
                         // Barrier-tap behavior: tap the dimmed background to see it.
                         SegmentedButton<BarrierInteraction>(
