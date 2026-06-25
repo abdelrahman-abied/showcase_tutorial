@@ -990,6 +990,7 @@ class _ShowcaseState extends State<Showcase> {
                     actionSettings: widget.actionSettings,
                     actionButtonsPosition: widget.actionButtonsPosition,
                     showProgress: showCaseWidgetState.showProgress,
+                    progressStyle: showCaseWidgetState.progressStyle,
                     showSkip: showCaseWidgetState.showSkip,
                     skipText: showCaseWidgetState.skipButtonText,
                     currentStep: showCaseWidgetState.currentIndex ?? 0,

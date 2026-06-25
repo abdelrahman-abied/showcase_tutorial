@@ -156,9 +156,15 @@ class ShowCaseWidget extends StatefulWidget {
   /// No-op when no screen reader is running. Defaults to `true`.
   final bool enableAutoAnnouncements;
 
-  /// When `true`, the default tooltip shows a built-in step indicator (dots)
-  /// reflecting the current position in the tour. Defaults to `false`.
+  /// When `true`, the default tooltip shows a built-in step indicator
+  /// reflecting the current position in the tour. Its appearance is controlled
+  /// by [progressStyle]. Defaults to `false`.
   final bool showProgress;
+
+  /// How the step indicator is rendered when [showProgress] is `true`: as
+  /// [ShowcaseProgressStyle.dots] (one dot per step, the default) or as a
+  /// [ShowcaseProgressStyle.numeric] "current / total" counter (e.g. `1/6`).
+  final ShowcaseProgressStyle progressStyle;
 
   /// When `true`, the default tooltip shows a "Skip" button that dismisses the
   /// whole tour. Defaults to `false`.
@@ -193,6 +199,7 @@ class ShowCaseWidget extends StatefulWidget {
     this.enableKeyboardNavigation = true,
     this.enableAutoAnnouncements = true,
     this.showProgress = false,
+    this.progressStyle = ShowcaseProgressStyle.dots,
     this.showSkip = false,
     this.skipButtonText = 'Skip',
   });
@@ -282,6 +289,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Value of [ShowCaseWidget.showProgress].
   bool get showProgress => widget.showProgress;
+
+  /// Value of [ShowCaseWidget.progressStyle].
+  ShowcaseProgressStyle get progressStyle => widget.progressStyle;
 
   /// Value of [ShowCaseWidget.showSkip].
   bool get showSkip => widget.showSkip;

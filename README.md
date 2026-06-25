@@ -1,6 +1,6 @@
 # showcase_tutorial
 
-[![pub package](https://img.shields.io/badge/showcase_tutorial-1.8.0-blue)](https://pub.dev/packages/showcase_tutorial)
+[![pub package](https://img.shields.io/badge/showcase_tutorial-1.9.0-blue)](https://pub.dev/packages/showcase_tutorial)
 [![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](https://github.com/abdelrahman-abied/showcase_tutorial)
 
 A Flutter package to **showcase / highlight your widgets step by step** — perfect for
@@ -23,7 +23,7 @@ onboarding tours and feature discovery.
 - **Highlight multiple widgets in a single step** (e.g. multi-select).
 - **Global tooltip styling** via `ShowcaseStyle` — set it once, not per step.
 - Built-in **action buttons** (Next / Previous / Stop) with customizable text.
-- Built-in **progress dots** and a **Skip** button in the default tooltip.
+- Built-in **progress indicator** (dots or a `1/6` counter) and a **Skip** button in the default tooltip.
 - Auto-play, auto-scroll, and background blur.
 - Programmatic control & progress: `next()`, `previous()`, `goTo()`, `dismiss()`, "Step x of y".
 - Per-step **lifecycle callbacks** (`onShow` / `onDismiss`) and configurable background-tap behavior.
@@ -205,16 +205,21 @@ to off:
 
 ```dart
 ShowCaseWidget(
-  showProgress: true,           // dots: one per step, active step highlighted
+  showProgress: true,           // show the step indicator
+  // dots (default) or a "1/6" counter:
+  progressStyle: ShowcaseProgressStyle.numeric,
   showSkip: true,               // a "Skip" button that ends the whole tour
   skipButtonText: 'Skip tour',  // optional, defaults to 'Skip'
   builder: Builder(builder: (context) => const HomePage()),
 );
 ```
 
-The dots use the tooltip's text color and reflect `currentIndex` / `totalSteps`.
-This only affects the **default** tooltip; a custom `container` tooltip is left
-untouched (build your own indicator there if you want one).
+The indicator uses the tooltip's text color and reflects `currentIndex` /
+`totalSteps`. Choose its look with `progressStyle`:
+`ShowcaseProgressStyle.dots` (one dot per step, active step highlighted — the
+default) or `ShowcaseProgressStyle.numeric` (a compact `1/6` counter, handy for
+long tours). This only affects the **default** tooltip; a custom `container`
+tooltip is left untouched (build your own indicator there if you want one).
 
 ## Highlight a widget by its exact shape
 
@@ -598,7 +603,8 @@ ShowCaseWidget(
 | autoSkipUnmountedSteps    | bool                       | false                          | Skip steps whose target widget is not currently mounted.                         |
 | enableKeyboardNavigation  | bool                       | true                           | Drive the active step with a hardware keyboard (Esc / arrows / Enter).           |
 | enableAutoAnnouncements   | bool                       | true                           | Announce each step's title/description to screen readers.                        |
-| showProgress              | bool                       | false                          | Show built-in progress dots in the default tooltip.                              |
+| showProgress              | bool                       | false                          | Show the built-in step indicator in the default tooltip.                         |
+| progressStyle             | ShowcaseProgressStyle      | ShowcaseProgressStyle.dots     | Indicator style: dots or a `1/6` numeric counter.                                |
 | showSkip                  | bool                       | false                          | Show a "Skip" button in the default tooltip that ends the tour.                  |
 | skipButtonText            | String                     | 'Skip'                         | Label for the skip button.                                                       |
 

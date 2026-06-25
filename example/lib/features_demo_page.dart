@@ -25,6 +25,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   final _bottom = GlobalKey();
 
   bool _rtl = false;
+  bool _numericProgress = false; // dots vs "1/6" progress indicator
   bool _includeConditional = false; // off => that step is auto-skipped
   int _step = 0;
   int _total = 0;
@@ -39,6 +40,9 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
         autoSkipUnmountedSteps: true,
         barrierInteraction: _barrier,
         showProgress: true,
+        progressStyle: _numericProgress
+            ? ShowcaseProgressStyle.numeric
+            : ShowcaseProgressStyle.dots,
         showSkip: true,
         onStart: (index, key) => setState(() => _step = (index ?? 0) + 1),
         builder: Builder(
@@ -52,6 +56,11 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                     ? 'Step $_step of $_total  ·  $_lastEvent'
                     : 'Feature demos (1.5.0)'),
                 actions: [
+                  const Center(child: Text('1/6')),
+                  Switch(
+                    value: _numericProgress,
+                    onChanged: (v) => setState(() => _numericProgress = v),
+                  ),
                   const Center(child: Text('RTL')),
                   Switch(
                     value: _rtl,

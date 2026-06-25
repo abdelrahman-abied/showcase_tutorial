@@ -1047,6 +1047,7 @@ void main() {
     GlobalKey k2,
     GlobalKey k3, {
     bool showProgress = false,
+    ShowcaseProgressStyle progressStyle = ShowcaseProgressStyle.dots,
     bool showSkip = false,
     String skipButtonText = 'Skip',
   }) {
@@ -1055,6 +1056,7 @@ void main() {
         disableMovingAnimation: true,
         disableScaleAnimation: true,
         showProgress: showProgress,
+        progressStyle: progressStyle,
         showSkip: showSkip,
         skipButtonText: skipButtonText,
         builder: Builder(
@@ -1093,6 +1095,29 @@ void main() {
     expect(find.text('One'), findsOneWidget);
     // One dot (AnimatedContainer) per step.
     expect(find.byType(AnimatedContainer), findsNWidgets(3));
+  });
+
+  testWidgets('progressStyle.numeric shows "current/total" instead of dots',
+      (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    final k3 = GlobalKey();
+    await tester.pumpWidget(buildProgressApp(k1, k2, k3,
+        showProgress: true, progressStyle: ShowcaseProgressStyle.numeric));
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2, k3]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    // Numeric counter is shown one-based; no dots are rendered.
+    expect(find.text('1/3'), findsOneWidget);
+    expect(find.byType(AnimatedContainer), findsNothing);
+
+    state.next();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('2/3'), findsOneWidget);
   });
 
   testWidgets('showSkip renders a Skip button that dismisses the tour',
