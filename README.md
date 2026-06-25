@@ -37,6 +37,8 @@ controller API.
   icons, and layout.
 - Built-in **progress indicator** (dots or a `1/6` counter) and a **Skip** button
   in the default tooltip.
+- **Floating action widget** — a screen-anchored control (e.g. a fixed Skip /
+  Next button) shown per step or tour-wide.
 - **Auto-play**, **auto-scroll** to off-screen targets, and **background blur**.
 - **Programmatic control**: `next()`, `previous()`, `goTo()`, `goToKey()`,
   `dismiss()`, plus live progress (`currentIndex`, `totalSteps`).
@@ -59,6 +61,7 @@ controller API.
 - [Custom tooltip](#custom-tooltip-with-showcasewithwidget)
 - [Action buttons](#action-buttons-next--previous--stop)
 - [Progress indicator & Skip button](#progress-indicator--skip-button)
+- [Floating action widget](#floating-action-widget)
 - [Exact-shape highlight](#exact-shape-highlight)
 - [Pulsing highlight ring](#pulsing-highlight-ring)
 - [Tooltip & highlight styling](#tooltip--highlight-styling)
@@ -238,6 +241,57 @@ default) or `ShowcaseProgressStyle.numeric` (a compact `1/6` counter, handy for
 long tours). This affects the **default** tooltip only; a custom `container`
 tooltip is left untouched.
 
+## Floating action widget
+
+Pin a control to the screen that stays put while the tour runs — a fixed
+**Skip** / **Next** button, a progress chip, a help button — instead of one that
+moves with each tooltip. You position it yourself (wrap it in an `Align` or
+`Positioned`); it's painted above the tooltip and receives taps.
+
+Set one for the whole tour with `globalFloatingActionWidget` (a builder, so it
+can read the tour state via `ShowCaseWidget.of(context)`):
+
+```dart
+ShowCaseWidget(
+  globalFloatingActionWidget: (context) => Align(
+    alignment: Alignment.bottomCenter,
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: TextButton(
+        onPressed: ShowCaseWidget.of(context).dismiss, // skip the whole tour
+        child: const Text('Skip tour'),
+      ),
+    ),
+  ),
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+Override it for a single step with `Showcase.floatingActionWidget`, or hide the
+global one on specific steps with `hideFloatingActionWidgetForShowcase`:
+
+```dart
+ShowCaseWidget(
+  globalFloatingActionWidget: (context) => const SkipButton(),
+  hideFloatingActionWidgetForShowcase: [lastStepKey], // no Skip on the final step
+  builder: ...,
+);
+
+Showcase(
+  key: stepKey,
+  description: 'This step has its own action',
+  floatingActionWidget: const Align(
+    alignment: Alignment.topRight,
+    child: CustomBadge(),
+  ),
+  child: ...,
+);
+```
+
+Resolution per step: **`Showcase.floatingActionWidget`** wins; otherwise the
+**`globalFloatingActionWidget`** is used unless the step is listed in
+**`hideFloatingActionWidgetForShowcase`**.
+
 ## Exact-shape highlight
 
 By default the highlight is a geometric box you control with `targetShapeBorder`
@@ -410,6 +464,18 @@ ShowCaseWidget(
   autoPlayDelay: const Duration(seconds: 3),
   enableAutoPlayLock: true, // block taps while auto-playing
   builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+Let a single step linger longer (or advance quicker) than the rest with a
+per-step `Showcase.autoPlayDelay`, which overrides the tour-wide one:
+
+```dart
+Showcase(
+  key: _details,
+  description: 'This one has more to read, so it stays up longer.',
+  autoPlayDelay: const Duration(seconds: 6), // overrides the tour-wide delay
+  child: const Icon(Icons.info),
 );
 ```
 
@@ -695,6 +761,8 @@ ShowCaseWidget(
 | barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`      | What a background tap does: `next` (advance), `dismiss` (end tour), `none`.      |
 | disableBarrierInteraction | bool                       | false                          | Shortcut; `true` makes the barrier inert (same as `BarrierInteraction.none`).    |
 | onBarrierClick            | VoidCallback?              |                                | Called on every barrier tap (even when `barrierInteraction` is `none`).          |
+| globalFloatingActionWidget | WidgetBuilder?            |                                | Screen-anchored widget shown above the overlay on every step (you position it).  |
+| hideFloatingActionWidgetForShowcase | `List<GlobalKey>` | `const []`                    | Steps on which the global floating widget is hidden.                             |
 | disableScaleAnimation     | bool                       | false                          | Disable the tooltip scale transition for all steps.                              |
 | disableMovingAnimation    | bool                       | false                          | Disable the bouncing/moving transition for all steps.                            |
 | onStart                   | Function(int?, GlobalKey)? |                                | Called on the start of each step.                                                |
@@ -740,6 +808,8 @@ ShowCaseWidget(
 | actions                      | Widget?                |                                                    | Action buttons widget (e.g. `ShowCaseDefaultActions`).                                      |     ✅     |          ✅           |
 | actionSettings               | ActionsSettings?       | `const ActionsSettings()`                          | Container styling for the action buttons.                                                   |     ✅     |          ✅           |
 | actionButtonsPosition        | ActionButtonsPosition? |                                                    | Manual position for the action buttons.                                                     |     ✅     |          ✅           |
+| floatingActionWidget         | Widget?                |                                                    | Screen-anchored widget shown while this step is active (overrides the global one).          |     ✅     |          ✅           |
+| autoPlayDelay                | Duration?              | `ShowCaseWidget.autoPlayDelay`                     | Per-step auto-play visibility time, overriding the tour-wide delay.                          |     ✅     |          ✅           |
 | targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlight (used when `targetBorderRadius` is null).                    |     ✅     |          ✅           |
 | highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
 | targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlight.                                                             |     ✅     |          ✅           |

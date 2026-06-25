@@ -29,6 +29,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   bool _numericProgress = false; // dots vs "1/6" progress indicator
   bool _includeConditional = false; // off => that step is auto-skipped
   bool _branchSkipAhead = false; // on => branch from P straight to the last step
+  bool _autoPlay = false; // on => the tour auto-advances (1.5s/step)
   int _step = 0;
   int _total = 0;
   BarrierInteraction _barrier = BarrierInteraction.next;
@@ -41,6 +42,24 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
       child: ShowCaseWidget(
         autoSkipUnmountedSteps: true,
         barrierInteraction: _barrier,
+        // Auto-play: 1.5s per step tour-wide; the "Exact shape" step overrides
+        // this with a longer per-step Showcase.autoPlayDelay (it has more to read).
+        autoPlay: _autoPlay,
+        autoPlayDelay: const Duration(milliseconds: 1500),
+        // A screen-anchored button pinned for the whole tour, hidden on the last
+        // "B" step via hideFloatingActionWidgetForShowcase.
+        globalFloatingActionWidget: (context) => Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: FilledButton.tonalIcon(
+              onPressed: ShowCaseWidget.of(context).dismiss,
+              icon: const Icon(Icons.close, size: 18),
+              label: const Text('End tour'),
+            ),
+          ),
+        ),
+        hideFloatingActionWidgetForShowcase: [_bottom],
         showProgress: true,
         progressStyle: _numericProgress
             ? ShowcaseProgressStyle.numeric
@@ -63,7 +82,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                 foregroundColor: Colors.white,
                 title: Text(show.isShowcaseRunning
                     ? 'Step $_step of $_total  ·  $_lastEvent'
-                    : 'Feature demos (1.5.0)'),
+                    : 'Feature demos (1.13.0)'),
                 actions: [
                   const Center(child: Text('1/6')),
                   Switch(
@@ -140,8 +159,11 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                       child: Showcase(
                         key: _exact,
                         highlightExactShape: true,
+                        // Per-step autoPlayDelay: lingers longer than the
+                        // tour-wide 1.5s when auto-play is on.
+                        autoPlayDelay: const Duration(seconds: 4),
                         title: 'Exact shape',
-                        description: 'Highlight hugs the star, not a box.',
+                        description: 'Highlight hugs the star. Lingers 4s in auto-play.',
                         child: const Icon(
                           Icons.star,
                           size: 72,
@@ -252,6 +274,14 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                               setState(() => _branchSkipAhead = v ?? false),
                           title: const Text(
                               'Branch: skip from P straight to the last step'),
+                        ),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _autoPlay,
+                          onChanged: (v) =>
+                              setState(() => _autoPlay = v ?? false),
+                          title: const Text(
+                              'Auto-play (1.5s/step; the star step lingers 4s)'),
                         ),
                         // Barrier-tap behavior: tap the dimmed background to see it.
                         SegmentedButton<BarrierInteraction>(
