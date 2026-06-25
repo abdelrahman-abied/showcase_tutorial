@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.0
+
+* FEAT: **numeric progress indicator** — `ShowCaseWidget.progressStyle` chooses
+  how the built-in step indicator looks when `showProgress` is on:
+  `ShowcaseProgressStyle.dots` (one dot per step, the existing default) or
+  `ShowcaseProgressStyle.numeric` (a compact `1/6` counter, handy for long
+  tours). Additive and backward-compatible — the default is unchanged.
+
 ## 1.8.0
 
 * FEAT: **tooltip & highlight styling** — finer visual control for the default

@@ -73,8 +73,11 @@ class ToolTipWidget extends StatefulWidget {
   final ActionsSettings? actionSettings;
   final ActionButtonsPosition? actionButtonsPosition;
 
-  /// Whether to render a built-in step indicator (dots) in the default tooltip.
+  /// Whether to render a built-in step indicator in the default tooltip.
   final bool showProgress;
+
+  /// How the step indicator is rendered (dots or a numeric counter).
+  final ShowcaseProgressStyle progressStyle;
 
   /// Whether to render a "Skip" button in the default tooltip.
   final bool showSkip;
@@ -130,6 +133,7 @@ class ToolTipWidget extends StatefulWidget {
     this.actionSettings,
     this.actionButtonsPosition,
     this.showProgress = false,
+    this.progressStyle = ShowcaseProgressStyle.dots,
     this.showSkip = false,
     this.skipText = 'Skip',
     this.currentStep = 0,
@@ -247,12 +251,26 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
   /// Reserved vertical space for the progress/skip footer.
   double get _footerHeight => _hasFooter ? 28.0 : 0.0;
 
+  /// The "current / total" label for the numeric progress style, e.g. `1/6`.
+  /// [ToolTipWidget.currentStep] is zero-based, so it is shown one-based.
+  String get _progressLabel => '${widget.currentStep + 1}/${widget.totalSteps}';
+
+  /// Text style shared by the numeric progress label (measurement + render).
+  static const _progressTextStyle =
+      TextStyle(fontSize: 13, fontWeight: FontWeight.w600);
+
   /// Estimated horizontal space the footer needs, so the tooltip is measured
-  /// wide enough to fit the dots and the skip button.
+  /// wide enough to fit the indicator and the skip button.
   double get _footerWidth {
     if (!_hasFooter) return 0;
     var w = 0.0;
-    if (widget.showProgress) w += widget.totalSteps * 10.0 + 16;
+    if (widget.showProgress) {
+      w += switch (widget.progressStyle) {
+        ShowcaseProgressStyle.numeric =>
+          _textSize(_progressLabel, _progressTextStyle).width + 16,
+        ShowcaseProgressStyle.dots => widget.totalSteps * 10.0 + 16,
+      };
+    }
     if (widget.showSkip) {
       w += _textSize(
             widget.skipText,
@@ -274,23 +292,28 @@ class _ToolTipWidgetState extends State<ToolTipWidget>
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           if (widget.showProgress)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(widget.totalSteps, (i) {
-                final isActive = i == widget.currentStep;
-                return AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  margin: const EdgeInsets.symmetric(horizontal: 2),
-                  width: isActive ? 16 : 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color:
-                        isActive ? color : color.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                );
-              }),
-            )
+            switch (widget.progressStyle) {
+              ShowcaseProgressStyle.numeric => Text(
+                  _progressLabel,
+                  style: _progressTextStyle.copyWith(color: color),
+                ),
+              ShowcaseProgressStyle.dots => Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(widget.totalSteps, (i) {
+                    final isActive = i == widget.currentStep;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      width: isActive ? 16 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: isActive ? color : color.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  }),
+                ),
+            }
           else
             const SizedBox.shrink(),
           if (widget.showSkip)
