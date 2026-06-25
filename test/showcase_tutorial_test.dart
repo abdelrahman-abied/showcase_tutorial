@@ -1360,6 +1360,151 @@ void main() {
       expect(find.text('Four'), findsNothing);
     });
   });
+
+  // Builds a two-step tour wired with tour-level onDismiss / onFinish callbacks.
+  Widget buildDismissApp(
+    GlobalKey k1,
+    GlobalKey k2, {
+    void Function(GlobalKey? dismissedAt)? onDismiss,
+    VoidCallback? onFinish,
+    BarrierInteraction barrierInteraction = BarrierInteraction.next,
+  }) {
+    return MaterialApp(
+      home: ShowCaseWidget(
+        disableMovingAnimation: true,
+        disableScaleAnimation: true,
+        barrierInteraction: barrierInteraction,
+        onDismiss: onDismiss,
+        onFinish: onFinish,
+        builder: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Showcase(
+                      key: k1, title: 'One', description: 'd', child: const Text('t1')),
+                  Showcase(
+                      key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  group('tour-level onDismiss (ShowCaseWidget.onDismiss)', () {
+    testWidgets('fires with the active step key when dismiss() is called',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      GlobalKey? dismissedAt;
+      var didDismiss = false;
+      var finished = false;
+      await tester.pumpWidget(buildDismissApp(
+        k1,
+        k2,
+        onDismiss: (key) {
+          didDismiss = true;
+          dismissedAt = key;
+        },
+        onFinish: () => finished = true,
+      ));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.dismiss();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(didDismiss, isTrue);
+      expect(dismissedAt, k1); // dismissed while the first step was active
+      expect(finished, isFalse); // an early dismiss is not a normal finish
+      expect(state.isShowcaseRunning, isFalse);
+    });
+
+    testWidgets('reports the step the user left off on', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      GlobalKey? dismissedAt;
+      await tester.pumpWidget(
+          buildDismissApp(k1, k2, onDismiss: (key) => dismissedAt = key));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.next(); // advance to the second step
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.dismiss();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(dismissedAt, k2);
+    });
+
+    testWidgets('is NOT called when the tour finishes normally', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      var dismissed = false;
+      var finished = false;
+      await tester.pumpWidget(buildDismissApp(
+        k1,
+        k2,
+        onDismiss: (_) => dismissed = true,
+        onFinish: () => finished = true,
+      ));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.next(); // -> step 2
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      state.next(); // advance past the last step -> normal finish
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(finished, isTrue);
+      expect(dismissed, isFalse);
+    });
+
+    testWidgets('a barrier-dismiss tap triggers onDismiss with the active key',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      GlobalKey? dismissedAt;
+      await tester.pumpWidget(buildDismissApp(
+        k1,
+        k2,
+        barrierInteraction: BarrierInteraction.dismiss,
+        onDismiss: (key) => dismissedAt = key,
+      ));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.tapAt(const Offset(10, 10)); // tap the dimmed barrier
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400)); // reverse animation
+      await tester.pump(const Duration(milliseconds: 400)); // teardown
+
+      expect(state.isShowcaseRunning, isFalse);
+      expect(dismissedAt, k1);
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

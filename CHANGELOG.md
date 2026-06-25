@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.11.0
+
+* FEAT: **tour-level `onDismiss`** — a new `ShowCaseWidget.onDismiss(GlobalKey?
+  dismissedAt)` callback fires whenever a tour is closed early (a barrier tap with
+  `BarrierInteraction.dismiss`, the `Esc` key, the built-in skip button, a
+  `disposeOnTap` tap, or a manual `dismiss()`), and reports the `GlobalKey` of the
+  step the user left off on. It is **not** called when the tour finishes normally
+  by advancing past the last step — `onFinish` still covers that, and exactly one
+  of the two runs per tour. Handy for measuring onboarding drop-off. Additive and
+  backward-compatible; distinct from the per-step `Showcase.onDismiss`.
+
 ## 1.10.1
 
 * DOCS: rewrote the README as standalone documentation — added a table of
