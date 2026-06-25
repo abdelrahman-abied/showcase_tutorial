@@ -556,6 +556,82 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('per-step arrow + highlight-border styling renders without error',
+      (tester) async {
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Showcase(
+                  key: key,
+                  title: 'Styled',
+                  description: 'Body',
+                  arrowColor: Colors.orange,
+                  arrowWidth: 26,
+                  arrowHeight: 13,
+                  highlightBorderColor: Colors.orange,
+                  highlightBorderWidth: 3,
+                  child: const SizedBox(width: 48, height: 48, child: Text('t')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Styled'), findsOneWidget);
+  });
+
+  testWidgets('ShowcaseStyle arrow + highlight-border defaults are applied',
+      (tester) async {
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          style: const ShowcaseStyle(
+            arrowColor: Colors.teal,
+            arrowWidth: 22,
+            arrowHeight: 11,
+            highlightBorderColor: Colors.teal,
+            highlightBorderWidth: 2,
+          ),
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Showcase(
+                  key: key,
+                  title: 'Styled',
+                  description: 'Body',
+                  child: const SizedBox(width: 48, height: 48, child: Text('t')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Styled'), findsOneWidget);
+  });
+
   testWidgets('tooltip inherits RTL directionality', (tester) async {
     final key = GlobalKey();
     await tester.pumpWidget(

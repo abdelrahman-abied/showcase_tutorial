@@ -142,6 +142,39 @@ class Showcase extends StatefulWidget {
   /// Defaults to [Duration(milliseconds: 1500)].
   final Duration pulseDuration;
 
+  /// Color of a border drawn around the highlighted target.
+  ///
+  /// When `null` (and [ShowcaseStyle.highlightBorderColor] is also unset) no
+  /// border is drawn. The border follows the highlight's shape
+  /// ([targetShapeBorder] / [targetBorderRadius]); with [highlightExactShape]
+  /// it outlines the target's bounding box.
+  final Color? highlightBorderColor;
+
+  /// Width of the highlight border (see [highlightBorderColor]).
+  ///
+  /// Falls back to [ShowCaseWidget.style] ([ShowcaseStyle.highlightBorderWidth]),
+  /// then to `2`.
+  final double? highlightBorderWidth;
+
+  /// Color of the default tooltip's arrow.
+  ///
+  /// Falls back to [ShowCaseWidget.style] ([ShowcaseStyle.arrowColor]), then to
+  /// the resolved tooltip background color so the arrow matches the tooltip.
+  /// Ignored when [showArrow] is `false`.
+  final Color? arrowColor;
+
+  /// Width (base) of the default tooltip's arrow.
+  ///
+  /// Falls back to [ShowCaseWidget.style] ([ShowcaseStyle.arrowWidth]), then to
+  /// `18`. Ignored when [showArrow] is `false`.
+  final double? arrowWidth;
+
+  /// Height (depth toward the target) of the default tooltip's arrow.
+  ///
+  /// Falls back to [ShowCaseWidget.style] ([ShowcaseStyle.arrowHeight]), then to
+  /// `9`. Ignored when [showArrow] is `false`.
+  final double? arrowHeight;
+
   /// TextStyle for default tooltip title
   final TextStyle? titleTextStyle;
 
@@ -376,6 +409,11 @@ class Showcase extends StatefulWidget {
     this.enablePulseAnimation = false,
     this.pulseColor,
     this.pulseDuration = const Duration(milliseconds: 1500),
+    this.highlightBorderColor,
+    this.highlightBorderWidth,
+    this.arrowColor,
+    this.arrowWidth,
+    this.arrowHeight,
     this.onTargetLongPress,
     this.onTargetDoubleTap,
     this.tooltipBorderRadius,
@@ -419,6 +457,8 @@ class Showcase extends StatefulWidget {
     this.enablePulseAnimation = false,
     this.pulseColor,
     this.pulseDuration = const Duration(milliseconds: 1500),
+    this.highlightBorderColor,
+    this.highlightBorderWidth,
     this.overlayOpacity = 0.75,
     this.scrollLoadingWidget = const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.white)),
     this.onTargetClick,
@@ -438,6 +478,9 @@ class Showcase extends StatefulWidget {
     this.actionSettings = const ActionsSettings(),
     this.actionButtonsPosition,
   }) : showArrow = false,
+       arrowColor = null,
+       arrowWidth = null,
+       arrowHeight = null,
        onToolTipClick = null,
        scaleAnimationDuration = const Duration(milliseconds: 300),
        scaleAnimationCurve = Curves.decelerate,
@@ -790,6 +833,14 @@ class _ShowcaseState extends State<Showcase> {
 
     if (!_showShowCase) return const SizedBox.shrink();
 
+    // Resolve the optional highlight border (per-Showcase wins, then the global
+    // ShowcaseStyle). A null color means no border is drawn.
+    final style = showCaseWidgetState.style;
+    final highlightBorderColor =
+        widget.highlightBorderColor ?? style.highlightBorderColor;
+    final highlightBorderWidth =
+        widget.highlightBorderWidth ?? style.highlightBorderWidth ?? 2.0;
+
     final Widget overlay = Directionality(
       textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
       child: ShowcaseContextProvider(
@@ -886,6 +937,21 @@ class _ShowcaseState extends State<Showcase> {
                         return snapshot.data ?? const SizedBox.shrink();
                       },
                     ),
+                  if (highlightBorderColor != null)
+                    _HighlightBorder(
+                      // Same rect as the cut-out: target bounds expanded by the
+                      // target padding the clipper uses.
+                      targetRect: Rect.fromLTRB(
+                        rectBound.left - widget.targetPadding.left,
+                        rectBound.top - widget.targetPadding.top,
+                        rectBound.right + widget.targetPadding.right,
+                        rectBound.bottom + widget.targetPadding.bottom,
+                      ),
+                      isCircle: widget.targetShapeBorder is CircleBorder,
+                      borderRadius: widget.targetBorderRadius,
+                      color: highlightBorderColor,
+                      strokeWidth: highlightBorderWidth,
+                    ),
                   ToolTipWidget(
                     position: position,
                     offset: offset,
@@ -902,6 +968,9 @@ class _ShowcaseState extends State<Showcase> {
                         Colors.white,
                     textColor: widget.textColor ?? showCaseWidgetState.style.textColor ?? Colors.black,
                     showArrow: widget.showArrow,
+                    arrowColor: widget.arrowColor ?? style.arrowColor,
+                    arrowWidth: widget.arrowWidth ?? style.arrowWidth ?? 18.0,
+                    arrowHeight: widget.arrowHeight ?? style.arrowHeight ?? 9.0,
                     contentHeight: widget.height,
                     contentWidth: widget.width,
                     onTooltipTap: _getOnTooltipTap,
@@ -1190,6 +1259,111 @@ class _PulsingRingPainter extends CustomPainter {
       oldDelegate.progress != progress ||
       oldDelegate.targetRect != targetRect ||
       oldDelegate.color != color ||
+      oldDelegate.isCircle != isCircle ||
+      oldDelegate.borderRadius != borderRadius;
+}
+
+/// A static border drawn around the highlighted target
+/// (see [Showcase.highlightBorderColor]).
+///
+/// The stroke is centred on the cut-out's edge and follows its shape. It is
+/// purely decorative, so it is wrapped in an [IgnorePointer] and lets taps fall
+/// through to the barrier and the target.
+class _HighlightBorder extends StatelessWidget {
+  /// The cut-out region, in overlay (global) coordinates.
+  final Rect targetRect;
+
+  /// Whether the highlight is a circle ([CircleBorder]); affects corners.
+  final bool isCircle;
+
+  /// Corner radius of the rectangular highlight, when set.
+  final BorderRadius? borderRadius;
+
+  /// Border color.
+  final Color color;
+
+  /// Border thickness.
+  final double strokeWidth;
+
+  const _HighlightBorder({
+    required this.targetRect,
+    required this.isCircle,
+    required this.borderRadius,
+    required this.color,
+    required this.strokeWidth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Size the layer to the stroke's reach (a centred stroke extends half its
+    // width beyond the edge) rather than the whole screen.
+    final margin = strokeWidth;
+    final bounds = targetRect.inflate(margin);
+    final localTarget = Rect.fromLTWH(
+      margin,
+      margin,
+      targetRect.width,
+      targetRect.height,
+    );
+
+    return Positioned.fromRect(
+      rect: bounds,
+      child: IgnorePointer(
+        child: CustomPaint(
+          size: bounds.size,
+          painter: _HighlightBorderPainter(
+            targetRect: localTarget,
+            isCircle: isCircle,
+            borderRadius: borderRadius,
+            color: color,
+            strokeWidth: strokeWidth,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Strokes the highlight outline for [_HighlightBorder], mirroring the cut-out's
+/// shape ([RRectClipper]).
+class _HighlightBorderPainter extends CustomPainter {
+  final Rect targetRect;
+  final bool isCircle;
+  final BorderRadius? borderRadius;
+  final Color color;
+  final double strokeWidth;
+
+  _HighlightBorderPainter({
+    required this.targetRect,
+    required this.isCircle,
+    required this.borderRadius,
+    required this.color,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (targetRect.isEmpty) return;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..color = color;
+
+    final Radius radius;
+    if (isCircle) {
+      radius = Radius.circular(targetRect.height);
+    } else {
+      // Match the cut-out's corners (default 3px when no explicit radius).
+      radius = Radius.circular(borderRadius?.topLeft.x ?? 3.0);
+    }
+    canvas.drawRRect(RRect.fromRectAndRadius(targetRect, radius), paint);
+  }
+
+  @override
+  bool shouldRepaint(_HighlightBorderPainter oldDelegate) =>
+      oldDelegate.targetRect != targetRect ||
+      oldDelegate.color != color ||
+      oldDelegate.strokeWidth != strokeWidth ||
       oldDelegate.isCircle != isCircle ||
       oldDelegate.borderRadius != borderRadius;
 }

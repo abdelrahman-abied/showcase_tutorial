@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.8.0
+
+* FEAT: **tooltip & highlight styling** — finer visual control for the default
+  tooltip without a custom `container`. New per-`Showcase` options (each also
+  settable tour-wide via `ShowcaseStyle`): `arrowColor`, `arrowWidth`,
+  `arrowHeight` for the tooltip arrow, and `highlightBorderColor` /
+  `highlightBorderWidth` to draw a colored border around the highlighted target.
+  All additive and opt-in; the border follows the highlight shape and works
+  alongside `highlightExactShape`. (Per-step overlay color is already supported
+  via `Showcase.overlayColor`.)
+
 ## 1.7.0
 
 * FEAT: **pulsing highlight ring** — opt in per step with

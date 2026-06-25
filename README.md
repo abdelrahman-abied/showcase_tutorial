@@ -1,6 +1,6 @@
 # showcase_tutorial
 
-[![pub package](https://img.shields.io/badge/showcase_tutorial-1.7.0-blue)](https://pub.dev/packages/showcase_tutorial)
+[![pub package](https://img.shields.io/badge/showcase_tutorial-1.8.0-blue)](https://pub.dev/packages/showcase_tutorial)
 [![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](https://github.com/abdelrahman-abied/showcase_tutorial)
 
 A Flutter package to **showcase / highlight your widgets step by step** — perfect for
@@ -19,6 +19,7 @@ onboarding tours and feature discovery.
 - Tooltip on any side — top / bottom / left / right — with full **RTL** support.
 - **Highlight any widget by its exact shape** — circle, pill, star, icon — with `highlightExactShape`.
 - **Pulsing highlight ring** — an optional animated ring that pings around the target to draw the eye.
+- **Tooltip & highlight styling** — custom arrow color/size and a colored border around the target.
 - **Highlight multiple widgets in a single step** (e.g. multi-select).
 - **Global tooltip styling** via `ShowcaseStyle` — set it once, not per step.
 - Built-in **action buttons** (Next / Previous / Stop) with customizable text.
@@ -267,6 +268,39 @@ default color for the whole tour once via
 
 > Accessibility: when the platform **"reduce motion"** setting is on, the pulse
 > falls back to a single static ring instead of animating.
+
+## Tooltip & highlight styling
+
+Fine-tune the default tooltip and the highlight without writing a custom
+`container`. Style the arrow (`arrowColor`, `arrowWidth`, `arrowHeight`, or hide
+it with `showArrow: false`) and draw a colored border around the target
+(`highlightBorderColor`, `highlightBorderWidth`):
+
+```dart
+Showcase(
+  key: inboxKey,
+  title: 'Inbox',
+  description: 'Your messages live here',
+  tooltipBackgroundColor: const Color(0xFF023047),
+  textColor: Colors.white,
+  // Arrow:
+  arrowColor: const Color(0xFFF4A261), // defaults to the tooltip background
+  arrowWidth: 26,                      // base, default 18
+  arrowHeight: 13,                     // depth, default 9
+  // Highlight border (off unless a color is set):
+  highlightBorderColor: const Color(0xFFF4A261),
+  highlightBorderWidth: 3,
+  child: const Icon(Icons.inbox),
+);
+```
+
+The border follows the highlight's shape (`targetShapeBorder` /
+`targetBorderRadius`); with `highlightExactShape` it outlines the bounding box.
+Set any of these once for the whole tour via `ShowcaseStyle`, e.g.
+`ShowCaseWidget(style: ShowcaseStyle(arrowColor: ..., highlightBorderColor: ...))`.
+
+> The per-step overlay (scrim) color is controlled by `Showcase.overlayColor`
+> and `overlayOpacity`.
 
 ## Highlight multiple widgets in a single step
 
@@ -601,6 +635,11 @@ ShowCaseWidget(
 | enablePulseAnimation         | bool                   | false                                              | Draw an animated ring that pulses outward around the highlight.                             |     ✅     |          ✅           |
 | pulseColor                   | Color?                 | `ShowcaseStyle` → `Colors.white`                   | Color of the pulsing ring.                                                                  |     ✅     |          ✅           |
 | pulseDuration                | Duration               | `Duration(milliseconds: 1500)`                     | Length of one full pulse cycle (smaller is faster).                                         |     ✅     |          ✅           |
+| highlightBorderColor         | Color?                 |                                                    | Color of a border drawn around the highlighted target (off when null).                      |     ✅     |          ✅           |
+| highlightBorderWidth         | double?                | `2`                                                | Width of the highlight border.                                                              |     ✅     |          ✅           |
+| arrowColor                   | Color?                 | `ShowcaseStyle` → tooltip bg                       | Color of the default tooltip arrow.                                                         |     ✅     |                       |
+| arrowWidth                   | double?                | `18`                                               | Width (base) of the default tooltip arrow.                                                  |     ✅     |                       |
+| arrowHeight                  | double?                | `9`                                                | Height (depth) of the default tooltip arrow.                                                |     ✅     |                       |
 | targetPadding                | EdgeInsets             | `EdgeInsets.zero`                                  | Padding around the highlighted target.                                                      |     ✅     |          ✅           |
 | overlayColor                 | Color                  | `Colors.black45`                                   | Color of the overlay.                                                                       |     ✅     |          ✅           |
 | overlayOpacity               | double                 | 0.75                                               | Opacity of the overlay.                                                                     |     ✅     |          ✅           |

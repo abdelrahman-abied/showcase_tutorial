@@ -20,6 +20,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   final _multiB = GlobalKey();
   final _exact = GlobalKey();
   final _pulse = GlobalKey();
+  final _styled = GlobalKey();
   final _conditional = GlobalKey();
   final _bottom = GlobalKey();
 
@@ -146,6 +147,26 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                       child: const _Dot('P'),
                     ),
                   ),
+                  // Tooltip & highlight styling: custom arrow color/size and a
+                  // colored border around the highlighted target.
+                  Positioned(
+                    top: 200,
+                    right: 16,
+                    child: Showcase(
+                      key: _styled,
+                      targetShapeBorder: const CircleBorder(),
+                      title: 'Styled',
+                      description: 'Custom arrow + highlight border.',
+                      tooltipBackgroundColor: const Color(0xff023047),
+                      textColor: Colors.white,
+                      arrowColor: const Color(0xfff4a261),
+                      arrowWidth: 26,
+                      arrowHeight: 13,
+                      highlightBorderColor: const Color(0xfff4a261),
+                      highlightBorderWidth: 3,
+                      child: const _Dot('S'),
+                    ),
+                  ),
                   // Center step with custom action-button text.
                   Align(
                     child: Showcase(
@@ -232,6 +253,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                               _multiPrimary,
                               _exact,
                               _pulse,
+                              _styled,
                               _center,
                               _conditional,
                               _bottom,
