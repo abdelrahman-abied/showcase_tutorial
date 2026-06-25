@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.15.0
+
+* FEAT: **`toolTipMargin`** — `Showcase.toolTipMargin` (an `EdgeInsets`, default
+  `EdgeInsets.all(20)`) sets the minimum margin kept between the tooltip and the
+  screen edges: the tooltip is clamped to stay at least this far from each edge,
+  and its width/height are capped to fit within the margins. Useful to leave room
+  for a status bar, notch, or your own fixed UI. Completes the tooltip-spacing
+  pair with `targetTooltipGap`. Backward-compatible — the default reproduces the
+  previous edge spacing for ordinary tooltips.
+
 ## 1.14.0
 
 * FEAT: **`targetTooltipGap`** — `Showcase.targetTooltipGap` adds extra space (in

@@ -1793,6 +1793,47 @@ void main() {
     // A 40px gap moves the tooltip 40px further down, away from the target.
     expect(top40 - top0, closeTo(40, 1));
   });
+
+  testWidgets('toolTipMargin keeps the tooltip clear of the screen edge',
+      (tester) async {
+    // Target hugs the left edge, so the tooltip is clamped to toolTipMargin.left.
+    // Returns the tooltip's left x for a given margin.
+    Future<double> tooltipLeftForMargin(EdgeInsets margin) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: Showcase(
+                    key: key,
+                    title: 'T',
+                    description: 'Desc',
+                    toolTipMargin: margin,
+                    child:
+                        const SizedBox(width: 30, height: 30, child: Text('t')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      return tester.getTopLeft(find.text('Desc')).dx;
+    }
+
+    final left20 = await tooltipLeftForMargin(const EdgeInsets.all(20));
+    final left60 = await tooltipLeftForMargin(const EdgeInsets.all(60));
+    // A 40px-larger left margin pushes the clamped tooltip 40px further inward.
+    expect(left60 - left20, closeTo(40, 1));
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this
