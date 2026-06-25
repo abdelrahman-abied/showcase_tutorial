@@ -370,6 +370,16 @@ class Showcase extends StatefulWidget {
   /// Provides padding around the description. Default padding is zero.
   final EdgeInsets? descriptionPadding;
 
+  /// A screen-anchored widget shown above the overlay while **this** step is
+  /// active — for example a fixed "Skip" / "Next" button that stays put instead
+  /// of moving with the tooltip.
+  ///
+  /// Position it yourself (e.g. wrap it in an [Align] or [Positioned]); it is
+  /// painted on top of the tooltip and receives taps. Overrides
+  /// [ShowCaseWidget.globalFloatingActionWidget] for this step. Defaults to
+  /// `null` (falls back to the global one, if any).
+  final Widget? floatingActionWidget;
+
   /// Creates a showcase step with the built-in title/description tooltip.
   ///
   /// [key] and [child] are required. Styling values left unset fall back to
@@ -427,6 +437,7 @@ class Showcase extends StatefulWidget {
     this.actions,
     this.actionSettings = const ActionsSettings(),
     this.actionButtonsPosition,
+    this.floatingActionWidget,
   }) : height = null,
        width = null,
        container = null,
@@ -477,6 +488,7 @@ class Showcase extends StatefulWidget {
     this.actions,
     this.actionSettings = const ActionsSettings(),
     this.actionButtonsPosition,
+    this.floatingActionWidget,
   }) : showArrow = false,
        arrowColor = null,
        arrowWidth = null,
@@ -833,6 +845,15 @@ class _ShowcaseState extends State<Showcase> {
     final highlightBorderColor = widget.highlightBorderColor ?? style.highlightBorderColor;
     final highlightBorderWidth = widget.highlightBorderWidth ?? style.highlightBorderWidth ?? 2.0;
 
+    // Resolve the screen-anchored floating widget: a per-step
+    // [Showcase.floatingActionWidget] wins; otherwise fall back to the tour-wide
+    // [ShowCaseWidget.globalFloatingActionWidget] unless this step is in
+    // [hideFloatingActionWidgetForShowcase].
+    final floatingSuppressed =
+        showCaseWidgetState.hideFloatingActionWidgetForShowcase.contains(widget.key);
+    final Widget? floatingActionWidget = widget.floatingActionWidget ??
+        (floatingSuppressed ? null : showCaseWidgetState.globalFloatingActionWidget?.call(context));
+
     final Widget overlay = Directionality(
       textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
       child: ShowcaseContextProvider(
@@ -987,6 +1008,9 @@ class _ShowcaseState extends State<Showcase> {
                 totalSteps: showCaseWidgetState.totalSteps,
                 onSkip: _dismissShowcaseTour,
               ),
+              // Screen-anchored floating widget, painted above the tooltip and
+              // tappable (the caller positions it with Align/Positioned).
+              ?floatingActionWidget,
             ],
           ],
         ),

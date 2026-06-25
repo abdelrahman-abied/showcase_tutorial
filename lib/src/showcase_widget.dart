@@ -69,6 +69,26 @@ class ShowCaseWidget extends StatefulWidget {
   /// configured action follows.
   final VoidCallback? onBarrierClick;
 
+  /// A screen-anchored widget shown above the overlay for **every** step of the
+  /// tour — for example a fixed "Skip" / "Next" button or a progress chip that
+  /// stays put instead of moving with each tooltip.
+  ///
+  /// Built lazily per step, so it can read the current tour state via
+  /// `ShowCaseWidget.of(context)`. Position it yourself (e.g. wrap it in an
+  /// [Align] or [Positioned]); it is painted on top of the tooltip and receives
+  /// taps. A per-step [Showcase.floatingActionWidget] overrides this, and
+  /// [hideFloatingActionWidgetForShowcase] suppresses it on specific steps.
+  /// Defaults to `null` (no floating widget).
+  final WidgetBuilder? globalFloatingActionWidget;
+
+  /// The [GlobalKey]s of the steps on which [globalFloatingActionWidget] should
+  /// be hidden — e.g. a step that already shows its own actions, or where the
+  /// fixed button would overlap the highlight.
+  ///
+  /// Ignored by a per-step [Showcase.floatingActionWidget], which always wins.
+  /// Defaults to an empty list.
+  final List<GlobalKey> hideFloatingActionWidgetForShowcase;
+
   /// Whether all showcases will auto sequentially start
   /// having time interval of [autoPlayDelay] .
   ///
@@ -226,6 +246,8 @@ class ShowCaseWidget extends StatefulWidget {
     this.onComplete,
     this.onDismiss,
     this.onBarrierClick,
+    this.globalFloatingActionWidget,
+    this.hideFloatingActionWidgetForShowcase = const [],
     this.autoPlay = false,
     this.autoPlayDelay = const Duration(milliseconds: 2000),
     this.enableAutoPlayLock = false,
@@ -323,6 +345,13 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Value of [ShowCaseWidget.onBarrierClick].
   VoidCallback? get onBarrierClick => widget.onBarrierClick;
+
+  /// Value of [ShowCaseWidget.globalFloatingActionWidget].
+  WidgetBuilder? get globalFloatingActionWidget => widget.globalFloatingActionWidget;
+
+  /// Value of [ShowCaseWidget.hideFloatingActionWidgetForShowcase].
+  List<GlobalKey> get hideFloatingActionWidgetForShowcase =>
+      widget.hideFloatingActionWidgetForShowcase;
 
   /// Value of [ShowCaseWidget.enableShowcase].
   bool get enableShowcase => widget.enableShowcase;

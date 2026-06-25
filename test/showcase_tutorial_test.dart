@@ -1555,6 +1555,143 @@ void main() {
       expect(state.currentIndex, 0); // …but `.none` did not advance
     });
   });
+
+  // Builds a two-step tour with optional per-step + global floating widgets.
+  Widget buildFloatingApp(
+    GlobalKey k1,
+    GlobalKey k2, {
+    Widget? floating1,
+    Widget? floating2,
+    WidgetBuilder? globalFloatingActionWidget,
+    List<GlobalKey> hideFloatingActionWidgetForShowcase = const [],
+  }) {
+    return MaterialApp(
+      home: ShowCaseWidget(
+        disableMovingAnimation: true,
+        disableScaleAnimation: true,
+        globalFloatingActionWidget: globalFloatingActionWidget,
+        hideFloatingActionWidgetForShowcase: hideFloatingActionWidgetForShowcase,
+        builder: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Showcase(
+                    key: k1,
+                    title: 'One',
+                    description: 'd',
+                    floatingActionWidget: floating1,
+                    child: const Text('t1'),
+                  ),
+                  Showcase(
+                    key: k2,
+                    title: 'Two',
+                    description: 'd',
+                    floatingActionWidget: floating2,
+                    child: const Text('t2'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  group('floating action widget', () {
+    testWidgets('per-step floatingActionWidget renders while its step is active',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(buildFloatingApp(k1, k2,
+          floating1: const Align(
+              alignment: Alignment.bottomCenter, child: Text('FAB1'))));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('FAB1'), findsOneWidget);
+
+      state.next(); // -> step 2, which has no floating widget
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('FAB1'), findsNothing);
+    });
+
+    testWidgets('globalFloatingActionWidget renders on every step',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(buildFloatingApp(k1, k2,
+          globalFloatingActionWidget: (_) => const Align(
+              alignment: Alignment.bottomCenter, child: Text('GFAB'))));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('GFAB'), findsOneWidget);
+
+      state.next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('GFAB'), findsOneWidget); // still shown on step 2
+    });
+
+    testWidgets('hideFloatingActionWidgetForShowcase suppresses the global one',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(buildFloatingApp(
+        k1,
+        k2,
+        globalFloatingActionWidget: (_) => const Align(
+            alignment: Alignment.bottomCenter, child: Text('GFAB')),
+        hideFloatingActionWidgetForShowcase: [k2],
+      ));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('GFAB'), findsOneWidget); // shown on k1
+
+      state.next(); // k2 is in the hide list
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('GFAB'), findsNothing);
+    });
+
+    testWidgets('per-step floatingActionWidget overrides the global one',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(buildFloatingApp(
+        k1,
+        k2,
+        floating1: const Align(
+            alignment: Alignment.bottomCenter, child: Text('LOCAL')),
+        globalFloatingActionWidget: (_) => const Align(
+            alignment: Alignment.bottomCenter, child: Text('GFAB')),
+      ));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      // The per-step widget wins on k1; the global one is not shown.
+      expect(find.text('LOCAL'), findsOneWidget);
+      expect(find.text('GFAB'), findsNothing);
+
+      state.next(); // k2 has no per-step widget -> falls back to global
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('GFAB'), findsOneWidget);
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

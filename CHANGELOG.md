@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.13.0
+
+* FEAT: **floating action widget** — pin a screen-anchored control (e.g. a fixed
+  Skip / Next button or a progress chip) above the overlay so it stays put while
+  the tour runs, instead of moving with each tooltip. Set one tour-wide with
+  `ShowCaseWidget.globalFloatingActionWidget` (a `WidgetBuilder`, so it can read
+  the tour via `ShowCaseWidget.of(context)`), override it per step with
+  `Showcase.floatingActionWidget`, and suppress the global one on specific steps
+  with `ShowCaseWidget.hideFloatingActionWidgetForShowcase`. You position the
+  widget yourself (e.g. with `Align`/`Positioned`); it is painted above the
+  tooltip and receives taps. Additive and backward-compatible (defaults `null` /
+  empty).
+
 ## 1.12.0
 
 * FEAT: **`onBarrierClick`** — a new `ShowCaseWidget.onBarrierClick` callback fires
