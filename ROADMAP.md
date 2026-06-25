@@ -76,12 +76,12 @@ can be picked up and shipped independently.
       `scrollAlignment` to control where the target lands when `enableAutoScroll`
       brings an off-screen target into view.
 
-- [ ] **Tour-level `onDismiss`**
+- [x] **Tour-level `onDismiss`**
       `ShowCaseWidget.onDismiss(GlobalKey? dismissedAt)`, fired when the whole tour
       is dismissed (barrier-dismiss, Esc, skip, or a manual `dismiss()`). Distinct
       from the existing per-step `Showcase.onDismiss`.
 
-- [ ] **`onBarrierClick`**
+- [x] **`onBarrierClick`**
       `ShowCaseWidget.onBarrierClick`, a hook for taps on the dimmed background, in
       addition to the configured `barrierInteraction` behaviour.
 
