@@ -675,6 +675,18 @@ Showcase(
 > `left` / `right` use the default title/description tooltip; custom `container`
 > tooltips and action buttons keep top/bottom placement.
 
+Add extra space between the target and the tooltip with `targetTooltipGap`
+(logical pixels, default `0`). It applies to every side:
+
+```dart
+Showcase(
+  key: _one,
+  description: 'Sits a little further from the target',
+  targetTooltipGap: 16,
+  child: const Icon(Icons.menu),
+);
+```
+
 ## Skip off-screen steps
 
 If some showcased widgets are rendered conditionally, enable
@@ -810,6 +822,7 @@ ShowCaseWidget(
 | actionButtonsPosition        | ActionButtonsPosition? |                                                    | Manual position for the action buttons.                                                     |     ✅     |          ✅           |
 | floatingActionWidget         | Widget?                |                                                    | Screen-anchored widget shown while this step is active (overrides the global one).          |     ✅     |          ✅           |
 | autoPlayDelay                | Duration?              | `ShowCaseWidget.autoPlayDelay`                     | Per-step auto-play visibility time, overriding the tour-wide delay.                          |     ✅     |          ✅           |
+| targetTooltipGap             | double                 | `0`                                                | Extra space (logical px) between the target and the tooltip; applies to all sides.          |     ✅     |          ✅           |
 | targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlight (used when `targetBorderRadius` is null).                    |     ✅     |          ✅           |
 | highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
 | targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlight.                                                             |     ✅     |          ✅           |
