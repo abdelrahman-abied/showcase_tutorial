@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.12.0
+
+* FEAT: **`onBarrierClick`** — a new `ShowCaseWidget.onBarrierClick` callback fires
+  whenever the dimmed background (barrier) is tapped, **in addition to** the
+  configured `barrierInteraction`. It runs even when `barrierInteraction` is
+  `BarrierInteraction.none`, so you can react to "the user tapped outside the
+  highlight" (a hint nudge, a sound, analytics) without changing what the tap
+  does; with `.next` / `.dismiss` it runs first, then the configured action
+  follows. Additive and backward-compatible (default `null`).
+
 ## 1.11.0
 
 * FEAT: **tour-level `onDismiss`** — a new `ShowCaseWidget.onDismiss(GlobalKey?

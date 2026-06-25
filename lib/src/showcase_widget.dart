@@ -59,6 +59,16 @@ class ShowCaseWidget extends StatefulWidget {
   /// step as the tour leaves it.
   final void Function(GlobalKey? dismissedAt)? onDismiss;
 
+  /// Triggered whenever the dimmed background (the barrier) is tapped, in
+  /// addition to the configured [barrierInteraction] behaviour.
+  ///
+  /// Fires even when [barrierInteraction] is [BarrierInteraction.none], so it can
+  /// be used purely as a "user tapped outside the highlight" signal — for a hint
+  /// nudge, a sound, or analytics — without changing what the tap does. When
+  /// [barrierInteraction] is `.next` or `.dismiss` this runs first, then the
+  /// configured action follows.
+  final VoidCallback? onBarrierClick;
+
   /// Whether all showcases will auto sequentially start
   /// having time interval of [autoPlayDelay] .
   ///
@@ -215,6 +225,7 @@ class ShowCaseWidget extends StatefulWidget {
     this.onStart,
     this.onComplete,
     this.onDismiss,
+    this.onBarrierClick,
     this.autoPlay = false,
     this.autoPlayDelay = const Duration(milliseconds: 2000),
     this.enableAutoPlayLock = false,
@@ -309,6 +320,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// flag wins when `true`, mapping to [BarrierInteraction.none].
   BarrierInteraction get barrierInteraction =>
       widget.disableBarrierInteraction ? BarrierInteraction.none : widget.barrierInteraction;
+
+  /// Value of [ShowCaseWidget.onBarrierClick].
+  VoidCallback? get onBarrierClick => widget.onBarrierClick;
 
   /// Value of [ShowCaseWidget.enableShowcase].
   bool get enableShowcase => widget.enableShowcase;

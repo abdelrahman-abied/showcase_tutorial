@@ -534,6 +534,18 @@ ShowCaseWidget(
 > Shortcut: `disableBarrierInteraction: true` is equivalent to
 > `BarrierInteraction.none`.
 
+To run your own code on a background tap — a hint nudge, a sound, analytics — add
+`onBarrierClick`. It fires on every barrier tap **in addition to** the configured
+`barrierInteraction`, and runs even when interaction is `.none`:
+
+```dart
+ShowCaseWidget(
+  barrierInteraction: BarrierInteraction.none, // tap doesn't advance/dismiss…
+  onBarrierClick: () => debugPrint('user tapped outside the highlight'), // …but you still hear about it
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
 ## Accessibility & keyboard navigation
 
 The active step is keyboard-navigable and announced to screen readers out of the
@@ -682,6 +694,7 @@ ShowCaseWidget(
 | scrollDuration            | Duration                   | `Duration(milliseconds: 300)`  | Duration of the auto-scroll animation.                                           |
 | barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`      | What a background tap does: `next` (advance), `dismiss` (end tour), `none`.      |
 | disableBarrierInteraction | bool                       | false                          | Shortcut; `true` makes the barrier inert (same as `BarrierInteraction.none`).    |
+| onBarrierClick            | VoidCallback?              |                                | Called on every barrier tap (even when `barrierInteraction` is `none`).          |
 | disableScaleAnimation     | bool                       | false                          | Disable the tooltip scale transition for all steps.                              |
 | disableMovingAnimation    | bool                       | false                          | Disable the bouncing/moving transition for all steps.                            |
 | onStart                   | Function(int?, GlobalKey)? |                                | Called on the start of each step.                                                |

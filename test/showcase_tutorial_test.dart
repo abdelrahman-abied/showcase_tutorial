@@ -684,6 +684,7 @@ void main() {
     BarrierInteraction barrierInteraction = BarrierInteraction.next,
     bool disableBarrierInteraction = false,
     bool enableKeyboardNavigation = true,
+    VoidCallback? onBarrierClick,
   }) {
     return MaterialApp(
       home: ShowCaseWidget(
@@ -692,6 +693,7 @@ void main() {
         barrierInteraction: barrierInteraction,
         disableBarrierInteraction: disableBarrierInteraction,
         enableKeyboardNavigation: enableKeyboardNavigation,
+        onBarrierClick: onBarrierClick,
         builder: Builder(
           builder: (context) => Scaffold(
             body: Center(
@@ -1503,6 +1505,54 @@ void main() {
 
       expect(state.isShowcaseRunning, isFalse);
       expect(dismissedAt, k1);
+    });
+  });
+
+  group('onBarrierClick (ShowCaseWidget.onBarrierClick)', () {
+    testWidgets('fires on a barrier tap and still advances by default',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      var clicks = 0;
+      await tester.pumpWidget(
+          buildBarrierApp(k1, k2, onBarrierClick: () => clicks++));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.tapAt(const Offset(10, 10)); // tap the dimmed barrier
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400)); // reverse animation
+      await tester.pump(const Duration(milliseconds: 400)); // next step in
+
+      expect(clicks, 1);
+      expect(state.currentIndex, 1); // default .next still advanced
+    });
+
+    testWidgets('fires even when barrierInteraction is none', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      var clicks = 0;
+      await tester.pumpWidget(buildBarrierApp(
+        k1,
+        k2,
+        barrierInteraction: BarrierInteraction.none,
+        onBarrierClick: () => clicks++,
+      ));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(clicks, 1); // the hook fired…
+      expect(state.currentIndex, 0); // …but `.none` did not advance
     });
   });
 }
