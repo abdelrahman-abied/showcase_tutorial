@@ -1,46 +1,99 @@
 # showcase_tutorial
 
-[![pub package](https://img.shields.io/badge/showcase_tutorial-1.9.0-blue)](https://pub.dev/packages/showcase_tutorial)
+[![pub package](https://img.shields.io/pub/v/showcase_tutorial.svg)](https://pub.dev/packages/showcase_tutorial)
+[![likes](https://img.shields.io/pub/likes/showcase_tutorial)](https://pub.dev/packages/showcase_tutorial/score)
 [![GitHub stars](https://img.shields.io/github/stars/abdelrahman-abied/showcase_tutorial?style=social)](https://github.com/abdelrahman-abied/showcase_tutorial)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A Flutter package to **showcase / highlight your widgets step by step** — perfect for
-onboarding tours and feature discovery.
+A Flutter package for building **step-by-step product tours and feature
+discovery**. Highlight any widget on screen, dim everything else, and show an
+auto-positioned tooltip that walks the user from one feature to the next — ideal
+for onboarding, "what's new" tours, and contextual help.
+
+It works with a single widget you wrap your screen in, plus one `Showcase` per
+target. No state management, no boilerplate: drive the whole tour through a small
+controller API.
 
 ## Preview
 
 ![Feature walkthrough](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/demo.gif)
 
-![The example app running in iOS](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/showcase_tutorial.gif)
+![The example app running on iOS](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/showcase_tutorial.gif)
 
 ## Features
 
-- Step-by-step highlight of any widget with an auto-positioned tooltip.
-- Default tooltip (title + description) or a fully custom tooltip widget.
-- Tooltip on any side — top / bottom / left / right — with full **RTL** support.
-- **Highlight any widget by its exact shape** — circle, pill, star, icon — with `highlightExactShape`.
-- **Pulsing highlight ring** — an optional animated ring that pings around the target to draw the eye.
-- **Tooltip & highlight styling** — custom arrow color/size and a colored border around the target.
-- **Highlight multiple widgets in a single step** (e.g. multi-select).
-- **Global tooltip styling** via `ShowcaseStyle` — set it once, not per step.
-- Built-in **action buttons** (Next / Previous / Stop) with customizable text.
-- Built-in **progress indicator** (dots or a `1/6` counter) and a **Skip** button in the default tooltip.
-- Auto-play, auto-scroll, and background blur.
-- Programmatic control & progress: `next()`, `previous()`, `goTo()`, `dismiss()`, "Step x of y".
-- **Conditional / branching tours** — let a step decide the next step at runtime (`onResolveNextStep`).
-- Per-step **lifecycle callbacks** (`onShow` / `onDismiss`) and configurable background-tap behavior.
-- **Show the tour only once** for onboarding, and auto-skip steps not on screen.
-- **Accessibility**: keyboard navigation (Esc / arrows / Enter) and screen-reader announcements.
-- Target interaction callbacks: tap, double-tap, long-press.
-- Enable/disable the whole tour with a single flag.
+- **Step-by-step highlighting** of any widget with an auto-positioned tooltip.
+- **Default tooltip** (title + description) or a **fully custom tooltip** widget.
+- **Tooltip on any side** — top / bottom / left / right — with full **RTL** support.
+- **Exact-shape highlight** — hug a widget's actual painted shape (circle, pill,
+  star, icon, logo) automatically with `highlightExactShape`.
+- **Pulsing highlight ring** — an optional animated ring that pings around the
+  target to draw the eye.
+- **Tooltip & highlight styling** — custom arrow color/size, a colored border
+  around the target, custom scrim color and opacity.
+- **Highlight multiple widgets in one step** (e.g. a multi-select control).
+- **Global tooltip styling** with `ShowcaseStyle` — set it once, not per step.
+- Built-in **action buttons** (Next / Previous / Stop) with customizable text,
+  icons, and layout.
+- Built-in **progress indicator** (dots or a `1/6` counter) and a **Skip** button
+  in the default tooltip.
+- **Auto-play**, **auto-scroll** to off-screen targets, and **background blur**.
+- **Programmatic control**: `next()`, `previous()`, `goTo()`, `goToKey()`,
+  `dismiss()`, plus live progress (`currentIndex`, `totalSteps`).
+- **Conditional / branching tours** — let a step decide the next step at runtime
+  with `onResolveNextStep`.
+- **Per-step lifecycle callbacks** (`onShow` / `onDismiss`) and configurable
+  background-tap behavior.
+- **Run the tour only once** for onboarding, and **auto-skip** steps whose target
+  isn't on screen.
+- **Accessibility** built in — keyboard navigation (Esc / arrows / Enter) and
+  screen-reader announcements.
+- **Target interaction callbacks**: tap, double-tap, long-press.
+- **Enable/disable** the whole tour with a single flag.
 
-## Installing
+## Table of contents
 
-1. Add the dependency to your `pubspec.yaml` (get the latest version from the
-   ['Installing' tab on pub.dev](https://pub.dev/packages/showcase_tutorial/install)):
+- [Installation](#installation)
+- [Getting started](#getting-started)
+- [Custom tooltip](#custom-tooltip-with-showcasewithwidget)
+- [Action buttons](#action-buttons-next--previous--stop)
+- [Progress indicator & Skip button](#progress-indicator--skip-button)
+- [Exact-shape highlight](#exact-shape-highlight)
+- [Pulsing highlight ring](#pulsing-highlight-ring)
+- [Tooltip & highlight styling](#tooltip--highlight-styling)
+- [Highlight multiple widgets in one step](#highlight-multiple-widgets-in-one-step)
+- [Global styling with `ShowcaseStyle`](#global-styling-with-showcasestyle)
+- [Run the tour only once](#run-the-tour-only-once)
+- [Auto play](#auto-play)
+- [Programmatic control & progress](#programmatic-control--progress)
+- [Conditional / branching tours](#conditional--branching-tours)
+- [Target interactions](#target-interactions)
+- [Step lifecycle callbacks](#step-lifecycle-callbacks)
+- [Background (barrier) tap behavior](#background-barrier-tap-behavior)
+- [Accessibility & keyboard navigation](#accessibility--keyboard-navigation)
+- [Blur the background](#blur-the-background)
+- [Tooltip position](#tooltip-position)
+- [Skip off-screen steps](#skip-off-screen-steps)
+- [Right-to-left (RTL)](#right-to-left-rtl)
+- [Enable or disable globally](#enable-or-disable-globally)
+- [Auto-scrolling caveat](#auto-scrolling-caveat)
+- [API reference](#api-reference)
+- [Example](#example)
+- [License](#license)
+
+## Installation
+
+1. Add the dependency to your `pubspec.yaml`:
 
    ```yaml
    dependencies:
-     showcase_tutorial: <latest-version>
+     showcase_tutorial: ^1.10.0
+   ```
+
+   Or from the command line:
+
+   ```sh
+   flutter pub add showcase_tutorial
    ```
 
 2. Import it:
@@ -49,49 +102,9 @@ onboarding tours and feature discovery.
    import 'package:showcase_tutorial/showcase_tutorial.dart';
    ```
 
-## Upgrading (1.4 → 1.6)
+## Getting started
 
-Everything added since 1.4 is **additive and backward-compatible** — upgrading
-needs no code changes. Every new capability is opt-in, and the only defaults that
-changed are safe, focus-scoped accessibility improvements. At a glance:
-
-### 1.6
-
-- **Progress dots & Skip button** in the default tooltip — opt in with
-  `ShowCaseWidget(showProgress: true, showSkip: true)` (both default to `false`;
-  customize the label with `skipButtonText`). See
-  [Progress dots & Skip button](#progress-dots--skip-button).
-
-### 1.5
-
-- **Keyboard navigation** (Esc / arrows / Enter) via `enableKeyboardNavigation`
-  — **on by default**, but focus-scoped so it never hijacks your app's keys.
-- **Screen-reader announcements** of each step via `enableAutoAnnouncements`
-  — **on by default**; override the spoken text per step with
-  `Showcase.semanticLabel`. See
-  [Accessibility & keyboard navigation](#accessibility--keyboard-navigation).
-
-### 1.4
-
-- **Exact-shape highlight** — `Showcase(highlightExactShape: true)` hugs the
-  target's actual painted shape instead of a geometric box.
-- **Per-step lifecycle callbacks** — `Showcase(onShow: ..., onDismiss: ...)`.
-- **Background-tap behavior** — `ShowCaseWidget(barrierInteraction: ...)` with
-  `BarrierInteraction.next` (default, unchanged), `.dismiss`, or `.none`. The
-  legacy `disableBarrierInteraction: true` still works (equivalent to `.none`).
-- **Side tooltip positions** — `Showcase(tooltipPosition: TooltipPosition.left)`
-  or `.right`.
-- **Progress & jump-to API** on `ShowCaseWidget.of(context)`: `currentIndex`,
-  `totalSteps`, `isShowcaseRunning`, `goTo(index)`, `goToKey(key)`.
-- **Skip off-screen steps** — `ShowCaseWidget(autoSkipUnmountedSteps: true)`.
-- **RTL support** — automatic; the tooltip follows the ambient text direction.
-
-> Only two defaults changed across these releases — **keyboard navigation** and
-> **screen-reader announcements** (both 1.5, both on by default). Both are
-> additive and focus-scoped; set either flag to `false` to restore the pre-1.5
-> behavior.
-
-## Basic usage
+A tour is three small steps: wrap the screen, wrap each target, then start.
 
 **1. Wrap your screen (or app) in a `ShowCaseWidget`.**
 
@@ -123,7 +136,7 @@ Showcase(
 );
 ```
 
-**3. Start the showcase** (the order of keys is the order of the steps):
+**3. Start the tour** — the order of keys is the order of the steps:
 
 ```dart
 ShowCaseWidget.of(context).startShowCase([_one, _two]);
@@ -136,6 +149,8 @@ WidgetsBinding.instance.addPostFrameCallback(
   (_) => ShowCaseWidget.of(context).startShowCase([_one, _two]),
 );
 ```
+
+That's the whole flow. Everything below is optional.
 
 ## Custom tooltip with `Showcase.withWidget`
 
@@ -160,7 +175,7 @@ Showcase.withWidget(
 );
 ```
 
-## Tooltip action buttons (Next / Previous / Stop)
+## Action buttons (Next / Previous / Stop)
 
 Add navigation buttons to the tooltip with `ShowCaseDefaultActions`:
 
@@ -198,7 +213,7 @@ Showcase(
 );
 ```
 
-## Progress dots & Skip button
+## Progress indicator & Skip button
 
 Add a built-in step indicator and a skip control to the default tooltip — no
 custom container needed. Both are set once on the `ShowCaseWidget` and default
@@ -219,10 +234,10 @@ The indicator uses the tooltip's text color and reflects `currentIndex` /
 `totalSteps`. Choose its look with `progressStyle`:
 `ShowcaseProgressStyle.dots` (one dot per step, active step highlighted — the
 default) or `ShowcaseProgressStyle.numeric` (a compact `1/6` counter, handy for
-long tours). This only affects the **default** tooltip; a custom `container`
-tooltip is left untouched (build your own indicator there if you want one).
+long tours). This affects the **default** tooltip only; a custom `container`
+tooltip is left untouched.
 
-## Highlight a widget by its exact shape
+## Exact-shape highlight
 
 By default the highlight is a geometric box you control with `targetShapeBorder`
 (e.g. `CircleBorder()` for a round target). For irregular widgets — a star, a
@@ -244,8 +259,8 @@ How it works: the target is captured as a snapshot and drawn above the dimmed
 overlay (the child is wrapped in a `RepaintBoundary` for you).
 
 > Note: while the step is showing, the target is rendered as a **static image**,
-> so it won't animate or update until the showcase moves on. For typical static
-> UI this is invisible. `targetShapeBorder`/`targetBorderRadius` are ignored for
+> so it won't animate or update until the tour moves on. For typical static UI
+> this is invisible. `targetShapeBorder` / `targetBorderRadius` are ignored for
 > the highlight when this is on.
 
 ## Pulsing highlight ring
@@ -308,7 +323,7 @@ Set any of these once for the whole tour via `ShowcaseStyle`, e.g.
 > The per-step overlay (scrim) color is controlled by `Showcase.overlayColor`
 > and `overlayOpacity`.
 
-## Highlight multiple widgets in a single step
+## Highlight multiple widgets in one step
 
 Sometimes one step should highlight several widgets at once — for example a
 multi-select control, or a few non-adjacent items in a `ListView`. Pass the
@@ -338,7 +353,7 @@ MultiView(key: extraTwo, child: FloatingActionButton(onPressed: () {}));
 > the step starts so their keys resolve. A widget that is missing is simply
 > skipped — the remaining ones are still highlighted.
 
-## Set default tooltip styling once (`ShowcaseStyle`)
+## Global styling with `ShowcaseStyle`
 
 Instead of repeating the same tooltip styling on every `Showcase`, set it once
 on the `ShowCaseWidget` with `ShowcaseStyle`. Each `Showcase` still overrides
@@ -358,13 +373,13 @@ ShowCaseWidget(
 
 Resolution order for each value: **`Showcase` → `ShowcaseStyle` → built-in default**.
 
-## Show the tour only once
+## Run the tour only once
 
 By default the package stores nothing, so the tour replays every time you call
 `startShowCase`. To show it only once (typical onboarding), give the
 `ShowCaseWidget` a `showcaseId` and an `onShouldStartShowcase` guard, and persist
-completion yourself in `onFinish` — with any storage (`shared_preferences`,
-Hive, a backend, …):
+completion yourself in `onFinish` — with any storage (`shared_preferences`, Hive,
+a backend, …):
 
 ```dart
 ShowCaseWidget(
@@ -397,7 +412,10 @@ ShowCaseWidget(
 );
 ```
 
-## Controlling the showcase programmatically
+## Programmatic control & progress
+
+Drive the tour from anywhere you have a `BuildContext` below the
+`ShowCaseWidget`:
 
 ```dart
 ShowCaseWidget.of(context).next();      // go to the next step
@@ -405,8 +423,8 @@ ShowCaseWidget.of(context).previous();  // go to the previous step
 ShowCaseWidget.of(context).dismiss();   // stop the whole tour
 ```
 
-Jump to a specific step and read progress — useful for a "Step 2 of 5"
-indicator or a skip-to control:
+Jump to a specific step and read progress — useful for a "Step 2 of 5" indicator
+or a skip-to control:
 
 ```dart
 final show = ShowCaseWidget.of(context);
@@ -416,7 +434,7 @@ final label = '${(show.currentIndex ?? 0) + 1} of ${show.totalSteps}';
 final running = show.isShowcaseRunning;
 ```
 
-Lifecycle callbacks on `ShowCaseWidget`:
+Listen to the tour lifecycle on `ShowCaseWidget`:
 
 ```dart
 ShowCaseWidget(
@@ -431,9 +449,9 @@ ShowCaseWidget(
 
 Let a step decide the next step at runtime so the tour can skip ahead or branch
 based on app state. Set `onResolveNextStep` on `ShowCaseWidget`: it's called
-whenever the tour advances **forward** and returns the `GlobalKey` of the step
-to jump to (one of the keys passed to `startShowCase`), or `null` to advance to
-the normal next step.
+whenever the tour advances **forward** and returns the `GlobalKey` of the step to
+jump to (one of the keys passed to `startShowCase`), or `null` to advance to the
+normal next step.
 
 ```dart
 ShowCaseWidget(
@@ -447,15 +465,15 @@ ShowCaseWidget(
 );
 ```
 
-The resolver is honored by **every** forward path — the Next button, a tap on
-the target or tooltip, the barrier, the keyboard, auto-play, and `next()`. The
+The resolver is honored by **every** forward path — the Next button, a tap on the
+target or tooltip, the barrier, the keyboard, auto-play, and `next()`. The
 returned step may be ahead of or behind the current one, and a branch is treated
 as an explicit jump (like `goTo`), so `autoSkipUnmountedSteps` is not applied to
 the target. `previous()`, `goTo()`, and `goToKey()` ignore the resolver.
 
 ## Target interactions
 
-Respond to taps on the highlighted widget. `onTargetClick` requires
+Respond to gestures on the highlighted widget. `onTargetClick` requires
 `disposeOnTap` to be set:
 
 ```dart
@@ -472,8 +490,8 @@ Showcase(
 
 ## Step lifecycle callbacks
 
-Each `Showcase` can report when it becomes visible and when it's left — handy
-for analytics or per-step side effects:
+Each `Showcase` can report when it becomes visible and when it's left — handy for
+analytics or per-step side effects:
 
 ```dart
 Showcase(
@@ -503,7 +521,7 @@ ShowCaseWidget(
 );
 ```
 
-> The legacy `disableBarrierInteraction: true` still works and is equivalent to
+> Shortcut: `disableBarrierInteraction: true` is equivalent to
 > `BarrierInteraction.none`.
 
 ## Accessibility & keyboard navigation
@@ -554,9 +572,8 @@ Showcase(blurValue: 2, key: _one, description: '...', child: ...);
 
 ## Tooltip position
 
-Force the tooltip to a side of the target with `TooltipPosition.top`,
-`.bottom`, `.left`, or `.right` (defaults to whatever vertical space is
-available):
+Force the tooltip to a side of the target with `TooltipPosition.top`, `.bottom`,
+`.left`, or `.right` (defaults to whichever vertical space is available):
 
 ```dart
 Showcase(
@@ -567,14 +584,14 @@ Showcase(
 );
 ```
 
-> `left` / `right` use the default title/description tooltip; custom
-> `container` tooltips and action buttons keep top/bottom placement.
+> `left` / `right` use the default title/description tooltip; custom `container`
+> tooltips and action buttons keep top/bottom placement.
 
-## Skip steps whose target isn't on screen
+## Skip off-screen steps
 
 If some showcased widgets are rendered conditionally, enable
-`autoSkipUnmountedSteps` so steps whose target isn't currently in the widget
-tree are skipped automatically instead of showing an empty overlay:
+`autoSkipUnmountedSteps` so steps whose target isn't currently in the widget tree
+are skipped automatically instead of showing an empty overlay:
 
 ```dart
 ShowCaseWidget(
@@ -589,7 +606,7 @@ The tooltip inherits the ambient text direction, so RTL text (e.g. Arabic) is
 measured and laid out correctly when your app is RTL — no extra configuration
 needed.
 
-## Enable or disable showcasing globally
+## Enable or disable globally
 
 ```dart
 ShowCaseWidget(
@@ -598,108 +615,12 @@ ShowCaseWidget(
 );
 ```
 
-## Functions of `ShowCaseWidget.of(context)`
+## Auto-scrolling caveat
 
-| Function                                   | Description              |
-|--------------------------------------------|--------------------------|
-| `startShowCase(List<GlobalKey> widgetIds)` | Start the showcase       |
-| `next()`                                   | Go to the next step      |
-| `previous()`                               | Go to the previous step  |
-| `dismiss()`                                | Dismiss all showcases    |
-
-## Properties of `ShowCaseWidget`
-
-| Name                      | Type                       | Default                        | Description                                                                      |
-| ------------------------- | -------------------------- | ------------------------------ | -------------------------------------------------------------------------------- |
-| builder                   | Builder                    | required                       | Builds the subtree that contains the `Showcase` widgets.                         |
-| style                     | ShowcaseStyle              | `const ShowcaseStyle()`        | Default tooltip styling for every `Showcase` in the tree.                        |
-| blurValue                 | double                     | 0                              | Gaussian blur applied to the overlay.                                            |
-| autoPlay                  | bool                       | false                          | Automatically advance to the next showcase.                                      |
-| autoPlayDelay             | Duration                   | `Duration(milliseconds: 2000)` | Visibility time of a showcase when `autoPlay` is enabled.                        |
-| enableAutoPlayLock        | bool                       | false                          | Block user interaction on the overlay while auto-playing.                        |
-| enableAutoScroll          | bool                       | false                          | Auto-scroll so the next target becomes visible.                                  |
-| scrollDuration            | Duration                   | `Duration(milliseconds: 300)`  | Duration of the auto-scroll animation.                                           |
-| barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`      | What a background tap does: `next` (advance), `dismiss` (end tour), `none`.      |
-| disableBarrierInteraction | bool                       | false                          | Legacy flag; `true` makes the barrier inert (same as `BarrierInteraction.none`). |
-| disableScaleAnimation     | bool                       | false                          | Disable the tooltip scale transition for all showcases.                          |
-| disableMovingAnimation    | bool                       | false                          | Disable the bouncing/moving transition for all showcases.                        |
-| onStart                   | Function(int?, GlobalKey)? |                                | Called on the start of each showcase.                                            |
-| onComplete                | Function(int?, GlobalKey)? |                                | Called on the completion of each showcase.                                       |
-| onFinish                  | VoidCallback?              |                                | Called when all showcases are completed.                                         |
-| enableShowcase            | bool                       | true                           | Enable or disable showcasing globally.                                           |
-| autoSkipUnmountedSteps    | bool                       | false                          | Skip steps whose target widget is not currently mounted.                         |
-| enableKeyboardNavigation  | bool                       | true                           | Drive the active step with a hardware keyboard (Esc / arrows / Enter).           |
-| enableAutoAnnouncements   | bool                       | true                           | Announce each step's title/description to screen readers.                        |
-| showProgress              | bool                       | false                          | Show the built-in step indicator in the default tooltip.                         |
-| progressStyle             | ShowcaseProgressStyle      | ShowcaseProgressStyle.dots     | Indicator style: dots or a `1/6` numeric counter.                                |
-| showSkip                  | bool                       | false                          | Show a "Skip" button in the default tooltip that ends the tour.                  |
-| skipButtonText            | String                     | 'Skip'                         | Label for the skip button.                                                       |
-| onResolveNextStep         | Function(int, GlobalKey)?  |                                | Decide the next step at runtime: return a step key to branch, or null.           |
-
-## Properties of `Showcase` and `Showcase.withWidget`
-
-| Name                         | Type                   | Default                                            | Description                                                                                 | `Showcase` | `Showcase.withWidget` |
-| ---------------------------- | ---------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- | :--------: | :-------------------: |
-| key                          | GlobalKey              | required                                           | Unique global key for the showcase.                                                         |     ✅     |          ✅           |
-| child                        | Widget                 | required                                           | The target widget to be showcased.                                                          |     ✅     |          ✅           |
-| keys                         | List<GlobalKey>?       |                                                    | Extra widgets to highlight in the same step (wrap each in a `MultiView`).                   |     ✅     |          ✅           |
-| title                        | String?                |                                                    | Title of the default tooltip.                                                               |     ✅     |                       |
-| description                  | String?                |                                                    | Description of the default tooltip (optional).                                              |     ✅     |                       |
-| container                    | Widget?                |                                                    | A fully custom tooltip widget.                                                              |            |          ✅           |
-| height                       | double?                |                                                    | Height of the custom tooltip.                                                               |            |          ✅           |
-| width                        | double?                |                                                    | Width of the custom tooltip.                                                                |            |          ✅           |
-| titleTextStyle               | TextStyle?             | `ShowcaseStyle`                                    | Text style of the title.                                                                    |     ✅     |                       |
-| descTextStyle                | TextStyle?             | `ShowcaseStyle`                                    | Text style of the description.                                                              |     ✅     |                       |
-| titleAlignment               | TextAlign              | `TextAlign.start`                                  | Alignment of the title.                                                                     |     ✅     |                       |
-| descriptionAlignment         | TextAlign              | `TextAlign.start`                                  | Alignment of the description.                                                               |     ✅     |                       |
-| tooltipBackgroundColor       | Color?                 | `ShowcaseStyle` → `Colors.white`                   | Background color of the default tooltip.                                                    |     ✅     |                       |
-| textColor                    | Color?                 | `ShowcaseStyle` → `Colors.black`                   | Text color of the default tooltip.                                                          |     ✅     |                       |
-| tooltipBorderRadius          | BorderRadius?          | `ShowcaseStyle` → `BorderRadius.circular(8)`       | Border radius of the default tooltip.                                                       |     ✅     |                       |
-| tooltipPadding               | EdgeInsets             | `EdgeInsets.symmetric(vertical: 8, horizontal: 8)` | Padding inside the tooltip.                                                                 |     ✅     |                       |
-| titlePadding                 | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the title.                                                                   |     ✅     |                       |
-| descriptionPadding           | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the description.                                                             |     ✅     |                       |
-| showArrow                    | bool                   | true                                               | Show the tooltip arrow pointing at the target.                                              |     ✅     |                       |
-| tooltipPosition              | TooltipPosition?       |                                                    | Force the tooltip above (`top`) or below (`bottom`) the target.                             |     ✅     |          ✅           |
-| actions                      | Widget?                |                                                    | Action buttons widget (e.g. `ShowCaseDefaultActions`).                                      |     ✅     |          ✅           |
-| actionSettings               | ActionsSettings?       | `const ActionsSettings()`                          | Container styling for the action buttons.                                                   |     ✅     |          ✅           |
-| actionButtonsPosition        | ActionButtonsPosition? |                                                    | Manual position for the action buttons.                                                     |     ✅     |          ✅           |
-| targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlighted target (used when `targetBorderRadius` is null).           |     ✅     |          ✅           |
-| highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
-| targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlighted target.                                                    |     ✅     |          ✅           |
-| enablePulseAnimation         | bool                   | false                                              | Draw an animated ring that pulses outward around the highlight.                             |     ✅     |          ✅           |
-| pulseColor                   | Color?                 | `ShowcaseStyle` → `Colors.white`                   | Color of the pulsing ring.                                                                  |     ✅     |          ✅           |
-| pulseDuration                | Duration               | `Duration(milliseconds: 1500)`                     | Length of one full pulse cycle (smaller is faster).                                         |     ✅     |          ✅           |
-| highlightBorderColor         | Color?                 |                                                    | Color of a border drawn around the highlighted target (off when null).                      |     ✅     |          ✅           |
-| highlightBorderWidth         | double?                | `2`                                                | Width of the highlight border.                                                              |     ✅     |          ✅           |
-| arrowColor                   | Color?                 | `ShowcaseStyle` → tooltip bg                       | Color of the default tooltip arrow.                                                         |     ✅     |                       |
-| arrowWidth                   | double?                | `18`                                               | Width (base) of the default tooltip arrow.                                                  |     ✅     |                       |
-| arrowHeight                  | double?                | `9`                                                | Height (depth) of the default tooltip arrow.                                                |     ✅     |                       |
-| targetPadding                | EdgeInsets             | `EdgeInsets.zero`                                  | Padding around the highlighted target.                                                      |     ✅     |          ✅           |
-| overlayColor                 | Color                  | `Colors.black45`                                   | Color of the overlay.                                                                       |     ✅     |          ✅           |
-| overlayOpacity               | double                 | 0.75                                               | Opacity of the overlay.                                                                     |     ✅     |          ✅           |
-| blurValue                    | double?                | `ShowCaseWidget.blurValue`                         | Gaussian blur on the overlay.                                                               |     ✅     |          ✅           |
-| disableDefaultTargetGestures | bool                   | false                                              | Disable the default gestures on the target.                                                 |     ✅     |          ✅           |
-| disposeOnTap                 | bool?                  |                                                    | Dismiss all showcases when the target/tooltip is tapped.                                    |     ✅     |          ✅           |
-| onTargetClick                | VoidCallback?          |                                                    | Called when the target is tapped (requires `disposeOnTap`).                                 |     ✅     |          ✅           |
-| onTargetDoubleTap            | VoidCallback?          |                                                    | Called when the target is double-tapped.                                                    |     ✅     |          ✅           |
-| onTargetLongPress            | VoidCallback?          |                                                    | Called when the target is long-pressed.                                                     |     ✅     |          ✅           |
-| onToolTipClick               | VoidCallback?          |                                                    | Called when the tooltip is tapped.                                                          |     ✅     |                       |
-| onShow                       | VoidCallback?          |                                                    | Called when this step becomes the active showcase.                                          |     ✅     |          ✅           |
-| onDismiss                    | VoidCallback?          |                                                    | Called when this step stops being active (advanced past, navigated away, or dismissed).     |     ✅     |          ✅           |
-| semanticLabel                | String?                |                                                    | Text announced to screen readers for this step (defaults to title + description).           |     ✅     |          ✅           |
-| disableMovingAnimation       | bool?                  | `ShowCaseWidget.disableMovingAnimation`            | Disable the bouncing/moving transition.                                                     |     ✅     |          ✅           |
-| disableScaleAnimation        | bool?                  | `ShowCaseWidget.disableScaleAnimation`             | Disable the initial scale transition.                                                       |     ✅     |                       |
-| movingAnimationDuration      | Duration               | `Duration(milliseconds: 2000)`                     | Duration of the moving animation.                                                           |     ✅     |          ✅           |
-| scaleAnimationDuration       | Duration               | `Duration(milliseconds: 300)`                      | Duration of the scale animation.                                                            |     ✅     |                       |
-| scaleAnimationCurve          | Curve                  | `Curves.easeIn`                                    | Curve of the scale animation.                                                               |     ✅     |                       |
-| scaleAnimationAlignment      | Alignment?             |                                                    | Origin of the scale animation.                                                              |     ✅     |                       |
-| scrollLoadingWidget          | Widget                 | `CircularProgressIndicator(...)`                   | Loading widget shown while auto-scrolling to the target.                                    |     ✅     |          ✅           |
-
-## Auto-scrolling to the active showcase
-
-Auto-scrolling does **not** work reliably in scroll views that build children on
-demand (e.g. `ListView`, `GridView`), because the target widget may not be
-attached to the tree when the showcase starts.
+Set `enableAutoScroll: true` to scroll an off-screen target into view before its
+step starts. This does **not** work reliably in scroll views that build children
+on demand (e.g. `ListView`, `GridView`), because the target widget may not be
+attached to the tree when the tour reaches that step.
 
 If you have a small number of children, prefer `SingleChildScrollView`. Otherwise,
 assign a `ScrollController` and scroll to the target manually inside `onStart`:
@@ -721,30 +642,117 @@ ShowCaseWidget(
 );
 ```
 
+## API reference
+
+### Controller — `ShowCaseWidget.of(context)`
+
+| Member                                       | Description                                                              |
+| -------------------------------------------- | ------------------------------------------------------------------------ |
+| `startShowCase(List<GlobalKey> keys, {bool force})` | Start the tour in key order. `force: true` bypasses `onShouldStartShowcase`. |
+| `next()`                                     | Advance to the next step.                                                |
+| `previous()`                                 | Go back one step.                                                        |
+| `goTo(int index)`                            | Jump to a step by its zero-based index.                                  |
+| `goToKey(GlobalKey key)`                     | Jump to a step by its `GlobalKey`.                                       |
+| `dismiss()`                                  | End the whole tour.                                                      |
+| `currentIndex`                               | Zero-based index of the active step, or `null` when no tour is running.  |
+| `totalSteps`                                 | Number of steps in the running tour (0 when none).                       |
+| `isShowcaseRunning`                          | Whether a tour is currently active.                                      |
+
+### `ShowCaseWidget` properties
+
+| Name                      | Type                       | Default                        | Description                                                                      |
+| ------------------------- | -------------------------- | ------------------------------ | -------------------------------------------------------------------------------- |
+| builder                   | Builder                    | required                       | Builds the subtree that contains the `Showcase` widgets.                         |
+| style                     | ShowcaseStyle              | `const ShowcaseStyle()`        | Default tooltip styling for every `Showcase` in the tree.                        |
+| blurValue                 | double                     | 0                              | Gaussian blur applied to the overlay.                                            |
+| autoPlay                  | bool                       | false                          | Automatically advance to the next step.                                          |
+| autoPlayDelay             | Duration                   | `Duration(milliseconds: 2000)` | Visibility time of a step when `autoPlay` is enabled.                            |
+| enableAutoPlayLock        | bool                       | false                          | Block user interaction on the overlay while auto-playing.                        |
+| enableAutoScroll          | bool                       | false                          | Auto-scroll so the next target becomes visible.                                  |
+| scrollDuration            | Duration                   | `Duration(milliseconds: 300)`  | Duration of the auto-scroll animation.                                           |
+| barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`      | What a background tap does: `next` (advance), `dismiss` (end tour), `none`.      |
+| disableBarrierInteraction | bool                       | false                          | Shortcut; `true` makes the barrier inert (same as `BarrierInteraction.none`).    |
+| disableScaleAnimation     | bool                       | false                          | Disable the tooltip scale transition for all steps.                              |
+| disableMovingAnimation    | bool                       | false                          | Disable the bouncing/moving transition for all steps.                            |
+| onStart                   | Function(int?, GlobalKey)? |                                | Called on the start of each step.                                                |
+| onComplete                | Function(int?, GlobalKey)? |                                | Called on the completion of each step.                                           |
+| onFinish                  | VoidCallback?              |                                | Called when all steps are completed.                                             |
+| enableShowcase            | bool                       | true                           | Enable or disable showcasing globally.                                           |
+| autoSkipUnmountedSteps    | bool                       | false                          | Skip steps whose target widget is not currently mounted.                         |
+| enableKeyboardNavigation  | bool                       | true                           | Drive the active step with a hardware keyboard (Esc / arrows / Enter).           |
+| enableAutoAnnouncements   | bool                       | true                           | Announce each step's title/description to screen readers.                        |
+| showProgress              | bool                       | false                          | Show the built-in step indicator in the default tooltip.                         |
+| progressStyle             | ShowcaseProgressStyle      | `ShowcaseProgressStyle.dots`   | Indicator style: dots or a `1/6` numeric counter.                                |
+| showSkip                  | bool                       | false                          | Show a "Skip" button in the default tooltip that ends the tour.                  |
+| skipButtonText            | String                     | 'Skip'                         | Label for the skip button.                                                       |
+| showcaseId                | String?                    |                                | Identifier passed to `onShouldStartShowcase`.                                    |
+| onShouldStartShowcase     | `FutureOr<bool> Function(String?)?` |                         | Guard run before a tour starts; return `false` to skip it.                       |
+| onResolveNextStep         | GlobalKey? Function(int, GlobalKey)? |                     | Decide the next step at runtime: return a step key to branch, or `null`.         |
+
+### `Showcase` and `Showcase.withWidget` properties
+
+| Name                         | Type                   | Default                                            | Description                                                                                 | `Showcase` | `Showcase.withWidget` |
+| ---------------------------- | ---------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------- | :--------: | :-------------------: |
+| key                          | GlobalKey              | required                                           | Unique global key for the step.                                                             |     ✅     |          ✅           |
+| child                        | Widget                 | required                                           | The target widget to highlight.                                                             |     ✅     |          ✅           |
+| keys                         | `List<GlobalKey>?`     |                                                    | Extra widgets to highlight in the same step (wrap each in a `MultiView`).                   |     ✅     |          ✅           |
+| title                        | String?                |                                                    | Title of the default tooltip.                                                               |     ✅     |                       |
+| description                  | String?                |                                                    | Description of the default tooltip (optional).                                              |     ✅     |                       |
+| container                    | Widget?                |                                                    | A fully custom tooltip widget.                                                              |            |          ✅           |
+| height                       | double?                |                                                    | Height of the custom tooltip.                                                               |            |          ✅           |
+| width                        | double?                |                                                    | Width of the custom tooltip.                                                                |            |          ✅           |
+| titleTextStyle               | TextStyle?             | `ShowcaseStyle`                                    | Text style of the title.                                                                    |     ✅     |                       |
+| descTextStyle                | TextStyle?             | `ShowcaseStyle`                                    | Text style of the description.                                                              |     ✅     |                       |
+| titleAlignment               | TextAlign              | `TextAlign.start`                                  | Alignment of the title.                                                                     |     ✅     |                       |
+| descriptionAlignment         | TextAlign              | `TextAlign.start`                                  | Alignment of the description.                                                               |     ✅     |                       |
+| tooltipBackgroundColor       | Color?                 | `ShowcaseStyle` → `Colors.white`                   | Background color of the default tooltip.                                                    |     ✅     |                       |
+| textColor                    | Color?                 | `ShowcaseStyle` → `Colors.black`                   | Text color of the default tooltip.                                                          |     ✅     |                       |
+| tooltipBorderRadius          | BorderRadius?          | `ShowcaseStyle` → `BorderRadius.circular(8)`       | Border radius of the default tooltip.                                                       |     ✅     |                       |
+| tooltipPadding               | EdgeInsets             | `EdgeInsets.symmetric(vertical: 8, horizontal: 8)` | Padding inside the tooltip.                                                                 |     ✅     |                       |
+| titlePadding                 | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the title.                                                                   |     ✅     |                       |
+| descriptionPadding           | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the description.                                                             |     ✅     |                       |
+| showArrow                    | bool                   | true                                               | Show the tooltip arrow pointing at the target.                                              |     ✅     |                       |
+| tooltipPosition              | TooltipPosition?       |                                                    | Force the tooltip to a side (`top` / `bottom` / `left` / `right`).                          |     ✅     |          ✅           |
+| actions                      | Widget?                |                                                    | Action buttons widget (e.g. `ShowCaseDefaultActions`).                                      |     ✅     |          ✅           |
+| actionSettings               | ActionsSettings?       | `const ActionsSettings()`                          | Container styling for the action buttons.                                                   |     ✅     |          ✅           |
+| actionButtonsPosition        | ActionButtonsPosition? |                                                    | Manual position for the action buttons.                                                     |     ✅     |          ✅           |
+| targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlight (used when `targetBorderRadius` is null).                    |     ✅     |          ✅           |
+| highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
+| targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlight.                                                             |     ✅     |          ✅           |
+| enablePulseAnimation         | bool                   | false                                              | Draw an animated ring that pulses outward around the highlight.                             |     ✅     |          ✅           |
+| pulseColor                   | Color?                 | `ShowcaseStyle` → `Colors.white`                   | Color of the pulsing ring.                                                                  |     ✅     |          ✅           |
+| pulseDuration                | Duration               | `Duration(milliseconds: 1500)`                     | Length of one full pulse cycle (smaller is faster).                                         |     ✅     |          ✅           |
+| highlightBorderColor         | Color?                 |                                                    | Color of a border drawn around the highlight (off when null).                               |     ✅     |          ✅           |
+| highlightBorderWidth         | double?                | `2`                                                | Width of the highlight border.                                                              |     ✅     |          ✅           |
+| arrowColor                   | Color?                 | `ShowcaseStyle` → tooltip bg                       | Color of the default tooltip arrow.                                                         |     ✅     |                       |
+| arrowWidth                   | double?                | `18`                                               | Width (base) of the default tooltip arrow.                                                  |     ✅     |                       |
+| arrowHeight                  | double?                | `9`                                                | Height (depth) of the default tooltip arrow.                                                |     ✅     |                       |
+| targetPadding                | EdgeInsets             | `EdgeInsets.zero`                                  | Padding around the highlight.                                                               |     ✅     |          ✅           |
+| overlayColor                 | Color                  | `Colors.black45`                                   | Color of the overlay scrim.                                                                 |     ✅     |          ✅           |
+| overlayOpacity               | double                 | 0.75                                               | Opacity of the overlay scrim.                                                               |     ✅     |          ✅           |
+| blurValue                    | double?                | `ShowCaseWidget.blurValue`                         | Gaussian blur on the overlay.                                                               |     ✅     |          ✅           |
+| disableDefaultTargetGestures | bool                   | false                                              | Disable the default gestures on the target.                                                 |     ✅     |          ✅           |
+| disposeOnTap                 | bool?                  |                                                    | Dismiss the whole tour when the target/tooltip is tapped.                                   |     ✅     |          ✅           |
+| onTargetClick                | VoidCallback?          |                                                    | Called when the target is tapped (requires `disposeOnTap`).                                 |     ✅     |          ✅           |
+| onTargetDoubleTap            | VoidCallback?          |                                                    | Called when the target is double-tapped.                                                    |     ✅     |          ✅           |
+| onTargetLongPress            | VoidCallback?          |                                                    | Called when the target is long-pressed.                                                     |     ✅     |          ✅           |
+| onToolTipClick               | VoidCallback?          |                                                    | Called when the tooltip is tapped.                                                          |     ✅     |                       |
+| onShow                       | VoidCallback?          |                                                    | Called when this step becomes active.                                                       |     ✅     |          ✅           |
+| onDismiss                    | VoidCallback?          |                                                    | Called when this step stops being active (advanced past, navigated away, or dismissed).     |     ✅     |          ✅           |
+| semanticLabel                | String?                |                                                    | Text announced to screen readers for this step (defaults to title + description).           |     ✅     |          ✅           |
+| disableMovingAnimation       | bool?                  | `ShowCaseWidget.disableMovingAnimation`            | Disable the bouncing/moving transition.                                                     |     ✅     |          ✅           |
+| disableScaleAnimation        | bool?                  | `ShowCaseWidget.disableScaleAnimation`             | Disable the initial scale transition.                                                       |     ✅     |                       |
+| movingAnimationDuration      | Duration               | `Duration(milliseconds: 2000)`                     | Duration of the moving animation.                                                           |     ✅     |          ✅           |
+| scaleAnimationDuration       | Duration               | `Duration(milliseconds: 300)`                      | Duration of the scale animation.                                                            |     ✅     |                       |
+| scaleAnimationCurve          | Curve                  | `Curves.easeIn`                                    | Curve of the scale animation.                                                               |     ✅     |                       |
+| scaleAnimationAlignment      | Alignment?             |                                                    | Origin of the scale animation.                                                              |     ✅     |                       |
+| scrollLoadingWidget          | Widget                 | `CircularProgressIndicator(...)`                   | Loading widget shown while auto-scrolling to the target.                                    |     ✅     |          ✅           |
+
 ## Example
 
-See the full [example app](example) for menu, profile, custom action buttons,
-global styling, and the multi-widget step in action.
+See the full [example app](example) for the menu, profile, custom action
+buttons, global styling, and the multi-widget step in action.
 
-## Special thanks
+## License
 
-This package builds on [showcaseview](https://github.com/SimformSolutionsPvtLtd/flutter-showcaseview)
-by [Simform Solutions](https://github.com/SimformSolutionsPvtLtd). Thanks to the
-original authors and contributors:
-
-<table>
-  <tr>
-    <td align="center"><a href="https://github.com/birjuvachhani"><img src="https://avatars.githubusercontent.com/u/20423471?s=100" width="100px;" alt=""/><br /><sub><b>Birju Vachhani</b></sub></a></td>
-    <td align="center"><a href="https://github.com/DevarshRanpara"><img src="https://avatars.githubusercontent.com/u/26064415?s=100" width="100px;" alt=""/><br /><sub><b>Devarsh Ranpara</b></sub></a></td>
-    <td align="center"><a href="https://github.com/AnkitPanchal10"><img src="https://avatars.githubusercontent.com/u/38405884?s=100" width="100px;" alt=""/><br /><sub><b>Ankit Panchal</b></sub></a></td>
-    <td align="center"><a href="https://github.com/Kashifalaliwala"><img src="https://avatars.githubusercontent.com/u/30998350?s=100" width="100px;" alt=""/><br /><sub><b>Kashifa Laliwala</b></sub></a></td>
-    <td align="center"><a href="https://github.com/vatsaltanna"><img src="https://avatars.githubusercontent.com/u/25323183?s=100" width="100px;" alt=""/><br /><sub><b>Vatsal Tanna</b></sub></a></td>
-    <td align="center"><a href="https://github.com/sanket-simform"><img src="https://avatars.githubusercontent.com/u/65167856?v=4" width="100px;" alt=""/><br /><sub><b>Sanket Kachhela</b></sub></a></td>
-    <td align="center"><a href="https://github.com/ParthBaraiya"><img src="https://avatars.githubusercontent.com/u/36261739?v=4" width="100px;" alt=""/><br /><sub><b>Parth Baraiya</b></sub></a></td>
-    <td align="center"><a href="https://github.com/ShwetaChauhan18"><img src="https://avatars.githubusercontent.com/u/34509457" width="80px;" alt=""/><br /><sub><b>Shweta Chauhan</b></sub></a></td>
-    <td align="center"><a href="https://github.com/MehulKK"><img src="https://avatars.githubusercontent.com/u/60209725?s=100" width="100px;" alt=""/><br /><sub><b>Mehul Kabaria</b></sub></a></td>
-    <td align="center"><a href="https://github.com/DhavalRKansara"><img src="https://avatars.githubusercontent.com/u/44993081?v=4" width="100px;" alt=""/><br /><sub><b>Dhaval Kansara</b></sub></a></td>
-    <td align="center"><a href="https://github.com/HappyMakadiyaS"><img src="https://avatars.githubusercontent.com/u/97177197?v=4" width="100px;" alt=""/><br /><sub><b>Happy Makadiya</b></sub></a></td>
-    <td align="center"><a href="https://github.com/Ujas-Majithiya"><img src="https://avatars.githubusercontent.com/u/56400956?v=4" width="100px;" alt=""/><br /><sub><b>Ujas Majithiya</b></sub></a></td>
-  </tr>
-</table>
+Released under the [MIT License](LICENSE).

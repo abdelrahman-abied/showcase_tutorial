@@ -160,13 +160,13 @@ There are a few things to think about when doing a release:
 - Create a PR containing the updated changelog and `pubspec.yaml` files.
 
 
-[GitHub issue]: https://github.com/SimformSolutionsPvtLtd/flutter_showcaseview/issues/new
-[GitHub issues]: https://github.com/SimformSolutionsPvtLtd/flutter_showcaseview/issues/new
-[GitHub Discussion]: https://github.com/SimformSolutionsPvtLtd/flutter_showcaseview/discussions
+[GitHub issue]: https://github.com/abdelrahman-abied/showcase_tutorial/issues/new
+[GitHub issues]: https://github.com/abdelrahman-abied/showcase_tutorial/issues/new
+[GitHub Discussion]: https://github.com/abdelrahman-abied/showcase_tutorial/discussions
 [style guide]: https://github.com/flutter/flutter/wiki/Style-guide-for-Flutter-repo
 [test writing guide]: https://docs.flutter.dev/cookbook/testing/unit/introduction
 [pubspec doc]: https://dart.dev/tools/pub/pubspec
 [conventional commit]: https://www.conventionalcommits.org
 [fork guide]: https://guides.github.com/activities/forking/#fork
-[PRs]: https://github.com/SimformSolutionsPvtLtd/flutter_showcaseview/pulls
+[PRs]: https://github.com/abdelrahman-abied/showcase_tutorial/pulls
 [gitmoji]: https://gist.github.com/parmentf/035de27d6ed1dce0b36a
