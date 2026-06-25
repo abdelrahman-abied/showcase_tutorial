@@ -12,6 +12,14 @@
   widget yourself (e.g. with `Align`/`Positioned`); it is painted above the
   tooltip and receives taps. Additive and backward-compatible (defaults `null` /
   empty).
+* FEAT: **per-step `autoPlayDelay`** — `Showcase.autoPlayDelay` overrides the
+  tour-wide `ShowCaseWidget.autoPlayDelay` for a single step, so one step can
+  linger longer (or advance quicker) than the rest during auto-play. Defaults to
+  `null` (use the tour-wide delay). As part of this, the auto-play delay now uses
+  the full `Duration` instead of being truncated to whole seconds.
+* CHORE: the example app's "Feature demos" page now demonstrates the floating
+  action widget (a pinned "End tour" button, hidden on the last step) and per-step
+  `autoPlayDelay` (an "Auto-play" toggle where the star step lingers longer).
 
 ## 1.12.0
 

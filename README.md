@@ -467,6 +467,18 @@ ShowCaseWidget(
 );
 ```
 
+Let a single step linger longer (or advance quicker) than the rest with a
+per-step `Showcase.autoPlayDelay`, which overrides the tour-wide one:
+
+```dart
+Showcase(
+  key: _details,
+  description: 'This one has more to read, so it stays up longer.',
+  autoPlayDelay: const Duration(seconds: 6), // overrides the tour-wide delay
+  child: const Icon(Icons.info),
+);
+```
+
 ## Programmatic control & progress
 
 Drive the tour from anywhere you have a `BuildContext` below the
@@ -797,6 +809,7 @@ ShowCaseWidget(
 | actionSettings               | ActionsSettings?       | `const ActionsSettings()`                          | Container styling for the action buttons.                                                   |     ✅     |          ✅           |
 | actionButtonsPosition        | ActionButtonsPosition? |                                                    | Manual position for the action buttons.                                                     |     ✅     |          ✅           |
 | floatingActionWidget         | Widget?                |                                                    | Screen-anchored widget shown while this step is active (overrides the global one).          |     ✅     |          ✅           |
+| autoPlayDelay                | Duration?              | `ShowCaseWidget.autoPlayDelay`                     | Per-step auto-play visibility time, overriding the tour-wide delay.                          |     ✅     |          ✅           |
 | targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlight (used when `targetBorderRadius` is null).                    |     ✅     |          ✅           |
 | highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
 | targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlight.                                                             |     ✅     |          ✅           |

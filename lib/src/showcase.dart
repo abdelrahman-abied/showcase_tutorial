@@ -380,6 +380,14 @@ class Showcase extends StatefulWidget {
   /// `null` (falls back to the global one, if any).
   final Widget? floatingActionWidget;
 
+  /// Visibility time of **this** step when [ShowCaseWidget.autoPlay] is on,
+  /// overriding the tour-wide [ShowCaseWidget.autoPlayDelay].
+  ///
+  /// Lets a single step linger longer (or advance quicker) than the rest — handy
+  /// when one step has more to read. When `null` the tour-wide delay is used. Has
+  /// no effect unless `autoPlay` is enabled.
+  final Duration? autoPlayDelay;
+
   /// Creates a showcase step with the built-in title/description tooltip.
   ///
   /// [key] and [child] are required. Styling values left unset fall back to
@@ -438,6 +446,7 @@ class Showcase extends StatefulWidget {
     this.actionSettings = const ActionsSettings(),
     this.actionButtonsPosition,
     this.floatingActionWidget,
+    this.autoPlayDelay,
   }) : height = null,
        width = null,
        container = null,
@@ -489,6 +498,7 @@ class Showcase extends StatefulWidget {
     this.actionSettings = const ActionsSettings(),
     this.actionButtonsPosition,
     this.floatingActionWidget,
+    this.autoPlayDelay,
   }) : showArrow = false,
        arrowColor = null,
        arrowWidth = null,
@@ -589,7 +599,10 @@ class _ShowcaseState extends State<Showcase> {
       }
 
       if (showCaseWidgetState.autoPlay) {
-        timer = Timer(Duration(seconds: showCaseWidgetState.autoPlayDelay.inSeconds), _nextIfAny);
+        // Per-step [Showcase.autoPlayDelay] overrides the tour-wide delay; the
+        // full Duration is used (no longer truncated to whole seconds).
+        final autoPlayDelay = widget.autoPlayDelay ?? showCaseWidgetState.autoPlayDelay;
+        timer = Timer(autoPlayDelay, _nextIfAny);
       }
     }
   }

@@ -1692,6 +1692,63 @@ void main() {
       expect(find.text('GFAB'), findsOneWidget);
     });
   });
+
+  testWidgets('per-step autoPlayDelay overrides the tour-wide autoPlayDelay',
+      (tester) async {
+    final k1 = GlobalKey();
+    final k2 = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          autoPlay: true,
+          autoPlayDelay: const Duration(seconds: 2), // tour-wide default
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Showcase(
+                      key: k1,
+                      title: 'One',
+                      description: 'd',
+                      // Much shorter than the 2s tour-wide delay.
+                      autoPlayDelay: const Duration(milliseconds: 100),
+                      child: const Text('t1'),
+                    ),
+                    Showcase(
+                        key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+    state.startShowCase([k1, k2]);
+    await tester.pump(); // insert the overlay; starts the 100ms step-1 timer
+    await tester.pump(const Duration(milliseconds: 50)); // < 100ms override
+    expect(state.currentIndex, 0); // not advanced yet
+    expect(find.text('One'), findsOneWidget);
+
+    // Cross the 100ms override threshold — still far short of the 2s tour-wide
+    // delay — so advancing now proves the per-step override fired.
+    await tester.pump(const Duration(milliseconds: 100)); // ~150ms total > 100ms
+    await tester.pump(const Duration(milliseconds: 400)); // reverse animation
+    await tester.pump(const Duration(milliseconds: 400)); // step 2 in
+    expect(state.currentIndex, 1);
+
+    // Let step 2's tour-wide timer fire so the tour finishes and no Timer leaks.
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(state.isShowcaseRunning, isFalse);
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this
