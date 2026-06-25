@@ -1876,6 +1876,72 @@ void main() {
     // The container is clamped to the left margin rather than the old 16px.
     expect(tester.getTopLeft(find.text('Box')).dx, closeTo(50, 1));
   });
+
+  testWidgets('scrollAlignment controls where auto-scroll lands the target',
+      (tester) async {
+    // A target sandwiched between two tall spacers in a scroll view. Auto-scroll
+    // reveals it; the resting scroll offset depends on the alignment fraction.
+    // Returns the scroll offset after the showcase scrolls the target into view.
+    Future<double> offsetForAlignment({
+      required double tourAlignment,
+      double? stepAlignment,
+    }) async {
+      final key = GlobalKey();
+      final controller = ScrollController();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            enableAutoScroll: true,
+            scrollAlignment: tourAlignment,
+            scrollDuration: const Duration(milliseconds: 100),
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: SizedBox(
+                  height: 600,
+                  child: SingleChildScrollView(
+                    controller: controller,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 600),
+                        Showcase(
+                          key: key,
+                          description: 'Target',
+                          scrollAlignment: stepAlignment,
+                          child: const SizedBox(
+                              width: 100, height: 50, child: Text('t')),
+                        ),
+                        const SizedBox(height: 600),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+      return controller.offset;
+    }
+
+    // The target sits at content offset 600 in a 600px viewport; aligning it to
+    // the leading edge rests further down the list than the trailing edge.
+    final leading = await offsetForAlignment(tourAlignment: 0.0);
+    final trailing = await offsetForAlignment(tourAlignment: 1.0);
+    expect(leading, greaterThan(trailing));
+
+    // A per-step scrollAlignment overrides the tour-wide value: a trailing-edge
+    // step inside a leading-edge tour lands like the trailing case.
+    final overridden =
+        await offsetForAlignment(tourAlignment: 0.0, stepAlignment: 1.0);
+    expect(overridden, closeTo(trailing, 1));
+    expect(overridden, lessThan(leading));
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this
