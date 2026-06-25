@@ -634,7 +634,7 @@ ShowCaseWidget(
 | progressStyle             | ShowcaseProgressStyle      | ShowcaseProgressStyle.dots     | Indicator style: dots or a `1/6` numeric counter.                                |
 | showSkip                  | bool                       | false                          | Show a "Skip" button in the default tooltip that ends the tour.                  |
 | skipButtonText            | String                     | 'Skip'                         | Label for the skip button.                                                       |
-| onResolveNextStep         | Function(int, GlobalKey)?  |                                | Decide the next step at runtime for conditional / branching tours.               |
+| onResolveNextStep         | Function(int, GlobalKey)?  |                                | Decide the next step at runtime: return a step key to branch, or null.           |
 
 ## Properties of `Showcase` and `Showcase.withWidget`
 
