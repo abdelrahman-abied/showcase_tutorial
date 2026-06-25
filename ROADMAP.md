@@ -59,10 +59,73 @@ complete as of **1.6.0**; the items below are optional.
       shape. Each is also settable tour-wide via `ShowcaseStyle`. Per-step
       overlay color was already supported via `Showcase.overlayColor`.
 
-- [ ] **Conditional / branching tours**
+- [x] **Conditional / branching tours**
       Let a step decide the next step at runtime via a predicate/callback, so a
       tour can skip ahead or branch based on app state (e.g. "if the user already
       has items, jump to step 5"). Builds on the existing `goTo` / `goToKey` API.
+
+## Upstream parity (missing vs Simform showcaseview ≤ 5.1.0)
+
+Features present in upstream `showcaseview` (through 5.1.0) that this fork does not
+yet have. All are additive and backward-compatible. The contextless `ShowcaseView` /
+`ShowcaseService` rewrite is intentionally **out of scope** — this fork keeps the
+context-based `ShowCaseWidget`.
+
+### Quick-win options
+
+- [ ] **Tooltip spacing controls**
+      `Showcase.targetTooltipGap` (space between the target and the tooltip) and
+      `Showcase.toolTipMargin` (tooltip margin from the screen edges, also for
+      `Showcase.withWidget`).
+
+- [ ] **Auto-scroll alignment**
+      `scrollAlignment` to control where the target lands when `enableAutoScroll`
+      brings an off-screen target into view.
+
+- [ ] **Tour-level `onDismiss`**
+      `ShowCaseWidget.onDismiss(GlobalKey? dismissedAt)`, fired when the whole tour
+      is dismissed (barrier-dismiss, Esc, skip, or a manual `dismiss()`). Distinct
+      from the existing per-step `Showcase.onDismiss`.
+
+- [ ] **`onBarrierClick`**
+      `ShowCaseWidget.onBarrierClick`, a hook for taps on the dimmed background, in
+      addition to the configured `barrierInteraction` behaviour.
+
+- [ ] **Per-step auto-play delay**
+      `Showcase.autoPlayDelay` to override the tour-wide `autoPlayDelay` for a single
+      step.
+
+### Floating action widget
+
+- [ ] **Screen-anchored action widget**
+      `Showcase.floatingActionWidget` (per step), `ShowCaseWidget.globalFloatingActionWidget`
+      (tour-wide default), and `hideFloatingActionWidgetForShowcase` to suppress the
+      global one on specific steps — e.g. a fixed Skip/Next button that doesn't move
+      with the tooltip.
+
+### Callbacks & introspection
+
+- [ ] **Dynamic callback registration**
+      `addOnCompleteCallback` / `removeOnCompleteCallback` and `addOnStartCallback` /
+      `removeOnStartCallback` on the controller, for listeners that come and go.
+
+- [ ] **`onTargetRectUpdate`**
+      `Showcase.onTargetRectUpdate(Rect)`, fired when the highlighted target's rect
+      changes.
+
+- [ ] **`isTargetRendered(key)`**
+      Controller helper to check whether a step's target is currently laid out,
+      replacing manual `key.currentContext` checks.
+
+- [ ] **Per-step barrier override**
+      Let an individual `Showcase` override the tour-level `barrierInteraction` (or
+      disable the barrier for just that step).
+
+### Cursor polish (web / desktop)
+
+- [ ] **Pointer cursor on hover**
+      Show `SystemMouseCursors.click` when hovering clickable targets and tooltips,
+      with `MouseRegion(opaque: false)` for pass-through hover where appropriate.
 
 > Already shipped (progress dots + skip, accessibility, lifecycle callbacks,
 > barrier behavior, exact-shape highlight, positions/RTL, show-once, …) are
