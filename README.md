@@ -736,6 +736,27 @@ step starts. This does **not** work reliably in scroll views that build children
 on demand (e.g. `ListView`, `GridView`), because the target widget may not be
 attached to the tree when the tour reaches that step.
 
+Control where the target lands with `scrollAlignment` (a fraction of the scroll
+axis: `0.0` = leading edge, `0.5` = centered, `1.0` = trailing edge). Set it
+tour-wide on `ShowCaseWidget` (default `0.5`) and override it per step with
+`Showcase.scrollAlignment`:
+
+```dart
+ShowCaseWidget(
+  enableAutoScroll: true,
+  scrollAlignment: 0.1, // rest targets near the top of the viewport
+  builder: Builder(builder: (context) => const HomePage()),
+);
+
+// ...and per step:
+Showcase(
+  key: _key,
+  scrollAlignment: 0.5, // this step centers instead
+  description: 'Centered when scrolled into view',
+  child: child,
+);
+```
+
 If you have a small number of children, prefer `SingleChildScrollView`. Otherwise,
 assign a `ScrollController` and scroll to the target manually inside `onStart`:
 
@@ -784,6 +805,7 @@ ShowCaseWidget(
 | enableAutoPlayLock        | bool                       | false                          | Block user interaction on the overlay while auto-playing.                        |
 | enableAutoScroll          | bool                       | false                          | Auto-scroll so the next target becomes visible.                                  |
 | scrollDuration            | Duration                   | `Duration(milliseconds: 300)`  | Duration of the auto-scroll animation.                                           |
+| scrollAlignment           | double                     | `0.5`                          | Where an auto-scrolled target rests (0 = leading, 0.5 = center, 1 = trailing).   |
 | barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`      | What a background tap does: `next` (advance), `dismiss` (end tour), `none`.      |
 | disableBarrierInteraction | bool                       | false                          | Shortcut; `true` makes the barrier inert (same as `BarrierInteraction.none`).    |
 | onBarrierClick            | VoidCallback?              |                                | Called on every barrier tap (even when `barrierInteraction` is `none`).          |
@@ -838,6 +860,7 @@ ShowCaseWidget(
 | autoPlayDelay                | Duration?              | `ShowCaseWidget.autoPlayDelay`                     | Per-step auto-play visibility time, overriding the tour-wide delay.                          |     ✅     |          ✅           |
 | targetTooltipGap             | double                 | `0`                                                | Extra space (logical px) between the target and the tooltip; applies to all sides.          |     ✅     |          ✅           |
 | toolTipMargin                | EdgeInsets             | `EdgeInsets.all(20)`                               | Minimum margin between the tooltip and the screen edges (also caps its size).               |     ✅     |          ✅           |
+| scrollAlignment              | double?                | `ShowCaseWidget.scrollAlignment`                   | Where this step's target rests when auto-scrolled (0 = leading, 0.5 = center, 1 = trailing).|     ✅     |          ✅           |
 | targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlight (used when `targetBorderRadius` is null).                    |     ✅     |          ✅           |
 | highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
 | targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlight.                                                             |     ✅     |          ✅           |

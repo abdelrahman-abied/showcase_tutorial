@@ -136,6 +136,15 @@ class ShowCaseWidget extends StatefulWidget {
   /// Provides time duration for auto scrolling when [enableAutoScroll] is true
   final Duration scrollDuration;
 
+  /// Where the target lands within the viewport when [enableAutoScroll] brings
+  /// an off-screen target into view, as a fraction of the scroll axis:
+  /// `0.0` = leading edge (top / left), `0.5` = centered, `1.0` = trailing edge
+  /// (bottom / right). Forwarded to [Scrollable.ensureVisible]'s `alignment`.
+  ///
+  /// Defaults to `0.5` (centered). Override for a single step with
+  /// [Showcase.scrollAlignment].
+  final double scrollAlignment;
+
   /// Default overlay blur used by showcase. if [Showcase.blurValue]
   /// is not provided.
   ///
@@ -253,6 +262,7 @@ class ShowCaseWidget extends StatefulWidget {
     this.enableAutoPlayLock = false,
     this.blurValue = 0,
     this.scrollDuration = const Duration(milliseconds: 300),
+    this.scrollAlignment = 0.5,
     this.disableMovingAnimation = false,
     this.disableScaleAnimation = false,
     this.enableAutoScroll = false,
@@ -332,6 +342,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Value of [ShowCaseWidget.enableAutoScroll].
   bool get enableAutoScroll => widget.enableAutoScroll;
+
+  /// Value of [ShowCaseWidget.scrollAlignment].
+  double get scrollAlignment => widget.scrollAlignment;
 
   /// Value of the legacy [ShowCaseWidget.disableBarrierInteraction] flag.
   ///

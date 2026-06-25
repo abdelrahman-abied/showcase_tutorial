@@ -30,12 +30,24 @@
   pair with `targetTooltipGap`. Backward-compatible — the default reproduces the
   previous edge spacing for ordinary tooltips. Also applies to the custom
   `Showcase.withWidget` container, which is now clamped within the same margins.
+* FEAT: **`scrollAlignment`** — control where an auto-scrolled target lands in the
+  viewport. `ShowCaseWidget.scrollAlignment` (a `double`, default `0.5`) sets it
+  tour-wide and `Showcase.scrollAlignment` overrides it per step: `0.0` rests the
+  target at the leading edge (top / left), `0.5` centers it, `1.0` rests it at the
+  trailing edge (bottom / right). Forwarded to `Scrollable.ensureVisible` when
+  `ShowCaseWidget.enableAutoScroll` brings an off-screen target into view. Additive
+  and backward-compatible — the default `0.5` reproduces the previous centered
+  behavior.
 * CHORE: the example app's "Feature demos" page now demonstrates the floating
   action widget (a pinned "End tour" button, hidden on the last step), per-step
   `autoPlayDelay` (an "Auto-play" toggle where the star step lingers longer), a
   "Wide tooltip gap" toggle for `targetTooltipGap` on the center step, and a "Wide
   tooltip margin" toggle that pushes the edge-hugging "R" step's tooltip further in
   from the screen edge.
+* CHORE: the example app adds an "Auto-scroll alignment" demo page (reachable from
+  the "Feature demos" screen) where three far-apart targets in a scroll view each
+  land at a different spot — leading edge, center, trailing edge — via per-step
+  `scrollAlignment`.
 
 ## 1.12.0
 

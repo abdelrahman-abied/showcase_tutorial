@@ -402,6 +402,15 @@ class Showcase extends StatefulWidget {
   /// `EdgeInsets.all(20)`.
   final EdgeInsets toolTipMargin;
 
+  /// Overrides [ShowCaseWidget.scrollAlignment] for this step.
+  ///
+  /// Controls where the target lands in the viewport when
+  /// [ShowCaseWidget.enableAutoScroll] scrolls it into view: `0.0` = leading
+  /// edge (top / left), `0.5` = centered, `1.0` = trailing edge (bottom /
+  /// right). Defaults to `null`, which uses the tour-wide
+  /// [ShowCaseWidget.scrollAlignment].
+  final double? scrollAlignment;
+
   /// Creates a showcase step with the built-in title/description tooltip.
   ///
   /// [key] and [child] are required. Styling values left unset fall back to
@@ -463,6 +472,7 @@ class Showcase extends StatefulWidget {
     this.autoPlayDelay,
     this.targetTooltipGap = 0.0,
     this.toolTipMargin = const EdgeInsets.all(20),
+    this.scrollAlignment,
   }) : height = null,
        width = null,
        container = null,
@@ -517,6 +527,7 @@ class Showcase extends StatefulWidget {
     this.autoPlayDelay,
     this.targetTooltipGap = 0.0,
     this.toolTipMargin = const EdgeInsets.all(20),
+    this.scrollAlignment,
   }) : showArrow = false,
        arrowColor = null,
        arrowWidth = null,
@@ -693,7 +704,8 @@ class _ShowcaseState extends State<Showcase> {
         await Scrollable.ensureVisible(
           targetContext,
           duration: showCaseWidgetState.widget.scrollDuration,
-          alignment: 0.5,
+          // Per-step [Showcase.scrollAlignment] overrides the tour-wide value.
+          alignment: widget.scrollAlignment ?? showCaseWidgetState.scrollAlignment,
         );
       }
       if (!mounted) return;

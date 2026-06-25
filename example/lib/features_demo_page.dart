@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
 
+import 'scroll_alignment_demo_page.dart';
+
 /// A scratch page to manually exercise the package features:
 /// left/right tooltip positions, the progress API, auto-skip of unmounted
 /// steps, RTL, custom action-button text, and conditional / branching tours
@@ -347,6 +349,17 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                             show.startShowCase(ids);
                           },
                           child: const Text('Start tour'),
+                        ),
+                        OutlinedButton(
+                          // Auto-scroll alignment lives on its own scrollable
+                          // page (this demo page is a non-scrolling Stack).
+                          onPressed: () => Navigator.push<void>(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => const ScrollAlignmentDemoPage(),
+                            ),
+                          ),
+                          child: const Text('Auto-scroll alignment demo'),
                         ),
                       ],
                     ),
