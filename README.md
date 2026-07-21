@@ -373,6 +373,12 @@ default color for the whole tour once via
 By default the highlight cuts instantly from one target to the next. Turn on
 `enableStepTransition` and it glides there instead — the "guided tour" feel:
 
+![Left: the default instant cut. Right: the same tour with enableStepTransition on.](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/step_transition.gif)
+
+Both sides run the same four steps on the same clock — only the right-hand tour
+sets `enableStepTransition: true`. The cut-out also morphs between target
+shapes, so a circular avatar becomes a rounded card on the way over.
+
 ```dart
 ShowCaseWidget(
   enableStepTransition: true,
