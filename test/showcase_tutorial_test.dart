@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
 import 'package:showcase_tutorial/src/measure_size.dart';
+import 'package:showcase_tutorial/src/shape_clipper.dart';
 
 void main() {
   // Builds a single-step showcase and returns the GlobalKey of the target.
@@ -2498,6 +2499,203 @@ void main() {
         ),
         SystemMouseCursors.click,
       );
+    });
+  });
+
+  group('animated step transitions', () {
+    // The cut-out the overlay is currently painting, read off the clipper.
+    Rect cutOut(WidgetTester tester) {
+      final clipPath = tester.widget<ClipPath>(find.byType(ClipPath).first);
+      return (clipPath.clipper! as RRectClipper).area;
+    }
+
+    void expectRect(Rect actual, Rect expected) {
+      expect(actual.left, closeTo(expected.left, 0.5));
+      expect(actual.top, closeTo(expected.top, 0.5));
+      expect(actual.width, closeTo(expected.width, 0.5));
+      expect(actual.height, closeTo(expected.height, 0.5));
+    }
+
+    // Two targets far apart, so a glide between them is unmistakable.
+    Widget buildTransitionApp(
+      GlobalKey k1,
+      GlobalKey k2, {
+      bool enableStepTransition = true,
+    }) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          enableStepTransition: enableStepTransition,
+          stepTransitionDuration: const Duration(milliseconds: 300),
+          // Linear keeps the midpoint of the glide predictable.
+          stepTransitionCurve: Curves.linear,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Stack(
+                children: [
+                  Positioned(
+                    top: 40,
+                    left: 20,
+                    child: Showcase(
+                      key: k1,
+                      description: 'One',
+                      child: const SizedBox(
+                          width: 50, height: 50, child: Text('t1')),
+                    ),
+                  ),
+                  Positioned(
+                    top: 400,
+                    left: 220,
+                    child: Showcase(
+                      key: k2,
+                      description: 'Two',
+                      child: const SizedBox(
+                          width: 50, height: 50, child: Text('t2')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('the cut-out glides from the previous target to the next one',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(buildTransitionApp(k1, k2));
+      final r1 = tester.getRect(find.byKey(k1));
+      final r2 = tester.getRect(find.byKey(k2));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expectRect(cutOut(tester), r1);
+
+      state.next();
+      await tester.pump(); // switch steps; the glide starts
+      await tester.pump(const Duration(milliseconds: 100)); // ~1/3 through
+
+      // Partway between the two targets: past the first, short of the second.
+      final mid = cutOut(tester);
+      expect(mid.top, greaterThan(r1.top));
+      expect(mid.top, lessThan(r2.top));
+      expect(mid.left, greaterThan(r1.left));
+      expect(mid.left, lessThan(r2.left));
+
+      await tester.pumpAndSettle();
+      expectRect(cutOut(tester), r2);
+    });
+
+    testWidgets('the first step of a tour appears instead of gliding',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(buildTransitionApp(k1, k2));
+      final r1 = tester.getRect(find.byKey(k1));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16)); // one frame in
+      expectRect(cutOut(tester), r1); // already at the target, not gliding
+    });
+
+    testWidgets('transitions are off by default (the cut-out jumps)',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(
+        buildTransitionApp(k1, k2, enableStepTransition: false),
+      );
+      final r2 = tester.getRect(find.byKey(k2));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      expectRect(cutOut(tester), r2); // straight to the new target
+      expect(state.previousTargetRect, isNull); // not tracked when disabled
+    });
+
+    testWidgets('reduce-motion skips the glide', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(buildTransitionApp(k1, k2));
+      final r2 = tester.getRect(find.byKey(k2));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      state.next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 16));
+      expectRect(cutOut(tester), r2); // jumped despite the tour opting in
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('previousTargetRect reports the step the tour just left',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(buildTransitionApp(k1, k2));
+      final r1 = tester.getRect(find.byKey(k1));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(state.previousTargetRect, isNull); // nothing left yet
+
+      state.next();
+      await tester.pumpAndSettle();
+      expectRect(state.previousTargetRect!, r1);
+
+      state.dismiss();
+      await tester.pumpAndSettle();
+      expect(state.previousTargetRect, isNull); // cleared with the tour
+    });
+
+    testWidgets('going back a step glides too', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(buildTransitionApp(k1, k2));
+      final r1 = tester.getRect(find.byKey(k1));
+      final r2 = tester.getRect(find.byKey(k2));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      state.next();
+      await tester.pumpAndSettle();
+
+      state.previous();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Heading back up-left, still short of the first target.
+      final mid = cutOut(tester);
+      expect(mid.top, lessThan(r2.top));
+      expect(mid.top, greaterThan(r1.top));
+
+      await tester.pumpAndSettle();
+      expectRect(cutOut(tester), r1);
     });
   });
 }

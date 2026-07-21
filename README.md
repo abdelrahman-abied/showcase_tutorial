@@ -29,6 +29,8 @@ controller API.
   star, icon, logo) automatically with `highlightExactShape`.
 - **Pulsing highlight ring** — an optional animated ring that pings around the
   target to draw the eye.
+- **Animated step transitions** — the highlight glides from one target to the
+  next instead of cutting.
 - **Tooltip & highlight styling** — custom arrow color/size, a colored border
   around the target, custom scrim color and opacity.
 - **Highlight multiple widgets in one step** (e.g. a multi-select control).
@@ -69,6 +71,7 @@ controller API.
 - [Floating action widget](#floating-action-widget)
 - [Exact-shape highlight](#exact-shape-highlight)
 - [Pulsing highlight ring](#pulsing-highlight-ring)
+- [Animated step transitions](#animated-step-transitions)
 - [Tooltip & highlight styling](#tooltip--highlight-styling)
 - [Highlight multiple widgets in one step](#highlight-multiple-widgets-in-one-step)
 - [Global styling with `ShowcaseStyle`](#global-styling-with-showcasestyle)
@@ -350,6 +353,35 @@ default color for the whole tour once via
 
 > Accessibility: when the platform **"reduce motion"** setting is on, the pulse
 > falls back to a single static ring instead of animating.
+
+## Animated step transitions
+
+By default the highlight cuts instantly from one target to the next. Turn on
+`enableStepTransition` and it glides there instead — the "guided tour" feel:
+
+```dart
+ShowCaseWidget(
+  enableStepTransition: true,
+  stepTransitionDuration: const Duration(milliseconds: 300), // default
+  stepTransitionCurve: Curves.easeInOut,                     // default
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+It applies to every move — `next()`, `previous()`, `goTo()`, a branch, a barrier
+tap, autoplay. The highlight border and the pulsing ring follow the moving
+cut-out; the tooltip keeps its own scale transition and appears at the new
+target. The first step of a tour has nothing to glide from, so it simply appears.
+
+> Accessibility: when the platform **"reduce motion"** setting is on, the
+> highlight jumps straight to the target instead of gliding.
+>
+> Note: a `highlightExactShape` step paints a snapshot of the target rather than
+> a cut-out, so there is nothing to glide — those steps still cut.
+
+If you need the geometry yourself, `ShowCaseWidget.of(context).previousTargetRect`
+holds the global bounds of the step the tour just left (`null` while the tour is
+starting or after it ends).
 
 ## Tooltip & highlight styling
 
@@ -898,6 +930,7 @@ ShowCaseWidget(
 | `totalSteps`                                 | Number of steps in the running tour (0 when none).                       |
 | `isShowcaseRunning`                          | Whether a tour is currently active.                                      |
 | `isTargetRendered(GlobalKey key)`            | Whether that step's target is mounted **and** laid out on screen.        |
+| `previousTargetRect`                         | Global bounds of the step the tour just left (`null` outside a transition). |
 | `addOnStartCallback(cb)` / `removeOnStartCallback(cb)` | Register/unregister a step-start listener at runtime.          |
 | `addOnCompleteCallback(cb)` / `removeOnCompleteCallback(cb)` | Register/unregister a step-complete listener at runtime. |
 
@@ -929,6 +962,9 @@ ShowCaseWidget(
 | autoSkipUnmountedSteps    | bool                       | false                          | Skip steps whose target widget is not currently mounted.                         |
 | enableKeyboardNavigation  | bool                       | true                           | Drive the active step with a hardware keyboard (Esc / arrows / Enter).           |
 | enablePointerCursor       | bool                       | true                           | Show a click cursor on the clickable parts of the tour (web/desktop).            |
+| enableStepTransition      | bool                       | false                          | Glide the highlight from the previous target to the next one.                    |
+| stepTransitionDuration    | Duration                   | `Duration(milliseconds: 300)`  | Length of the step-transition glide.                                             |
+| stepTransitionCurve       | Curve                      | `Curves.easeInOut`             | Curve of the step-transition glide.                                              |
 | enableAutoAnnouncements   | bool                       | true                           | Announce each step's title/description to screen readers.                        |
 | showProgress              | bool                       | false                          | Show the built-in step indicator in the default tooltip.                         |
 | progressStyle             | ShowcaseProgressStyle      | `ShowcaseProgressStyle.dots`   | Indicator style: dots or a `1/6` numeric counter.                                |

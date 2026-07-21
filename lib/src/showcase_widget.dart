@@ -207,6 +207,36 @@ class ShowCaseWidget extends StatefulWidget {
   /// `true`.
   final bool enableKeyboardNavigation;
 
+  /// When `true`, the highlight cut-out glides from the previous step's target
+  /// to the next one when the tour advances, instead of jumping there — the
+  /// "guided tour" feel.
+  ///
+  /// The cut-out, its optional [Showcase.highlightBorderColor] border, and the
+  /// [Showcase.enablePulseAnimation] ring all follow the moving rect; the
+  /// tooltip keeps its existing scale transition and appears at the new target.
+  /// Only the step being entered animates, so the first step of a tour (and any
+  /// step entered while no other was active) simply appears.
+  ///
+  /// Honors the platform "reduce motion" accessibility setting by jumping
+  /// straight to the target. Has no effect on a [Showcase.highlightExactShape]
+  /// step, which draws a snapshot of the target rather than a cut-out.
+  ///
+  /// Defaults to `false`. Tune it with [stepTransitionDuration] and
+  /// [stepTransitionCurve].
+  final bool enableStepTransition;
+
+  /// How long the [enableStepTransition] glide takes.
+  ///
+  /// Defaults to `Duration(milliseconds: 300)`. Ignored when
+  /// [enableStepTransition] is `false`.
+  final Duration stepTransitionDuration;
+
+  /// Curve of the [enableStepTransition] glide.
+  ///
+  /// Defaults to [Curves.easeInOut]. Ignored when [enableStepTransition] is
+  /// `false`.
+  final Curve stepTransitionCurve;
+
   /// When `true`, hovering a part of the showcase that reacts to a click shows
   /// [SystemMouseCursors.click] instead of the default arrow: the highlighted
   /// target (unless [Showcase.disableDefaultTargetGestures] is set), a tooltip
@@ -297,6 +327,9 @@ class ShowCaseWidget extends StatefulWidget {
     this.onShouldStartShowcase,
     this.autoSkipUnmountedSteps = false,
     this.enableKeyboardNavigation = true,
+    this.enableStepTransition = false,
+    this.stepTransitionDuration = const Duration(milliseconds: 300),
+    this.stepTransitionCurve = Curves.easeInOut,
     this.enablePointerCursor = true,
     this.enableAutoAnnouncements = true,
     this.showProgress = false,
@@ -399,6 +432,24 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Value of [ShowCaseWidget.enablePointerCursor].
   bool get enablePointerCursor => widget.enablePointerCursor;
 
+  /// Value of [ShowCaseWidget.enableStepTransition].
+  bool get enableStepTransition => widget.enableStepTransition;
+
+  /// Value of [ShowCaseWidget.stepTransitionDuration].
+  Duration get stepTransitionDuration => widget.stepTransitionDuration;
+
+  /// Value of [ShowCaseWidget.stepTransitionCurve].
+  Curve get stepTransitionCurve => widget.stepTransitionCurve;
+
+  /// Global bounds of the target the tour just left, or `null` when the tour is
+  /// starting or the previous target could not be measured.
+  ///
+  /// Captured as the tour leaves a step so the step being entered can glide its
+  /// cut-out from here (see [ShowCaseWidget.enableStepTransition]). Only
+  /// recorded while transitions are enabled.
+  Rect? get previousTargetRect => _previousTargetRect;
+  Rect? _previousTargetRect;
+
   /// Value of [ShowCaseWidget.enableAutoAnnouncements].
   bool get enableAutoAnnouncements => widget.enableAutoAnnouncements;
 
@@ -446,11 +497,18 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// is rendered conditionally, e.g. an item inside a lazily built list. See also
   /// [ShowCaseWidget.autoSkipUnmountedSteps], which skips such steps
   /// automatically while navigating.
-  bool isTargetRendered(GlobalKey key) {
+  bool isTargetRendered(GlobalKey key) => _measureTarget(key) != null;
+
+  /// Global bounds of [key]'s target, or `null` when it is not mounted or has
+  /// not been laid out yet.
+  Rect? _measureTarget(GlobalKey key) {
     final targetContext = key.currentContext;
-    if (targetContext == null || !targetContext.mounted) return false;
+    if (targetContext == null || !targetContext.mounted) return null;
     final renderObject = targetContext.findRenderObject();
-    return renderObject is RenderBox && renderObject.attached && renderObject.hasSize;
+    if (renderObject is! RenderBox || !renderObject.attached || !renderObject.hasSize) {
+      return null;
+    }
+    return renderObject.localToGlobal(Offset.zero) & renderObject.size;
   }
 
   /// Registers [callback] to run whenever a step starts, in addition to
@@ -518,6 +576,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   void _startShowCaseNow(List<GlobalKey> widgetIds) {
     setState(() {
+      // A tour always opens on its first step rather than gliding into it, even
+      // when this call restarts a running tour.
+      _previousTargetRect = null;
       ids = widgetIds;
       activeWidgetId = _nextMountedIndex(0, 1);
       if (activeWidgetId! >= ids!.length) {
@@ -662,6 +723,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   void _onComplete() {
     final key = ids![activeWidgetId!];
+    // Measure the step we are leaving while it is still laid out, so the step
+    // being entered can glide its cut-out from here.
+    _previousTargetRect = widget.enableStepTransition ? _measureTarget(key) : null;
     widget.onComplete?.call(activeWidgetId, key);
     _notifyStepListeners(_onCompleteCallbacks, key);
   }
@@ -680,6 +744,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   void _cleanupAfterSteps() {
     ids = null;
     activeWidgetId = null;
+    _previousTargetRect = null;
   }
 
   @override

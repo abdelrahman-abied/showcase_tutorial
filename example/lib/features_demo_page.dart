@@ -34,6 +34,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   bool _autoPlay = false; // on => the tour auto-advances (1.5s/step)
   bool _wideGap = false; // on => the "C" step's tooltip sits further from it
   bool _wideMargin = false; // on => the "R" step's tooltip is held further from the edges
+  bool _glideSteps = false; // on => the highlight glides between targets
   int _step = 0;
   int _total = 0;
   BarrierInteraction _barrier = BarrierInteraction.next;
@@ -47,6 +48,10 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
       child: ShowCaseWidget(
         autoSkipUnmountedSteps: true,
         barrierInteraction: _barrier,
+        // Glide the cut-out between targets instead of cutting. The steps here
+        // are spread across the screen, so the travel is easy to see.
+        enableStepTransition: _glideSteps,
+        stepTransitionDuration: const Duration(milliseconds: 400),
         // Auto-play: 1.5s per step tour-wide; the "Exact shape" step overrides
         // this with a longer per-step Showcase.autoPlayDelay (it has more to read).
         autoPlay: _autoPlay,
@@ -87,7 +92,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                 foregroundColor: Colors.white,
                 title: Text(show.isShowcaseRunning
                     ? 'Step $_step of $_total  ·  $_lastEvent'
-                    : 'Feature demos (1.15.0)'),
+                    : 'Feature demos (1.14.0)'),
                 actions: [
                   const Center(child: Text('1/6')),
                   Switch(
@@ -324,6 +329,14 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                               setState(() => _branchSkipAhead = v ?? false),
                           title: const Text(
                               'Branch: skip from P straight to the last step'),
+                        ),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          value: _glideSteps,
+                          onChanged: (v) =>
+                              setState(() => _glideSteps = v ?? false),
+                          title: const Text(
+                              'Glide the highlight between steps (400ms)'),
                         ),
                         CheckboxListTile(
                           contentPadding: EdgeInsets.zero,

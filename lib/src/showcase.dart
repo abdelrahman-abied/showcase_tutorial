@@ -613,7 +613,7 @@ class Showcase extends StatefulWidget {
   State<Showcase> createState() => _ShowcaseState();
 }
 
-class _ShowcaseState extends State<Showcase> {
+class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin {
   bool _showShowCase = false;
   bool _isScrollRunning = false;
   bool _isTooltipDismissed = false;
@@ -625,6 +625,14 @@ class _ShowcaseState extends State<Showcase> {
   /// fire only on actual changes. Reset when the step stops being active so a
   /// revisit reports its bounds afresh.
   Rect? _lastNotifiedRect;
+
+  /// Drives the cut-out glide when this step is entered
+  /// (see [ShowCaseWidget.enableStepTransition]).
+  AnimationController? _transitionController;
+
+  /// Bounds the glide starts from — the previous step's target — or `null` when
+  /// this step should simply appear.
+  Rect? _transitionFrom;
 
   /// Focus node for the active overlay so a hardware keyboard can drive the
   /// tour **only while the showcase holds focus** (never app-wide).
@@ -639,6 +647,7 @@ class _ShowcaseState extends State<Showcase> {
   @override
   void dispose() {
     _focusNode.dispose();
+    _transitionController?.dispose();
     timer?.cancel();
     super.dispose();
   }
@@ -672,6 +681,7 @@ class _ShowcaseState extends State<Showcase> {
     // rebuild for an unrelated dependency change (e.g. a rotation) doesn't
     // re-trigger them.
     if (isActiveNow && !wasActive) {
+      _startStepTransition();
       _announceForAccessibility();
       _notifyLifecycle(widget.onShow);
       // Take focus so keyboard navigation works without the user tapping first.
@@ -681,6 +691,8 @@ class _ShowcaseState extends State<Showcase> {
         });
       }
     } else if (!isActiveNow && wasActive) {
+      _transitionFrom = null;
+      _transitionController?.stop();
       _notifyLifecycle(widget.onDismiss);
     }
 
@@ -711,6 +723,61 @@ class _ShowcaseState extends State<Showcase> {
       if (mounted) callback();
     });
   }
+
+  /// Begins the cut-out glide into this step, if the tour asked for one.
+  ///
+  /// Every step paints its own full-screen scrim, so the scrim itself is
+  /// continuous across a step change and only the cut-out jumps. That lets the
+  /// step being entered produce the whole transition on its own, by animating
+  /// its cut-out from where the previous target was; the step being left simply
+  /// stops painting.
+  ///
+  /// Skipped — leaving the cut-out to appear in place — when the tour has no
+  /// previous target (the first step), when "reduce motion" is on, or when
+  /// [Showcase.highlightExactShape] replaces the cut-out with a snapshot.
+  void _startStepTransition() {
+    _transitionFrom = null;
+    if (!showCaseWidgetState.enableStepTransition || widget.highlightExactShape) return;
+    if (MediaQuery.maybeDisableAnimationsOf(context) ?? false) return;
+
+    final from = showCaseWidgetState.previousTargetRect;
+    if (from == null) return;
+
+    _transitionFrom = from;
+    (_transitionController ??= AnimationController(vsync: this))
+      ..duration = showCaseWidgetState.stepTransitionDuration
+      ..forward(from: 0);
+  }
+
+  /// The cut-out bounds for this frame: [rectBound] normally, or a point along
+  /// the glide from the previous target while a step transition is running.
+  Rect _transitionRect(Rect rectBound) {
+    final from = _transitionFrom;
+    final controller = _transitionController;
+    if (from == null || controller == null || controller.isCompleted) return rectBound;
+    final t = showCaseWidgetState.stepTransitionCurve.transform(controller.value);
+    return Rect.lerp(from, rectBound, t) ?? rectBound;
+  }
+
+  /// Builds a piece of the highlight from the cut-out bounds, re-running
+  /// [builder] each frame while a step transition glides those bounds.
+  Widget _withCutOut(Rect rectBound, Widget Function(Rect cutOut) builder) {
+    final controller = _transitionController;
+    if (_transitionFrom == null || controller == null) return builder(rectBound);
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) => builder(_transitionRect(rectBound)),
+    );
+  }
+
+  /// [rect] expanded by [Showcase.targetPadding] — the region the cut-out
+  /// actually covers, which the border and pulse ring have to match.
+  Rect _paddedRect(Rect rect) => Rect.fromLTRB(
+    rect.left - widget.targetPadding.left,
+    rect.top - widget.targetPadding.top,
+    rect.right + widget.targetPadding.right,
+    rect.bottom + widget.targetPadding.bottom,
+  );
 
   /// Cursor shown while hovering the highlighted target on web/desktop.
   ///
@@ -1034,49 +1101,51 @@ class _ShowcaseState extends State<Showcase> {
                     break;
                 }
               },
-              child: ClipPath(
-                clipper: RRectClipper(
-                  // With an exact-shape highlight the snapshot provides the
-                  // cut-out, so the overlay dims the whole screen (no hole).
-                  area: (_isScrollRunning || widget.highlightExactShape) ? Rect.zero : rectBound,
-                  isCircle: widget.targetShapeBorder is CircleBorder,
-                  radius: _isScrollRunning ? BorderRadius.zero : widget.targetBorderRadius,
-                  overlayPadding: _isScrollRunning ? EdgeInsets.zero : widget.targetPadding,
-                ),
-                child: blur != 0
-                    ? BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                        child: Container(
+              child: _withCutOut(
+                rectBound,
+                (cutOut) => ClipPath(
+                  clipper: RRectClipper(
+                    // With an exact-shape highlight the snapshot provides the
+                    // cut-out, so the overlay dims the whole screen (no hole).
+                    area: (_isScrollRunning || widget.highlightExactShape) ? Rect.zero : cutOut,
+                    isCircle: widget.targetShapeBorder is CircleBorder,
+                    radius: _isScrollRunning ? BorderRadius.zero : widget.targetBorderRadius,
+                    overlayPadding: _isScrollRunning ? EdgeInsets.zero : widget.targetPadding,
+                  ),
+                  child: blur != 0
+                      ? BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                          child: Container(
+                            width: MediaQuery.sizeOf(context).width,
+                            height: MediaQuery.sizeOf(context).height,
+                            decoration: BoxDecoration(
+                              color: widget.overlayColor.withValues(alpha: widget.overlayOpacity),
+                            ),
+                          ),
+                        )
+                      : Container(
                           width: MediaQuery.sizeOf(context).width,
                           height: MediaQuery.sizeOf(context).height,
                           decoration: BoxDecoration(
                             color: widget.overlayColor.withValues(alpha: widget.overlayOpacity),
                           ),
                         ),
-                      )
-                    : Container(
-                        width: MediaQuery.sizeOf(context).width,
-                        height: MediaQuery.sizeOf(context).height,
-                        decoration: BoxDecoration(color: widget.overlayColor.withValues(alpha: widget.overlayOpacity)),
-                      ),
+                ),
               ),
             ),
             if (_isScrollRunning) Center(child: widget.scrollLoadingWidget),
             if (!_isScrollRunning) ...[
               if (widget.enablePulseAnimation)
-                _PulsingOverlay(
-                  // Match the static cut-out: the target bounds expanded by
-                  // the same target padding the clipper uses.
-                  targetRect: Rect.fromLTRB(
-                    rectBound.left - widget.targetPadding.left,
-                    rectBound.top - widget.targetPadding.top,
-                    rectBound.right + widget.targetPadding.right,
-                    rectBound.bottom + widget.targetPadding.bottom,
+                _withCutOut(
+                  rectBound,
+                  // Match the cut-out, including while it glides between steps.
+                  (cutOut) => _PulsingOverlay(
+                    targetRect: _paddedRect(cutOut),
+                    isCircle: widget.targetShapeBorder is CircleBorder,
+                    borderRadius: widget.targetBorderRadius,
+                    color: widget.pulseColor ?? showCaseWidgetState.style.pulseColor ?? Colors.white,
+                    duration: widget.pulseDuration,
                   ),
-                  isCircle: widget.targetShapeBorder is CircleBorder,
-                  borderRadius: widget.targetBorderRadius,
-                  color: widget.pulseColor ?? showCaseWidgetState.style.pulseColor ?? Colors.white,
-                  duration: widget.pulseDuration,
                 ),
               _TargetWidget(
                 offset: offset,
@@ -1109,19 +1178,15 @@ class _ShowcaseState extends State<Showcase> {
                   },
                 ),
               if (highlightBorderColor != null)
-                _HighlightBorder(
-                  // Same rect as the cut-out: target bounds expanded by the
-                  // target padding the clipper uses.
-                  targetRect: Rect.fromLTRB(
-                    rectBound.left - widget.targetPadding.left,
-                    rectBound.top - widget.targetPadding.top,
-                    rectBound.right + widget.targetPadding.right,
-                    rectBound.bottom + widget.targetPadding.bottom,
+                _withCutOut(
+                  rectBound,
+                  (cutOut) => _HighlightBorder(
+                    targetRect: _paddedRect(cutOut),
+                    isCircle: widget.targetShapeBorder is CircleBorder,
+                    borderRadius: widget.targetBorderRadius,
+                    color: highlightBorderColor,
+                    strokeWidth: highlightBorderWidth,
                   ),
-                  isCircle: widget.targetShapeBorder is CircleBorder,
-                  borderRadius: widget.targetBorderRadius,
-                  color: highlightBorderColor,
-                  strokeWidth: highlightBorderWidth,
                 ),
               ToolTipWidget(
                 position: position,
