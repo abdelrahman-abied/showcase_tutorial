@@ -1,29 +1,5 @@
 # Changelog
 
-## 1.15.0
-
-* FEAT: **pointer cursor on hover (web / desktop)** — hovering a part of the
-  showcase that reacts to a click now shows `SystemMouseCursors.click` instead of
-  the plain arrow, so a tour reads as interactive on web and desktop. It applies
-  to the highlighted target, a tooltip that has `onToolTipClick` or
-  `disposeOnTap`, and the built-in "Skip" button. A tooltip that does nothing on
-  tap deliberately keeps the default cursor, so the pointer never promises a
-  click that isn't there. The buttons in `ShowCaseDefaultActions` are Material
-  buttons and already behaved this way. No-op on mobile (no pointer).
-* FEAT: **`ShowCaseWidget.enablePointerCursor`** — tour-wide switch for the
-  above, defaulting to `true` (matching `enableKeyboardNavigation` and
-  `enableAutoAnnouncements`, the package's other on-by-default polish flags). Set
-  it to `false` to keep the previous cursor behaviour everywhere.
-* FEAT: **`Showcase.targetMouseCursor` / `Showcase.tooltipMouseCursor`** —
-  per-step overrides of the resolved cursor, e.g.
-  `SystemMouseCursors.forbidden` on a "look, don't touch" step or
-  `MouseCursor.defer` to leave one step alone. An explicit value wins even when
-  `enablePointerCursor` is `false`. Both default to `null` (resolve
-  automatically).
-* The target's hover region is not opaque, so the real widget underneath still
-  receives hover events and keeps its own hover states while the showcase cursor
-  applies.
-
 ## 1.14.0
 
 * FEAT: **dynamic callback registration** — register step listeners on the
@@ -56,6 +32,50 @@
   including the legacy `disableBarrierInteraction` flag; `onBarrierClick` still
   fires on every barrier tap. Additive and backward-compatible — defaults to
   `null` (use the tour-wide behaviour).
+* FEAT: **pointer cursor on hover (web / desktop)** — hovering a part of the
+  showcase that reacts to a click now shows `SystemMouseCursors.click` instead of
+  the plain arrow, so a tour reads as interactive on web and desktop. It applies
+  to the highlighted target, a tooltip that has `onToolTipClick` or
+  `disposeOnTap`, and the built-in "Skip" button. A tooltip that does nothing on
+  tap deliberately keeps the default cursor, so the pointer never promises a
+  click that isn't there. The buttons in `ShowCaseDefaultActions` are Material
+  buttons and already behaved this way. No-op on mobile (no pointer).
+* FEAT: **`ShowCaseWidget.enablePointerCursor`** — tour-wide switch for the
+  above, defaulting to `true` (matching `enableKeyboardNavigation` and
+  `enableAutoAnnouncements`, the package's other on-by-default polish flags). Set
+  it to `false` to keep the previous cursor behaviour everywhere.
+* FEAT: **`Showcase.targetMouseCursor` / `Showcase.tooltipMouseCursor`** —
+  per-step overrides of the resolved cursor, e.g.
+  `SystemMouseCursors.forbidden` on a "look, don't touch" step or
+  `MouseCursor.defer` to leave one step alone. An explicit value wins even when
+  `enablePointerCursor` is `false`. Both default to `null` (resolve
+  automatically).
+* The target's hover region is not opaque, so the real widget underneath still
+  receives hover events and keeps its own hover states while the showcase cursor
+  applies.
+* FEAT: **animated step transitions** — the highlight cut-out now glides from the
+  previous step's target to the next one when the tour advances, instead of
+  cutting there instantly. The optional highlight border and the pulse ring
+  follow the moving cut-out; the tooltip keeps its existing scale transition and
+  appears at the new target. Opt in tour-wide with
+  `ShowCaseWidget.enableStepTransition` (default `false`, so nothing changes for
+  existing tours), and tune it with `stepTransitionDuration` (default 300 ms) and
+  `stepTransitionCurve` (default `Curves.easeInOut`).
+  * Applies to every forward and backward move — `next`, `previous`, `goTo`,
+    `goToKey`, a branch, a barrier tap, autoplay. The first step of a tour has
+    nothing to glide from, so it simply appears.
+  * Honors the platform "reduce motion" accessibility setting by jumping
+    straight to the target, like the pulsing ring already does.
+  * No-op for a `highlightExactShape` step, which paints a snapshot of the
+    target rather than a cut-out.
+* FEAT: **`ShowCaseWidget.of(context).previousTargetRect`** — the global bounds of
+  the step the tour just left (`null` while the tour is starting or once it
+  ends). This is what drives the glide, and it is only recorded while
+  `enableStepTransition` is on.
+* No shared-overlay rewrite was needed: every step already paints its own
+  full-screen scrim, so the scrim is continuous across a step change and only the
+  cut-out moves. The step being entered animates its own cut-out from where the
+  previous target was, and the step being left simply stops painting.
 
 ## 1.13.0
 

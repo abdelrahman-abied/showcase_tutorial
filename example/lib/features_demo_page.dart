@@ -34,6 +34,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   bool _autoPlay = false; // on => the tour auto-advances (1.5s/step)
   bool _wideGap = false; // on => the "C" step's tooltip sits further from it
   bool _wideMargin = false; // on => the "R" step's tooltip is held further from the edges
+  bool _glideSteps = false; // on => the highlight glides between targets
   int _step = 0;
   int _total = 0;
   BarrierInteraction _barrier = BarrierInteraction.next;
@@ -47,6 +48,10 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
       child: ShowCaseWidget(
         autoSkipUnmountedSteps: true,
         barrierInteraction: _barrier,
+        // Glide the cut-out between targets instead of cutting. The steps here
+        // are spread across the screen, so the travel is easy to see.
+        enableStepTransition: _glideSteps,
+        stepTransitionDuration: const Duration(milliseconds: 400),
         // Auto-play: 1.5s per step tour-wide; the "Exact shape" step overrides
         // this with a longer per-step Showcase.autoPlayDelay (it has more to read).
         autoPlay: _autoPlay,
@@ -87,7 +92,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                 foregroundColor: Colors.white,
                 title: Text(show.isShowcaseRunning
                     ? 'Step $_step of $_total  ·  $_lastEvent'
-                    : 'Feature demos (1.15.0)'),
+                    : 'Feature demos (1.14.0)'),
                 actions: [
                   const Center(child: Text('1/6')),
                   Switch(
@@ -260,9 +265,11 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                     ),
                   ),
                   // Conditional step — included only when the checkbox is on.
+                  // Sits in the target row rather than down among the controls,
+                  // which are painted over it.
                   if (_includeConditional)
                     Positioned(
-                      bottom: 220,
+                      top: 200,
                       left: 0,
                       right: 0,
                       child: Center(
@@ -288,133 +295,147 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                       ),
                     ),
                   ),
-                  // Controls.
+                  // Controls. Bounded top *and* bottom and scrollable: with only
+                  // `bottom` set, a Positioned child gets unbounded height, so a
+                  // tall column silently renders off the top of the screen
+                  // instead of reporting an overflow.
                   Positioned(
-                    bottom: 110,
+                    top: 270,
+                    bottom: 88,
                     left: 16,
                     right: 16,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Registers its own step listener on the controller —
-                        // no wiring needed from this page.
-                        const _StepListenerLabel(),
-                        Text(
-                          _centerRect == null
-                              ? 'onTargetRectUpdate ("C"): —'
-                              : 'onTargetRectUpdate ("C"): '
-                                  '${_centerRect!.left.toStringAsFixed(0)},'
-                                  '${_centerRect!.top.toStringAsFixed(0)} '
-                                  '${_centerRect!.width.toStringAsFixed(0)}×'
-                                  '${_centerRect!.height.toStringAsFixed(0)}',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          value: _includeConditional,
-                          onChanged: (v) =>
-                              setState(() => _includeConditional = v ?? false),
-                          title: const Text(
-                              'Include conditional step (off → auto-skipped)'),
-                        ),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          value: _branchSkipAhead,
-                          onChanged: (v) =>
-                              setState(() => _branchSkipAhead = v ?? false),
-                          title: const Text(
-                              'Branch: skip from P straight to the last step'),
-                        ),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          value: _autoPlay,
-                          onChanged: (v) =>
-                              setState(() => _autoPlay = v ?? false),
-                          title: const Text(
-                              'Auto-play (1.5s/step; the star step lingers 4s)'),
-                        ),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          value: _wideGap,
-                          onChanged: (v) =>
-                              setState(() => _wideGap = v ?? false),
-                          title: const Text(
-                              'Wide tooltip gap (the "C" step sits further away)'),
-                        ),
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          value: _wideMargin,
-                          onChanged: (v) =>
-                              setState(() => _wideMargin = v ?? false),
-                          title: const Text(
-                              'Wide tooltip margin (the "R" step held in from the edges)'),
-                        ),
-                        // Barrier-tap behavior: tap the dimmed background to see it.
-                        SegmentedButton<BarrierInteraction>(
-                          segments: const [
-                            ButtonSegment(
-                                value: BarrierInteraction.next,
-                                label: Text('next')),
-                            ButtonSegment(
-                                value: BarrierInteraction.dismiss,
-                                label: Text('dismiss')),
-                            ButtonSegment(
-                                value: BarrierInteraction.none,
-                                label: Text('none')),
-                          ],
-                          selected: {_barrier},
-                          onSelectionChanged: (s) =>
-                              setState(() => _barrier = s.first),
-                        ),
-                        const SizedBox(height: 8),
-                        ElevatedButton(
-                          onPressed: () {
-                            final ids = [
-                              _topLeft,
-                              _topRight,
-                              _multiPrimary,
-                              _exact,
-                              _pulse,
-                              _styled,
-                              _center,
-                              _conditional,
-                              _bottom,
-                            ];
-                            setState(() => _total = ids.length);
-                            show.startShowCase(ids);
-                          },
-                          child: const Text('Start tour'),
-                        ),
-                        OutlinedButton(
-                          // isTargetRendered: only jump to the conditional step
-                          // when its target is actually laid out on screen.
-                          onPressed: () {
-                            if (!show.isTargetRendered(_conditional)) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'The "?" target is not on screen — tick the '
-                                      'checkbox above first.'),
-                                ),
-                              );
-                              return;
-                            }
-                            show.goToKey(_conditional);
-                          },
-                          child: const Text('Go to the conditional step'),
-                        ),
-                        OutlinedButton(
-                          // Auto-scroll alignment lives on its own scrollable
-                          // page (this demo page is a non-scrolling Stack).
-                          onPressed: () => Navigator.push<void>(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => const ScrollAlignmentDemoPage(),
-                            ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Registers its own step listener on the controller —
+                          // no wiring needed from this page.
+                          const _StepListenerLabel(),
+                          Text(
+                            _centerRect == null
+                                ? 'onTargetRectUpdate ("C"): —'
+                                : 'onTargetRectUpdate ("C"): '
+                                    '${_centerRect!.left.toStringAsFixed(0)},'
+                                    '${_centerRect!.top.toStringAsFixed(0)} '
+                                    '${_centerRect!.width.toStringAsFixed(0)}×'
+                                    '${_centerRect!.height.toStringAsFixed(0)}',
+                            style: const TextStyle(fontSize: 12),
                           ),
-                          child: const Text('Auto-scroll alignment demo'),
-                        ),
-                      ],
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: _includeConditional,
+                            onChanged: (v) =>
+                                setState(() => _includeConditional = v ?? false),
+                            title: const Text(
+                                'Include conditional step (off → auto-skipped)'),
+                          ),
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: _branchSkipAhead,
+                            onChanged: (v) =>
+                                setState(() => _branchSkipAhead = v ?? false),
+                            title: const Text(
+                                'Branch: skip from P straight to the last step'),
+                          ),
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: _glideSteps,
+                            onChanged: (v) =>
+                                setState(() => _glideSteps = v ?? false),
+                            title: const Text(
+                                'Glide the highlight between steps (400ms)'),
+                          ),
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: _autoPlay,
+                            onChanged: (v) =>
+                                setState(() => _autoPlay = v ?? false),
+                            title: const Text(
+                                'Auto-play (1.5s/step; the star step lingers 4s)'),
+                          ),
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: _wideGap,
+                            onChanged: (v) =>
+                                setState(() => _wideGap = v ?? false),
+                            title: const Text(
+                                'Wide tooltip gap (the "C" step sits further away)'),
+                          ),
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: _wideMargin,
+                            onChanged: (v) =>
+                                setState(() => _wideMargin = v ?? false),
+                            title: const Text(
+                                'Wide tooltip margin (the "R" step held in from the edges)'),
+                          ),
+                          // Barrier-tap behavior: tap the dimmed background to see it.
+                          SegmentedButton<BarrierInteraction>(
+                            segments: const [
+                              ButtonSegment(
+                                  value: BarrierInteraction.next,
+                                  label: Text('next')),
+                              ButtonSegment(
+                                  value: BarrierInteraction.dismiss,
+                                  label: Text('dismiss')),
+                              ButtonSegment(
+                                  value: BarrierInteraction.none,
+                                  label: Text('none')),
+                            ],
+                            selected: {_barrier},
+                            onSelectionChanged: (s) =>
+                                setState(() => _barrier = s.first),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              final ids = [
+                                _topLeft,
+                                _topRight,
+                                _multiPrimary,
+                                _exact,
+                                _pulse,
+                                _styled,
+                                _center,
+                                _conditional,
+                                _bottom,
+                              ];
+                              setState(() => _total = ids.length);
+                              show.startShowCase(ids);
+                            },
+                            child: const Text('Start tour'),
+                          ),
+                          OutlinedButton(
+                            // isTargetRendered: only jump to the conditional step
+                            // when its target is actually laid out on screen.
+                            onPressed: () {
+                              if (!show.isTargetRendered(_conditional)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                        'The "?" target is not on screen — tick the '
+                                        'checkbox above first.'),
+                                  ),
+                                );
+                                return;
+                              }
+                              show.goToKey(_conditional);
+                            },
+                            child: const Text('Go to the conditional step'),
+                          ),
+                          OutlinedButton(
+                            // Auto-scroll alignment lives on its own scrollable
+                            // page (this demo page is a non-scrolling Stack).
+                            onPressed: () => Navigator.push<void>(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) => const ScrollAlignmentDemoPage(),
+                              ),
+                            ),
+                            child: const Text('Auto-scroll alignment demo'),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
