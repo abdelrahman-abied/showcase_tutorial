@@ -439,6 +439,27 @@ class Showcase extends StatefulWidget {
   /// Defaults to `null`, which uses the tour-wide behaviour.
   final BarrierInteraction? barrierInteraction;
 
+  /// Mouse cursor shown while hovering this step's highlighted target on
+  /// web/desktop.
+  ///
+  /// When `null` the cursor is resolved from
+  /// [ShowCaseWidget.enablePointerCursor]: [SystemMouseCursors.click] for a
+  /// target that reacts to a click, and [MouseCursor.defer] when
+  /// [disableDefaultTargetGestures] makes it inert. Set it explicitly to force a
+  /// cursor — e.g. [SystemMouseCursors.forbidden] on a "look, don't touch" step,
+  /// or [MouseCursor.defer] to keep whatever the target itself uses. An explicit
+  /// value wins even when [ShowCaseWidget.enablePointerCursor] is `false`.
+  final MouseCursor? targetMouseCursor;
+
+  /// Mouse cursor shown while hovering this step's tooltip on web/desktop.
+  ///
+  /// When `null` the cursor is resolved from
+  /// [ShowCaseWidget.enablePointerCursor]: [SystemMouseCursors.click] only when
+  /// the tooltip actually reacts to a tap ([onToolTipClick] or [disposeOnTap]),
+  /// otherwise [MouseCursor.defer]. An explicit value wins even when
+  /// [ShowCaseWidget.enablePointerCursor] is `false`.
+  final MouseCursor? tooltipMouseCursor;
+
   /// Creates a showcase step with the built-in title/description tooltip.
   ///
   /// [key] and [child] are required. Styling values left unset fall back to
@@ -503,6 +524,8 @@ class Showcase extends StatefulWidget {
     this.scrollAlignment,
     this.onTargetRectUpdate,
     this.barrierInteraction,
+    this.targetMouseCursor,
+    this.tooltipMouseCursor,
   }) : height = null,
        width = null,
        container = null,
@@ -560,6 +583,8 @@ class Showcase extends StatefulWidget {
     this.scrollAlignment,
     this.onTargetRectUpdate,
     this.barrierInteraction,
+    this.targetMouseCursor,
+    this.tooltipMouseCursor,
   }) : showArrow = false,
        arrowColor = null,
        arrowWidth = null,
@@ -685,6 +710,32 @@ class _ShowcaseState extends State<Showcase> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) callback();
     });
+  }
+
+  /// Cursor shown while hovering the highlighted target on web/desktop.
+  ///
+  /// An explicit [Showcase.targetMouseCursor] always wins; otherwise a click
+  /// cursor is used when the tour opts in and the target still reacts to a tap.
+  MouseCursor get _targetCursor {
+    final cursor = widget.targetMouseCursor;
+    if (cursor != null) return cursor;
+    if (!showCaseWidgetState.enablePointerCursor || widget.disableDefaultTargetGestures) {
+      return MouseCursor.defer;
+    }
+    return SystemMouseCursors.click;
+  }
+
+  /// Cursor shown while hovering the tooltip on web/desktop.
+  ///
+  /// An explicit [Showcase.tooltipMouseCursor] always wins; otherwise a click
+  /// cursor is used only when tapping the tooltip actually does something, since
+  /// the tap handler is always wired up but is a no-op without one of these.
+  MouseCursor get _tooltipCursor {
+    final cursor = widget.tooltipMouseCursor;
+    if (cursor != null) return cursor;
+    final tappable = widget.onToolTipClick != null || widget.disposeOnTap == true;
+    if (!showCaseWidgetState.enablePointerCursor || !tappable) return MouseCursor.defer;
+    return SystemMouseCursors.click;
   }
 
   /// Reports the highlighted target's bounds to [Showcase.onTargetRectUpdate]
@@ -1036,6 +1087,7 @@ class _ShowcaseState extends State<Showcase> {
                 onLongPress: widget.onTargetLongPress,
                 shapeBorder: widget.targetShapeBorder,
                 disableDefaultChildGestures: widget.disableDefaultTargetGestures,
+                cursor: _targetCursor,
               ),
               if (widget.keys != null && widget.keys!.isNotEmpty) ...[
                 FutureBuilder<List<Widget>>(
@@ -1094,6 +1146,8 @@ class _ShowcaseState extends State<Showcase> {
                 contentHeight: widget.height,
                 contentWidth: widget.width,
                 onTooltipTap: _getOnTooltipTap,
+                mouseCursor: _tooltipCursor,
+                enablePointerCursor: showCaseWidgetState.enablePointerCursor,
                 tooltipPadding: widget.tooltipPadding,
                 disableMovingAnimation: widget.disableMovingAnimation ?? showCaseWidgetState.disableMovingAnimation,
                 disableScaleAnimation: widget.disableScaleAnimation ?? showCaseWidgetState.disableScaleAnimation,
@@ -1143,6 +1197,10 @@ class _TargetWidget extends StatelessWidget {
   final BorderRadius? radius;
   final bool disableDefaultChildGestures;
 
+  /// Cursor shown while hovering the target on web/desktop
+  /// (see [Showcase.targetMouseCursor]).
+  final MouseCursor cursor;
+
   const _TargetWidget({
     required this.offset,
     this.size,
@@ -1152,6 +1210,7 @@ class _TargetWidget extends StatelessWidget {
     this.onDoubleTap,
     this.onLongPress,
     this.disableDefaultChildGestures = false,
+    this.cursor = MouseCursor.defer,
   });
 
   @override
@@ -1163,17 +1222,24 @@ class _TargetWidget extends StatelessWidget {
         ignoring: disableDefaultChildGestures,
         child: FractionalTranslation(
           translation: const Offset(-0.5, -0.5),
-          child: GestureDetector(
-            onTap: onTap,
-            onLongPress: onLongPress,
-            onDoubleTap: onDoubleTap,
-            child: Container(
-              height: size!.height + 16,
-              width: size!.width + 16,
-              decoration: ShapeDecoration(
-                shape: radius != null
-                    ? RoundedRectangleBorder(borderRadius: radius!)
-                    : shapeBorder ?? const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+          // Not opaque, so the real widget underneath still receives hover
+          // events (and keeps its own hover states) while the cursor here wins.
+          child: MouseRegion(
+            cursor: cursor,
+            opaque: false,
+            child: GestureDetector(
+              onTap: onTap,
+              onLongPress: onLongPress,
+              onDoubleTap: onDoubleTap,
+              child: Container(
+                height: size!.height + 16,
+                width: size!.width + 16,
+                decoration: ShapeDecoration(
+                  shape: radius != null
+                      ? RoundedRectangleBorder(borderRadius: radius!)
+                      : shapeBorder ??
+                            const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+                ),
               ),
             ),
           ),

@@ -62,6 +62,15 @@ class ToolTipWidget extends StatefulWidget {
   final double? contentHeight;
   final double? contentWidth;
   final VoidCallback? onTooltipTap;
+
+  /// Cursor shown while hovering the tooltip on web/desktop, already resolved by
+  /// [Showcase] (see [Showcase.tooltipMouseCursor]).
+  final MouseCursor mouseCursor;
+
+  /// Whether the tour opts into pointer cursors, used for the parts of the
+  /// tooltip that are always clickable — currently the "Skip" button.
+  final bool enablePointerCursor;
+
   final EdgeInsets? tooltipPadding;
   final Duration movingAnimationDuration;
   final bool disableMovingAnimation;
@@ -123,6 +132,8 @@ class ToolTipWidget extends StatefulWidget {
     required this.contentHeight,
     required this.contentWidth,
     required this.onTooltipTap,
+    this.mouseCursor = MouseCursor.defer,
+    this.enablePointerCursor = true,
     required this.movingAnimationDuration,
     required this.descriptionAlignment,
     this.tooltipPadding = const EdgeInsets.symmetric(vertical: 8),
@@ -295,14 +306,19 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
           else
             const SizedBox.shrink(),
           if (widget.showSkip)
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: widget.onSkip,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                child: Text(
-                  widget.skipText,
-                  style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500),
+            MouseRegion(
+              // Always a real button, so it opts in with the tour rather than
+              // with the tooltip body's resolved cursor.
+              cursor: widget.enablePointerCursor ? SystemMouseCursors.click : MouseCursor.defer,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.onSkip,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Text(
+                    widget.skipText,
+                    style: TextStyle(color: color.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500),
+                  ),
                 ),
               ),
             ),
@@ -310,6 +326,13 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
       ),
     );
   }
+
+  /// Makes [child] the tooltip's tap surface, and — on web/desktop — shows the
+  /// cursor [Showcase] resolved for it while the pointer is over it.
+  Widget _tappable({required Widget child}) => MouseRegion(
+    cursor: widget.mouseCursor,
+    child: GestureDetector(onTap: widget.onTooltipTap, child: child),
+  );
 
   double? _getLeft() {
     if (widget.position != null) {
@@ -492,8 +515,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
 
     final box = ClipRRect(
       borderRadius: widget.tooltipBorderRadius ?? BorderRadius.circular(8.0),
-      child: GestureDetector(
-        onTap: widget.onTooltipTap,
+      child: _tappable(
         child: Container(
           width: tooltipWidth,
           padding: widget.tooltipPadding,
@@ -670,8 +692,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
                             ),
                             child: ClipRRect(
                               borderRadius: widget.tooltipBorderRadius ?? BorderRadius.circular(8.0),
-                              child: GestureDetector(
-                                onTap: widget.onTooltipTap,
+                              child: _tappable(
                                 child: Container(
                                   width: tooltipWidth,
                                   padding: widget.tooltipPadding,
@@ -749,8 +770,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
               ).animate(_movingAnimation),
               child: Material(
                 color: Colors.transparent,
-                child: GestureDetector(
-                  onTap: widget.onTooltipTap,
+                child: _tappable(
                   child: Container(
                     padding: EdgeInsets.only(top: paddingTop),
                     color: Colors.transparent,

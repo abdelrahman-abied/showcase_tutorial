@@ -207,6 +207,21 @@ class ShowCaseWidget extends StatefulWidget {
   /// `true`.
   final bool enableKeyboardNavigation;
 
+  /// When `true`, hovering a part of the showcase that reacts to a click shows
+  /// [SystemMouseCursors.click] instead of the default arrow: the highlighted
+  /// target (unless [Showcase.disableDefaultTargetGestures] is set), a tooltip
+  /// that has [Showcase.onToolTipClick] or `disposeOnTap`, and the built-in
+  /// "Skip" button.
+  ///
+  /// Relevant on web/desktop; harmless on mobile (no pointer). Override the
+  /// cursor for a single step with [Showcase.targetMouseCursor] /
+  /// [Showcase.tooltipMouseCursor], which win even when this is `false`.
+  /// Defaults to `true`.
+  ///
+  /// Note: the buttons in [ShowCaseDefaultActions] are Material buttons and
+  /// already show a click cursor regardless of this flag.
+  final bool enablePointerCursor;
+
   /// When `true`, each step's title and description are announced to screen
   /// readers (TalkBack / VoiceOver) as it becomes active, via
   /// [SemanticsService.announce]. A [Showcase.semanticLabel] overrides the
@@ -282,6 +297,7 @@ class ShowCaseWidget extends StatefulWidget {
     this.onShouldStartShowcase,
     this.autoSkipUnmountedSteps = false,
     this.enableKeyboardNavigation = true,
+    this.enablePointerCursor = true,
     this.enableAutoAnnouncements = true,
     this.showProgress = false,
     this.progressStyle = ShowcaseProgressStyle.dots,
@@ -379,6 +395,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Value of [ShowCaseWidget.enableKeyboardNavigation].
   bool get enableKeyboardNavigation => widget.enableKeyboardNavigation;
+
+  /// Value of [ShowCaseWidget.enablePointerCursor].
+  bool get enablePointerCursor => widget.enablePointerCursor;
 
   /// Value of [ShowCaseWidget.enableAutoAnnouncements].
   bool get enableAutoAnnouncements => widget.enableAutoAnnouncements;
