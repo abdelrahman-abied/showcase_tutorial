@@ -61,6 +61,20 @@ controller API.
 - **Target interaction callbacks**: tap, double-tap, long-press.
 - **Enable/disable** the whole tour with a single flag.
 
+## What's new in 1.14.0
+
+Everything below is additive and backward-compatible — each new option defaults
+to the previous behavior, so upgrading changes nothing until you opt in.
+
+| Feature | What you get |
+| ------- | ------------ |
+| [Animated step transitions](#animated-step-transitions) | `enableStepTransition` glides the highlight from one target to the next instead of cutting, with `stepTransitionDuration` / `stepTransitionCurve`. |
+| [Pointer cursor](#pointer-cursor-web--desktop) | A click cursor on the parts of the tour that react to a click (web/desktop), with `enablePointerCursor` and per-step `targetMouseCursor` / `tooltipMouseCursor`. |
+| [Runtime step listeners](#listening-from-anywhere-in-the-tree) | `addOnStartCallback` / `addOnCompleteCallback` (and their `remove…` pairs) let a widget deep in the tree observe the tour and unregister when it goes away. |
+| [Target bounds](#following-the-highlighted-target) | `Showcase.onTargetRectUpdate` reports the highlight's global `Rect` as it moves, for anchoring your own UI to it. |
+| [Layout checks](#api-reference) | `isTargetRendered(key)` tells you whether a step's target is mounted **and** laid out; `previousTargetRect` exposes the step the tour just left. |
+| [Per-step barrier](#background-barrier-tap-behavior) | `Showcase.barrierInteraction` overrides the tour-wide background-tap behavior for a single step. |
+
 ## Table of contents
 
 - [Installation](#installation)
@@ -100,7 +114,7 @@ controller API.
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^1.10.0
+     showcase_tutorial: ^1.14.0
    ```
 
    Or from the command line:
