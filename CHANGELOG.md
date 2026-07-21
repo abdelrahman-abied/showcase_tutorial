@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.15.0
+
+* FEAT: **pointer cursor on hover (web / desktop)** — hovering a part of the
+  showcase that reacts to a click now shows `SystemMouseCursors.click` instead of
+  the plain arrow, so a tour reads as interactive on web and desktop. It applies
+  to the highlighted target, a tooltip that has `onToolTipClick` or
+  `disposeOnTap`, and the built-in "Skip" button. A tooltip that does nothing on
+  tap deliberately keeps the default cursor, so the pointer never promises a
+  click that isn't there. The buttons in `ShowCaseDefaultActions` are Material
+  buttons and already behaved this way. No-op on mobile (no pointer).
+* FEAT: **`ShowCaseWidget.enablePointerCursor`** — tour-wide switch for the
+  above, defaulting to `true` (matching `enableKeyboardNavigation` and
+  `enableAutoAnnouncements`, the package's other on-by-default polish flags). Set
+  it to `false` to keep the previous cursor behaviour everywhere.
+* FEAT: **`Showcase.targetMouseCursor` / `Showcase.tooltipMouseCursor`** —
+  per-step overrides of the resolved cursor, e.g.
+  `SystemMouseCursors.forbidden` on a "look, don't touch" step or
+  `MouseCursor.defer` to leave one step alone. An explicit value wins even when
+  `enablePointerCursor` is `false`. Both default to `null` (resolve
+  automatically).
+* The target's hover region is not opaque, so the real widget underneath still
+  receives hover events and keeps its own hover states while the showcase cursor
+  applies.
+
 ## 1.14.0
 
 * FEAT: **dynamic callback registration** — register step listeners on the

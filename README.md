@@ -54,6 +54,8 @@ controller API.
   isn't on screen.
 - **Accessibility** built in — keyboard navigation (Esc / arrows / Enter) and
   screen-reader announcements.
+- **Web / desktop polish** — a click cursor on the parts of the tour that react
+  to a click, with per-step overrides.
 - **Target interaction callbacks**: tap, double-tap, long-press.
 - **Enable/disable** the whole tour with a single flag.
 
@@ -78,6 +80,7 @@ controller API.
 - [Step lifecycle callbacks](#step-lifecycle-callbacks)
 - [Background (barrier) tap behavior](#background-barrier-tap-behavior)
 - [Accessibility & keyboard navigation](#accessibility--keyboard-navigation)
+- [Pointer cursor (web / desktop)](#pointer-cursor-web--desktop)
 - [Blur the background](#blur-the-background)
 - [Tooltip position](#tooltip-position)
 - [Skip off-screen steps](#skip-off-screen-steps)
@@ -715,6 +718,41 @@ Showcase(
 );
 ```
 
+## Pointer cursor (web / desktop)
+
+On web and desktop, hovering a part of the tour that reacts to a click shows the
+click cursor, so the tour reads as interactive. It applies to the highlighted
+target, a tooltip that has `onToolTipClick` or `disposeOnTap`, and the built-in
+"Skip" button — a tooltip that does nothing on tap deliberately keeps the default
+cursor, so the pointer never promises a click that isn't there. The buttons in
+`ShowCaseDefaultActions` are Material buttons and already behave this way.
+
+It's on by default and costs nothing on mobile. Turn it off tour-wide:
+
+```dart
+ShowCaseWidget(
+  enablePointerCursor: false, // keep the plain arrow everywhere
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+Or set the cursor for a single step — an explicit value wins even when
+`enablePointerCursor` is `false`:
+
+```dart
+Showcase(
+  key: _two,
+  title: 'Read only',
+  description: 'This one is just a heads-up.',
+  targetMouseCursor: SystemMouseCursors.forbidden,
+  tooltipMouseCursor: SystemMouseCursors.help,
+  child: const StatusBadge(),
+);
+```
+
+Use `MouseCursor.defer` to leave a step alone and keep whatever cursor the
+underlying widget already uses.
+
 ## Blur the background
 
 ```dart
@@ -890,6 +928,7 @@ ShowCaseWidget(
 | enableShowcase            | bool                       | true                           | Enable or disable showcasing globally.                                           |
 | autoSkipUnmountedSteps    | bool                       | false                          | Skip steps whose target widget is not currently mounted.                         |
 | enableKeyboardNavigation  | bool                       | true                           | Drive the active step with a hardware keyboard (Esc / arrows / Enter).           |
+| enablePointerCursor       | bool                       | true                           | Show a click cursor on the clickable parts of the tour (web/desktop).            |
 | enableAutoAnnouncements   | bool                       | true                           | Announce each step's title/description to screen readers.                        |
 | showProgress              | bool                       | false                          | Show the built-in step indicator in the default tooltip.                         |
 | progressStyle             | ShowcaseProgressStyle      | `ShowcaseProgressStyle.dots`   | Indicator style: dots or a `1/6` numeric counter.                                |
@@ -956,6 +995,8 @@ ShowCaseWidget(
 | onShow                       | VoidCallback?          |                                                    | Called when this step becomes active.                                                       |     ✅     |          ✅           |
 | onDismiss                    | VoidCallback?          |                                                    | Called when this step stops being active (advanced past, navigated away, or dismissed).     |     ✅     |          ✅           |
 | onTargetRectUpdate           | `void Function(Rect)?` |                                                    | Called with the target's global bounds when they change (and once when the step shows).     |     ✅     |          ✅           |
+| targetMouseCursor            | MouseCursor?           |                                                    | Cursor over this step's target; overrides the resolved one (web/desktop).                   |     ✅     |          ✅           |
+| tooltipMouseCursor           | MouseCursor?           |                                                    | Cursor over this step's tooltip; overrides the resolved one (web/desktop).                  |     ✅     |          ✅           |
 | semanticLabel                | String?                |                                                    | Text announced to screen readers for this step (defaults to title + description).           |     ✅     |          ✅           |
 | disableMovingAnimation       | bool?                  | `ShowCaseWidget.disableMovingAnimation`            | Disable the bouncing/moving transition.                                                     |     ✅     |          ✅           |
 | disableScaleAnimation        | bool?                  | `ShowCaseWidget.disableScaleAnimation`             | Disable the initial scale transition.                                                       |     ✅     |                       |

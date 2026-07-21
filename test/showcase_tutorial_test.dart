@@ -1,6 +1,8 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
@@ -2340,6 +2342,162 @@ void main() {
 
       expect(clicks, 1);
       expect(state.currentIndex, 0); // …but the step's `.none` did not advance
+    });
+  });
+
+  group('pointer cursor (web / desktop)', () {
+    // Starts a one-step tour and returns the cursor resolved while a mouse
+    // hovers [hover] (defaults to the target).
+    Future<MouseCursor?> cursorOver(
+      WidgetTester tester, {
+      required Widget app,
+      required GlobalKey key,
+      Finder? hover,
+    }) async {
+      await tester.pumpWidget(app);
+      ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer();
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(tester.getCenter(hover ?? find.text('t')));
+      await tester.pump();
+      return RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1);
+    }
+
+    Widget buildCursorApp(
+      GlobalKey key, {
+      bool enablePointerCursor = true,
+      bool disableDefaultTargetGestures = false,
+      bool showSkip = false,
+      MouseCursor? targetMouseCursor,
+      MouseCursor? tooltipMouseCursor,
+      VoidCallback? onToolTipClick,
+    }) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          enablePointerCursor: enablePointerCursor,
+          showSkip: showSkip,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Showcase(
+                  key: key,
+                  title: 'T',
+                  description: 'Body',
+                  disableDefaultTargetGestures: disableDefaultTargetGestures,
+                  targetMouseCursor: targetMouseCursor,
+                  tooltipMouseCursor: tooltipMouseCursor,
+                  onToolTipClick: onToolTipClick,
+                  child: const SizedBox(width: 40, height: 40, child: Text('t')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('the highlighted target shows a click cursor', (tester) async {
+      final key = GlobalKey();
+      expect(
+        await cursorOver(tester, app: buildCursorApp(key), key: key),
+        SystemMouseCursors.click,
+      );
+    });
+
+    testWidgets('enablePointerCursor:false leaves the target cursor alone',
+        (tester) async {
+      final key = GlobalKey();
+      expect(
+        await cursorOver(tester,
+            app: buildCursorApp(key, enablePointerCursor: false), key: key),
+        SystemMouseCursors.basic,
+      );
+    });
+
+    testWidgets('an inert target (disableDefaultTargetGestures) gets no click '
+        'cursor', (tester) async {
+      final key = GlobalKey();
+      expect(
+        await cursorOver(tester,
+            app: buildCursorApp(key, disableDefaultTargetGestures: true),
+            key: key),
+        SystemMouseCursors.basic,
+      );
+    });
+
+    testWidgets('a per-step targetMouseCursor wins, even with the tour-wide '
+        'switch off', (tester) async {
+      final key = GlobalKey();
+      expect(
+        await cursorOver(
+          tester,
+          app: buildCursorApp(
+            key,
+            enablePointerCursor: false,
+            targetMouseCursor: SystemMouseCursors.forbidden,
+          ),
+          key: key,
+        ),
+        SystemMouseCursors.forbidden,
+      );
+    });
+
+    testWidgets('a tooltip that does nothing on tap gets no click cursor',
+        (tester) async {
+      final key = GlobalKey();
+      expect(
+        await cursorOver(tester,
+            app: buildCursorApp(key), key: key, hover: find.text('Body')),
+        SystemMouseCursors.basic,
+      );
+    });
+
+    testWidgets('a tooltip with onToolTipClick shows a click cursor',
+        (tester) async {
+      final key = GlobalKey();
+      expect(
+        await cursorOver(
+          tester,
+          app: buildCursorApp(key, onToolTipClick: () {}),
+          key: key,
+          hover: find.text('Body'),
+        ),
+        SystemMouseCursors.click,
+      );
+    });
+
+    testWidgets('a per-step tooltipMouseCursor overrides the resolved one',
+        (tester) async {
+      final key = GlobalKey();
+      expect(
+        await cursorOver(
+          tester,
+          app: buildCursorApp(key, tooltipMouseCursor: SystemMouseCursors.help),
+          key: key,
+          hover: find.text('Body'),
+        ),
+        SystemMouseCursors.help,
+      );
+    });
+
+    testWidgets('the built-in Skip button shows a click cursor',
+        (tester) async {
+      final key = GlobalKey();
+      expect(
+        await cursorOver(
+          tester,
+          app: buildCursorApp(key, showSkip: true),
+          key: key,
+          hover: find.text('Skip'),
+        ),
+        SystemMouseCursors.click,
+      );
     });
   });
 }

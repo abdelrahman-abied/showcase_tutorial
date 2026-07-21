@@ -87,7 +87,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                 foregroundColor: Colors.white,
                 title: Text(show.isShowcaseRunning
                     ? 'Step $_step of $_total  ·  $_lastEvent'
-                    : 'Feature demos (1.14.0)'),
+                    : 'Feature demos (1.15.0)'),
                 actions: [
                   const Center(child: Text('1/6')),
                   Switch(
@@ -195,7 +195,13 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                       key: _pulse,
                       targetShapeBorder: const CircleBorder(),
                       title: 'Pulsing ring',
-                      description: 'An animated ring pulses around the target.',
+                      description:
+                          'An animated ring pulses around the target. Hover it '
+                          'on web/desktop: this step forces a "forbidden" cursor.',
+                      // Per-step cursor override: wins over the tour-wide
+                      // enablePointerCursor resolution (which would show a
+                      // click cursor here).
+                      targetMouseCursor: SystemMouseCursors.forbidden,
                       enablePulseAnimation: true,
                       pulseColor: const Color(0xfff4a261),
                       child: const _Dot('P'),
@@ -210,7 +216,13 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                       key: _styled,
                       targetShapeBorder: const CircleBorder(),
                       title: 'Styled',
-                      description: 'Custom arrow + highlight border.',
+                      description:
+                          'Custom arrow + highlight border. This tooltip is '
+                          'tappable, so it gets a click cursor.',
+                      // A tooltip only gets the click cursor when tapping it
+                      // actually does something — like this.
+                      onToolTipClick: () =>
+                          setState(() => _lastEvent = 'tooltip tapped: S'),
                       tooltipBackgroundColor: const Color(0xff023047),
                       textColor: Colors.white,
                       arrowColor: const Color(0xfff4a261),
