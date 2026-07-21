@@ -682,6 +682,7 @@ void main() {
     GlobalKey k1,
     GlobalKey k2, {
     BarrierInteraction barrierInteraction = BarrierInteraction.next,
+    BarrierInteraction? step1Barrier,
     bool disableBarrierInteraction = false,
     bool enableKeyboardNavigation = true,
     VoidCallback? onBarrierClick,
@@ -701,7 +702,12 @@ void main() {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Showcase(
-                      key: k1, title: 'One', description: 'd', child: const Text('t1')),
+                    key: k1,
+                    title: 'One',
+                    description: 'd',
+                    barrierInteraction: step1Barrier,
+                    child: const Text('t1'),
+                  ),
                   Showcase(
                       key: k2, title: 'Two', description: 'd', child: const Text('t2')),
                 ],
@@ -1941,6 +1947,400 @@ void main() {
         await offsetForAlignment(tourAlignment: 0.0, stepAlignment: 1.0);
     expect(overridden, closeTo(trailing, 1));
     expect(overridden, lessThan(leading));
+  });
+
+  group('dynamic callback registration', () {
+    testWidgets('registered start/complete listeners fire alongside the '
+        'widget-level callbacks', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      await tester.pumpWidget(buildMultiStepApp(k1, k2, k3));
+
+      final started = <int?>[];
+      final completed = <int?>[];
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.addOnStartCallback((index, key) => started.add(index));
+      state.addOnCompleteCallback((index, key) => completed.add(index));
+
+      state.startShowCase([k1, k2, k3]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(started, [0]);
+      expect(completed, isEmpty);
+
+      state.next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(started, [0, 1]);
+      expect(completed, [0]);
+    });
+
+    testWidgets('listeners receive the index and key of the step',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      await tester.pumpWidget(buildMultiStepApp(k1, k2, k3));
+
+      final events = <String>[];
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.addOnStartCallback(
+          (index, key) => events.add('start:$index:${key == k2 ? 'k2' : 'other'}'));
+
+      state.startShowCase([k1, k2, k3]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      state.next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(events, ['start:0:other', 'start:1:k2']);
+    });
+
+    testWidgets('removed listeners stop firing', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      await tester.pumpWidget(buildMultiStepApp(k1, k2, k3));
+
+      final started = <int?>[];
+      final completed = <int?>[];
+      void onStart(int? index, GlobalKey key) => started.add(index);
+      void onComplete(int? index, GlobalKey key) => completed.add(index);
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.addOnStartCallback(onStart);
+      state.addOnCompleteCallback(onComplete);
+
+      state.startShowCase([k1, k2, k3]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(started, [0]);
+
+      expect(state.removeOnStartCallback(onStart), isTrue);
+      expect(state.removeOnCompleteCallback(onComplete), isTrue);
+      // Removing an unregistered callback reports false rather than throwing.
+      expect(state.removeOnStartCallback(onStart), isFalse);
+
+      state.next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(started, [0]); // unchanged
+      expect(completed, isEmpty);
+    });
+
+    testWidgets('a listener that unregisters itself mid-dispatch is safe',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      await tester.pumpWidget(buildMultiStepApp(k1, k2, k3));
+
+      final calls = <int?>[];
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      late final ShowcaseStepCallback once;
+      once = (index, key) {
+        calls.add(index);
+        state.removeOnStartCallback(once); // mutates the list while dispatching
+      };
+      state.addOnStartCallback(once);
+      // A second listener must still run in the same dispatch.
+      state.addOnStartCallback((index, key) => calls.add(100 + (index ?? 0)));
+
+      state.startShowCase([k1, k2, k3]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tester.takeException(), isNull);
+      expect(calls, [0, 100]);
+
+      state.next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(calls, [0, 100, 101]); // the self-removed listener did not re-run
+    });
+  });
+
+  group('isTargetRendered', () {
+    testWidgets('is true for a laid-out target and false for an absent one',
+        (tester) async {
+      final k1 = GlobalKey();
+      final kAbsent = GlobalKey(); // never attached to the tree
+      final k3 = GlobalKey();
+      await tester.pumpWidget(
+        buildMultiStepApp(k1, kAbsent, k3, includeSecondTarget: false),
+      );
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      expect(state.isTargetRendered(k1), isTrue);
+      expect(state.isTargetRendered(k3), isTrue);
+      expect(state.isTargetRendered(kAbsent), isFalse);
+    });
+
+    testWidgets('turns false once the target leaves the tree', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final k3 = GlobalKey();
+      await tester.pumpWidget(buildMultiStepApp(k1, k2, k3));
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      expect(state.isTargetRendered(k2), isTrue);
+
+      // Rebuild without the middle target.
+      await tester.pumpWidget(
+        buildMultiStepApp(k1, k2, k3, includeSecondTarget: false),
+      );
+      expect(state.isTargetRendered(k2), isFalse);
+    });
+  });
+
+  group('onTargetRectUpdate', () {
+    // A one-step tour whose target can be pushed down the screen at runtime, so
+    // the reported rect changes without the step changing.
+    Widget buildRectApp(
+      GlobalKey key,
+      ValueNotifier<double> topPadding, {
+      required void Function(Rect) onTargetRectUpdate,
+    }) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: ValueListenableBuilder<double>(
+                valueListenable: topPadding,
+                builder: (context, pad, _) => Align(
+                  alignment: Alignment.topCenter,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: pad),
+                    child: Showcase(
+                      key: key,
+                      title: 'T',
+                      description: 'd',
+                      onTargetRectUpdate: onTargetRectUpdate,
+                      child: const SizedBox(
+                          width: 40, height: 40, child: Text('t')),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('reports the target bounds when the step becomes active, then '
+        'again when the target moves', (tester) async {
+      final key = GlobalKey();
+      final topPadding = ValueNotifier<double>(0);
+      addTearDown(topPadding.dispose);
+      final rects = <Rect>[];
+
+      await tester.pumpWidget(
+        buildRectApp(key, topPadding, onTargetRectUpdate: rects.add),
+      );
+      // Nothing reported while the step is inactive.
+      await tester.pump();
+      expect(rects, isEmpty);
+
+      ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(rects, hasLength(1));
+      final target = tester.getRect(find.text('t'));
+      expect(rects.single.left, closeTo(target.left, 1));
+      expect(rects.single.top, closeTo(target.top, 1));
+      expect(rects.single.width, closeTo(40, 1));
+      expect(rects.single.height, closeTo(40, 1));
+
+      // Move the target 100px down; the new bounds are reported.
+      topPadding.value = 100;
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(rects.length, greaterThan(1));
+      expect(rects.last.top - rects.first.top, closeTo(100, 1));
+    });
+
+    testWidgets('does not re-report an unchanged rect', (tester) async {
+      final key = GlobalKey();
+      final topPadding = ValueNotifier<double>(0);
+      addTearDown(topPadding.dispose);
+      final rects = <Rect>[];
+
+      await tester.pumpWidget(
+        buildRectApp(key, topPadding, onTargetRectUpdate: rects.add),
+      );
+      ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(rects, hasLength(1));
+
+      // Several idle frames with a stationary target report nothing new.
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(rects, hasLength(1));
+    });
+
+    testWidgets('an inactive step reports nothing until it becomes active',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final rects = <Rect>[];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Showcase(
+                          key: k1,
+                          title: 'One',
+                          description: 'd',
+                          child: const Text('t1')),
+                      Showcase(
+                        key: k2,
+                        title: 'Two',
+                        description: 'd',
+                        onTargetRectUpdate: rects.add,
+                        child: const Text('t2'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(rects, isEmpty); // step 2 is not active yet
+
+      state.next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(rects, hasLength(1));
+      expect(rects.single.top, closeTo(tester.getRect(find.text('t2')).top, 1));
+    });
+  });
+
+  group('per-step barrierInteraction override', () {
+    testWidgets('a step can opt out of a tour that advances on barrier taps',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(
+        buildBarrierApp(k1, k2, step1Barrier: BarrierInteraction.none),
+      );
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(state.currentIndex, 0); // step 1 overrode the tour-wide `.next`
+
+      // Step 2 has no override, so the tour-wide `.next` still applies there.
+      state.next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(state.isShowcaseRunning, isFalse); // advanced past the last step
+    });
+
+    testWidgets('a step can dismiss the tour inside a `.next` tour',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(
+        buildBarrierApp(k1, k2, step1Barrier: BarrierInteraction.dismiss),
+      );
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400)); // reverse animation
+      await tester.pump(const Duration(milliseconds: 400)); // overlay teardown
+
+      expect(state.isShowcaseRunning, isFalse);
+    });
+
+    testWidgets('the override wins over legacy disableBarrierInteraction',
+        (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(
+        buildBarrierApp(
+          k1,
+          k2,
+          disableBarrierInteraction: true,
+          step1Barrier: BarrierInteraction.next,
+        ),
+      );
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(state.currentIndex, 1);
+    });
+
+    testWidgets('onBarrierClick still fires when a step overrides to none',
+        (tester) async {
+      var clicks = 0;
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      await tester.pumpWidget(
+        buildBarrierApp(
+          k1,
+          k2,
+          step1Barrier: BarrierInteraction.none,
+          onBarrierClick: () => clicks++,
+        ),
+      );
+
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.startShowCase([k1, k2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      await tester.tapAt(const Offset(10, 10));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(clicks, 1);
+      expect(state.currentIndex, 0); // …but the step's `.none` did not advance
+    });
   });
 }
 

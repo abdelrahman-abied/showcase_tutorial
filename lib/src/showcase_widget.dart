@@ -27,6 +27,14 @@ import 'package:flutter/material.dart';
 
 import '../showcase_tutorial.dart';
 
+/// Signature for the step listeners registered dynamically on the controller
+/// with [ShowCaseWidgetState.addOnStartCallback] and
+/// [ShowCaseWidgetState.addOnCompleteCallback].
+///
+/// Receives the zero-based index of the step and the [GlobalKey] of its target,
+/// matching [ShowCaseWidget.onStart] / [ShowCaseWidget.onComplete].
+typedef ShowcaseStepCallback = void Function(int? index, GlobalKey key);
+
 /// Hosts a showcase tour for the [Showcase] widgets in its subtree.
 ///
 /// Wrap your screen (or app) in a [ShowCaseWidget], wrap each target in a
@@ -402,6 +410,64 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Total number of steps in the running tour (0 when none is running).
   int get totalSteps => ids?.length ?? 0;
 
+  /// Listeners registered with [addOnStartCallback].
+  final List<ShowcaseStepCallback> _onStartCallbacks = [];
+
+  /// Listeners registered with [addOnCompleteCallback].
+  final List<ShowcaseStepCallback> _onCompleteCallbacks = [];
+
+  /// Whether the target widget for [key] is currently laid out on screen.
+  ///
+  /// Returns `true` only when the target is mounted **and** has been through
+  /// layout, so its position and size can be read — replacing manual
+  /// `key.currentContext != null` checks, which are `true` for a mounted but
+  /// not-yet-laid-out widget.
+  ///
+  /// Useful before calling [goToKey] (or [startShowCase]) on a step whose target
+  /// is rendered conditionally, e.g. an item inside a lazily built list. See also
+  /// [ShowCaseWidget.autoSkipUnmountedSteps], which skips such steps
+  /// automatically while navigating.
+  bool isTargetRendered(GlobalKey key) {
+    final targetContext = key.currentContext;
+    if (targetContext == null || !targetContext.mounted) return false;
+    final renderObject = targetContext.findRenderObject();
+    return renderObject is RenderBox && renderObject.attached && renderObject.hasSize;
+  }
+
+  /// Registers [callback] to run whenever a step starts, in addition to
+  /// [ShowCaseWidget.onStart].
+  ///
+  /// Unlike the widget-level callback — which is fixed when the
+  /// [ShowCaseWidget] is built — listeners registered here can come and go at
+  /// runtime, so a screen, controller, or analytics service deeper in the tree
+  /// can observe the tour for as long as it lives. Register in `initState` and
+  /// pair with [removeOnStartCallback] in `dispose`.
+  ///
+  /// Adding the same callback twice invokes it twice. Listeners run after
+  /// [ShowCaseWidget.onStart], in registration order; removing one during
+  /// dispatch is safe and takes effect from the next step.
+  void addOnStartCallback(ShowcaseStepCallback callback) => _onStartCallbacks.add(callback);
+
+  /// Unregisters a listener added with [addOnStartCallback].
+  ///
+  /// Returns `true` if it was registered. Removes only the first match when the
+  /// same callback was added more than once.
+  bool removeOnStartCallback(ShowcaseStepCallback callback) => _onStartCallbacks.remove(callback);
+
+  /// Registers [callback] to run whenever a step completes, in addition to
+  /// [ShowCaseWidget.onComplete].
+  ///
+  /// The dynamic counterpart of [ShowCaseWidget.onComplete] — see
+  /// [addOnStartCallback] for the registration contract. Pair with
+  /// [removeOnCompleteCallback] in `dispose`.
+  void addOnCompleteCallback(ShowcaseStepCallback callback) => _onCompleteCallbacks.add(callback);
+
+  /// Unregisters a listener added with [addOnCompleteCallback].
+  ///
+  /// Returns `true` if it was registered. Removes only the first match when the
+  /// same callback was added more than once.
+  bool removeOnCompleteCallback(ShowcaseStepCallback callback) => _onCompleteCallbacks.remove(callback);
+
   /// Starts Showcase view from the beginning of specified list of widget ids.
   /// If this function is used when showcase has been disabled then it will
   /// throw an exception.
@@ -569,17 +635,39 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   void _onStart() {
     if (activeWidgetId! < ids!.length) {
-      widget.onStart?.call(activeWidgetId, ids![activeWidgetId!]);
+      final key = ids![activeWidgetId!];
+      widget.onStart?.call(activeWidgetId, key);
+      _notifyStepListeners(_onStartCallbacks, key);
     }
   }
 
   void _onComplete() {
-    widget.onComplete?.call(activeWidgetId, ids![activeWidgetId!]);
+    final key = ids![activeWidgetId!];
+    widget.onComplete?.call(activeWidgetId, key);
+    _notifyStepListeners(_onCompleteCallbacks, key);
+  }
+
+  /// Dispatches a step event to the dynamically registered [listeners].
+  ///
+  /// Walks a copy of the list so a listener that unregisters itself (or another)
+  /// while it runs doesn't mutate the list mid-iteration.
+  void _notifyStepListeners(List<ShowcaseStepCallback> listeners, GlobalKey key) {
+    if (listeners.isEmpty) return;
+    for (final listener in List<ShowcaseStepCallback>.of(listeners)) {
+      listener(activeWidgetId, key);
+    }
   }
 
   void _cleanupAfterSteps() {
     ids = null;
     activeWidgetId = null;
+  }
+
+  @override
+  void dispose() {
+    _onStartCallbacks.clear();
+    _onCompleteCallbacks.clear();
+    super.dispose();
   }
 
   /// Exposes the active step's target key to descendants and builds the

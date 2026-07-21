@@ -61,3 +61,6 @@ ios/Runner.xcworkspace/xcshareddata/
 example/ios/Flutter/flutter_export_environment.sh
 showcase_tutorial.iml
 pubspec.lock
+
+# Local-only maintainer notes (a committed copy lives on the docs/roadmap branch)
+ROADMAP.md
