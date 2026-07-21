@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.14.0
+
+* FEAT: **dynamic callback registration** — register step listeners on the
+  controller at runtime with `addOnStartCallback` / `removeOnStartCallback` and
+  `addOnCompleteCallback` / `removeOnCompleteCallback`. Unlike
+  `ShowCaseWidget.onStart` / `onComplete`, which are fixed when the
+  `ShowCaseWidget` is built, these let a screen, controller, or analytics service
+  deeper in the tree observe the tour for as long as it lives (register in
+  `initState`, remove in `dispose`). Listeners run in addition to the
+  widget-level callbacks, in registration order, and receive the same
+  `(int? index, GlobalKey key)` — now typed as `ShowcaseStepCallback`. Removing a
+  listener while it is being dispatched is safe.
+* FEAT: **`Showcase.onTargetRectUpdate`** — called with the highlighted target's
+  bounds (a `Rect` in global coordinates) whenever they change while the step is
+  active: after a scroll, a rotation, the keyboard opening, or the target
+  resizing. Fires once with the initial bounds when the step becomes active and is
+  delivered after layout, so it is safe to `setState` from it. Useful for
+  anchoring your own UI — e.g. a `floatingActionWidget` that should follow just
+  below the highlight. The rect describes the target itself; `targetPadding` is
+  not included. Defaults to `null`.
+* FEAT: **`ShowCaseWidget.of(context).isTargetRendered(key)`** — controller helper
+  that reports whether a step's target is currently mounted **and** laid out,
+  replacing manual `key.currentContext != null` checks (which are also `true` for a
+  mounted but not-yet-laid-out widget). Handy before `goToKey` / `startShowCase`
+  on steps whose targets render conditionally.
+* FEAT: **per-step barrier override** — `Showcase.barrierInteraction` overrides
+  the tour-wide `ShowCaseWidget.barrierInteraction` for a single step, so one step
+  can make the background inert (`BarrierInteraction.none`) while the rest of the
+  tour advances on a background tap. Takes precedence over the tour-wide value,
+  including the legacy `disableBarrierInteraction` flag; `onBarrierClick` still
+  fires on every barrier tap. Additive and backward-compatible — defaults to
+  `null` (use the tour-wide behaviour).
+
 ## 1.13.0
 
 * FEAT: **floating action widget** — pin a screen-anchored control (e.g. a fixed

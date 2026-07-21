@@ -411,6 +411,34 @@ class Showcase extends StatefulWidget {
   /// [ShowCaseWidget.scrollAlignment].
   final double? scrollAlignment;
 
+  /// Called while this step is active whenever the highlighted target's bounds
+  /// change — for example after a scroll, a rotation, the keyboard opening, or
+  /// the target itself resizing.
+  ///
+  /// Fires once with the initial bounds when the step becomes active, then again
+  /// on every change, and is delivered after the frame is laid out (so it is safe
+  /// to `setState` from it). The [Rect] is in global coordinates and describes the
+  /// target widget itself — [targetPadding], which the cut-out adds around it, is
+  /// not included.
+  ///
+  /// Handy for anchoring your own UI to the highlight, such as a
+  /// [floatingActionWidget] that should sit just below the target. Defaults to
+  /// `null`.
+  final void Function(Rect targetRect)? onTargetRectUpdate;
+
+  /// Overrides [ShowCaseWidget.barrierInteraction] for **this** step.
+  ///
+  /// Lets one step behave differently from the rest of the tour — e.g. a tour
+  /// that advances on a background tap but has a single step where the barrier
+  /// is inert ([BarrierInteraction.none]) because the user must interact with
+  /// the target.
+  ///
+  /// Takes precedence over the tour-wide setting, including the legacy
+  /// [ShowCaseWidget.disableBarrierInteraction] flag. Does not suppress
+  /// [ShowCaseWidget.onBarrierClick], which still fires on every barrier tap.
+  /// Defaults to `null`, which uses the tour-wide behaviour.
+  final BarrierInteraction? barrierInteraction;
+
   /// Creates a showcase step with the built-in title/description tooltip.
   ///
   /// [key] and [child] are required. Styling values left unset fall back to
@@ -473,6 +501,8 @@ class Showcase extends StatefulWidget {
     this.targetTooltipGap = 0.0,
     this.toolTipMargin = const EdgeInsets.all(20),
     this.scrollAlignment,
+    this.onTargetRectUpdate,
+    this.barrierInteraction,
   }) : height = null,
        width = null,
        container = null,
@@ -528,6 +558,8 @@ class Showcase extends StatefulWidget {
     this.targetTooltipGap = 0.0,
     this.toolTipMargin = const EdgeInsets.all(20),
     this.scrollAlignment,
+    this.onTargetRectUpdate,
+    this.barrierInteraction,
   }) : showArrow = false,
        arrowColor = null,
        arrowWidth = null,
@@ -563,6 +595,11 @@ class _ShowcaseState extends State<Showcase> {
   bool _enableShowcase = true;
   Timer? timer;
   GetPosition? position;
+
+  /// The target bounds last reported to [Showcase.onTargetRectUpdate], used to
+  /// fire only on actual changes. Reset when the step stops being active so a
+  /// revisit reports its bounds afresh.
+  Rect? _lastNotifiedRect;
 
   /// Focus node for the active overlay so a hardware keyboard can drive the
   /// tour **only while the showcase holds focus** (never app-wide).
@@ -647,6 +684,21 @@ class _ShowcaseState extends State<Showcase> {
     if (callback == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) callback();
+    });
+  }
+
+  /// Reports the highlighted target's bounds to [Showcase.onTargetRectUpdate]
+  /// when they differ from the last reported value.
+  ///
+  /// Called while the overlay builds, so — like [_notifyLifecycle] — the callback
+  /// is deferred to a post-frame callback: listeners typically `setState` on an
+  /// ancestor to reposition their own UI, which is illegal during build.
+  void _notifyTargetRectUpdate(Rect rect) {
+    final callback = widget.onTargetRectUpdate;
+    if (callback == null || _lastNotifiedRect == rect) return;
+    _lastNotifiedRect = rect;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) callback(rect);
     });
   }
 
@@ -880,13 +932,25 @@ class _ShowcaseState extends State<Showcase> {
     // provided blur is less than 0.
     blur = kIsWeb && blur < 0 ? 0 : blur;
 
-    if (!_showShowCase) return const SizedBox.shrink();
+    if (!_showShowCase) {
+      // Forget the last reported bounds so returning to this step reports its
+      // rect again from scratch.
+      _lastNotifiedRect = null;
+      return const SizedBox.shrink();
+    }
+
+    _notifyTargetRectUpdate(rectBound);
 
     // Resolve the optional highlight border (per-Showcase wins, then the global
     // ShowcaseStyle). A null color means no border is drawn.
     final style = showCaseWidgetState.style;
     final highlightBorderColor = widget.highlightBorderColor ?? style.highlightBorderColor;
     final highlightBorderWidth = widget.highlightBorderWidth ?? style.highlightBorderWidth ?? 2.0;
+
+    // Resolve what a barrier tap does: an explicit per-step
+    // [Showcase.barrierInteraction] wins over the tour-wide value (which already
+    // accounts for the legacy `disableBarrierInteraction` flag).
+    final barrierInteraction = widget.barrierInteraction ?? showCaseWidgetState.barrierInteraction;
 
     // Resolve the screen-anchored floating widget: a per-step
     // [Showcase.floatingActionWidget] wins; otherwise fall back to the tour-wide
@@ -908,7 +972,7 @@ class _ShowcaseState extends State<Showcase> {
                 // Notify the barrier-tap listener first, regardless of what the
                 // tap is configured to do (it fires even for `.none`).
                 showCaseWidgetState.onBarrierClick?.call();
-                switch (showCaseWidgetState.barrierInteraction) {
+                switch (barrierInteraction) {
                   case BarrierInteraction.next:
                     _nextIfAny();
                     break;

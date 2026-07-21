@@ -46,7 +46,10 @@ controller API.
   with `onResolveNextStep`.
 - **Lifecycle callbacks** — per-step (`onShow` / `onDismiss`) and tour-level
   (`onStart` / `onComplete` / `onFinish`, plus `onDismiss` for early close), and
-  configurable background-tap behavior.
+  configurable background-tap behavior (tour-wide or per step).
+- **Introspection** — register/unregister step listeners at runtime, track the
+  highlighted target's bounds with `onTargetRectUpdate`, and check whether a
+  step's target is on screen with `isTargetRendered`.
 - **Run the tour only once** for onboarding, and **auto-skip** steps whose target
   isn't on screen.
 - **Accessibility** built in — keyboard navigation (Esc / arrows / Enter) and
@@ -583,6 +586,54 @@ Showcase(
 `onShow` fires when the step becomes the active showcase; `onDismiss` fires when
 it stops being active — advanced past, navigated away, or the whole tour ended.
 
+### Listening from anywhere in the tree
+
+`ShowCaseWidget.onStart` / `onComplete` are fixed when the `ShowCaseWidget` is
+built. When a listener has to come and go at runtime — a screen, a controller, an
+analytics service deeper in the tree — register it on the controller instead:
+
+```dart
+class _StepCounterState extends State<StepCounter> {
+  void _onStep(int? index, GlobalKey key) => setState(() => _index = index);
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    ShowCaseWidget.of(context).addOnStartCallback(_onStep);
+  }
+
+  @override
+  void dispose() {
+    ShowCaseWidget.of(context).removeOnStartCallback(_onStep);
+    super.dispose();
+  }
+}
+```
+
+There's an `addOnCompleteCallback` / `removeOnCompleteCallback` pair too. Both
+run in addition to the widget-level callbacks, in registration order; always
+remove in `dispose` so a gone widget stops being called.
+
+### Following the highlighted target
+
+`onTargetRectUpdate` reports the target's bounds (global coordinates) whenever
+they change — after a scroll, a rotation, the keyboard opening, or the target
+resizing. It fires once with the initial bounds when the step becomes active, and
+is delivered after layout, so it's safe to `setState` from it:
+
+```dart
+Showcase(
+  key: _one,
+  title: 'Balance',
+  description: 'Your current balance',
+  onTargetRectUpdate: (rect) => setState(() => _badgeTop = rect.bottom + 8),
+  child: const BalanceCard(),
+);
+```
+
+Handy for anchoring your own UI — e.g. a `floatingActionWidget` that should
+follow just below the highlight.
+
 ## Background (barrier) tap behavior
 
 By default, tapping the dimmed background advances to the next step. Change it
@@ -611,6 +662,22 @@ ShowCaseWidget(
   builder: Builder(builder: (context) => const HomePage()),
 );
 ```
+
+A single step can behave differently from the rest of the tour — for example when
+the user must interact with the target rather than tap past it:
+
+```dart
+Showcase(
+  key: _two,
+  title: 'Try it',
+  description: 'Tap the switch to continue',
+  barrierInteraction: BarrierInteraction.none, // this step only
+  child: const FeatureSwitch(),
+);
+```
+
+The per-step value wins over the tour-wide `barrierInteraction` (and over
+`disableBarrierInteraction`). `onBarrierClick` still fires either way.
 
 ## Accessibility & keyboard navigation
 
@@ -792,6 +859,9 @@ ShowCaseWidget(
 | `currentIndex`                               | Zero-based index of the active step, or `null` when no tour is running.  |
 | `totalSteps`                                 | Number of steps in the running tour (0 when none).                       |
 | `isShowcaseRunning`                          | Whether a tour is currently active.                                      |
+| `isTargetRendered(GlobalKey key)`            | Whether that step's target is mounted **and** laid out on screen.        |
+| `addOnStartCallback(cb)` / `removeOnStartCallback(cb)` | Register/unregister a step-start listener at runtime.          |
+| `addOnCompleteCallback(cb)` / `removeOnCompleteCallback(cb)` | Register/unregister a step-complete listener at runtime. |
 
 ### `ShowCaseWidget` properties
 
@@ -861,6 +931,7 @@ ShowCaseWidget(
 | targetTooltipGap             | double                 | `0`                                                | Extra space (logical px) between the target and the tooltip; applies to all sides.          |     ✅     |          ✅           |
 | toolTipMargin                | EdgeInsets             | `EdgeInsets.all(20)`                               | Minimum margin between the tooltip and the screen edges (also caps its size).               |     ✅     |          ✅           |
 | scrollAlignment              | double?                | `ShowCaseWidget.scrollAlignment`                   | Where this step's target rests when auto-scrolled (0 = leading, 0.5 = center, 1 = trailing).|     ✅     |          ✅           |
+| barrierInteraction           | BarrierInteraction?    | `ShowCaseWidget.barrierInteraction`                | What a background tap does on this step; overrides the tour-wide value.                     |     ✅     |          ✅           |
 | targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlight (used when `targetBorderRadius` is null).                    |     ✅     |          ✅           |
 | highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
 | targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlight.                                                             |     ✅     |          ✅           |
@@ -884,6 +955,7 @@ ShowCaseWidget(
 | onToolTipClick               | VoidCallback?          |                                                    | Called when the tooltip is tapped.                                                          |     ✅     |                       |
 | onShow                       | VoidCallback?          |                                                    | Called when this step becomes active.                                                       |     ✅     |          ✅           |
 | onDismiss                    | VoidCallback?          |                                                    | Called when this step stops being active (advanced past, navigated away, or dismissed).     |     ✅     |          ✅           |
+| onTargetRectUpdate           | `void Function(Rect)?` |                                                    | Called with the target's global bounds when they change (and once when the step shows).     |     ✅     |          ✅           |
 | semanticLabel                | String?                |                                                    | Text announced to screen readers for this step (defaults to title + description).           |     ✅     |          ✅           |
 | disableMovingAnimation       | bool?                  | `ShowCaseWidget.disableMovingAnimation`            | Disable the bouncing/moving transition.                                                     |     ✅     |          ✅           |
 | disableScaleAnimation        | bool?                  | `ShowCaseWidget.disableScaleAnimation`             | Disable the initial scale transition.                                                       |     ✅     |                       |

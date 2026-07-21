@@ -38,6 +38,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   int _total = 0;
   BarrierInteraction _barrier = BarrierInteraction.next;
   String _lastEvent = '—'; // last onShow/onDismiss fired (lifecycle demo)
+  Rect? _centerRect; // live bounds of the "C" target (onTargetRectUpdate)
 
   @override
   Widget build(BuildContext context) {
@@ -86,7 +87,7 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                 foregroundColor: Colors.white,
                 title: Text(show.isShowcaseRunning
                     ? 'Step $_step of $_total  ·  $_lastEvent'
-                    : 'Feature demos (1.13.0)'),
+                    : 'Feature demos (1.14.0)'),
                 actions: [
                   const Center(child: Text('1/6')),
                   Switch(
@@ -226,9 +227,18 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                       key: _center,
                       targetShapeBorder: const CircleBorder(),
                       title: 'Custom buttons',
-                      description: 'Action buttons with custom text.',
+                      description:
+                          'Custom buttons. Background taps do nothing here.',
                       // Extra space between the target and the tooltip.
                       targetTooltipGap: _wideGap ? 28 : 0,
+                      // Per-step barrier override: whatever the tour-wide
+                      // SegmentedButton selects, this one step ignores
+                      // background taps.
+                      barrierInteraction: BarrierInteraction.none,
+                      // Live bounds of this target: fires when the step opens
+                      // and again whenever they change (resize, rotation, …).
+                      onTargetRectUpdate: (rect) =>
+                          setState(() => _centerRect = rect),
                       actions: ShowCaseDefaultActions(
                         previous: const ActionButtonConfig(text: 'Back'),
                         stop: const ActionButtonConfig(text: 'Skip'),
@@ -274,6 +284,19 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Registers its own step listener on the controller —
+                        // no wiring needed from this page.
+                        const _StepListenerLabel(),
+                        Text(
+                          _centerRect == null
+                              ? 'onTargetRectUpdate ("C"): —'
+                              : 'onTargetRectUpdate ("C"): '
+                                  '${_centerRect!.left.toStringAsFixed(0)},'
+                                  '${_centerRect!.top.toStringAsFixed(0)} '
+                                  '${_centerRect!.width.toStringAsFixed(0)}×'
+                                  '${_centerRect!.height.toStringAsFixed(0)}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
                         CheckboxListTile(
                           contentPadding: EdgeInsets.zero,
                           value: _includeConditional,
@@ -351,6 +374,24 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                           child: const Text('Start tour'),
                         ),
                         OutlinedButton(
+                          // isTargetRendered: only jump to the conditional step
+                          // when its target is actually laid out on screen.
+                          onPressed: () {
+                            if (!show.isTargetRendered(_conditional)) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      'The "?" target is not on screen — tick the '
+                                      'checkbox above first.'),
+                                ),
+                              );
+                              return;
+                            }
+                            show.goToKey(_conditional);
+                          },
+                          child: const Text('Go to the conditional step'),
+                        ),
+                        OutlinedButton(
                           // Auto-scroll alignment lives on its own scrollable
                           // page (this demo page is a non-scrolling Stack).
                           onPressed: () => Navigator.push<void>(
@@ -372,6 +413,57 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
       ),
     );
   }
+}
+
+/// Reports the tour's step events without the host page wiring anything up.
+///
+/// It registers its own listeners on the controller at runtime
+/// ([ShowCaseWidgetState.addOnStartCallback] /
+/// [ShowCaseWidgetState.addOnCompleteCallback]) and removes them again on
+/// dispose — the dynamic counterpart of `ShowCaseWidget.onStart` / `onComplete`,
+/// which are fixed when the `ShowCaseWidget` is built.
+class _StepListenerLabel extends StatefulWidget {
+  const _StepListenerLabel();
+
+  @override
+  State<_StepListenerLabel> createState() => _StepListenerLabelState();
+}
+
+class _StepListenerLabelState extends State<_StepListenerLabel> {
+  ShowCaseWidgetState? _controller;
+  String _label = 'registered listener: idle';
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = ShowCaseWidget.of(context);
+    if (identical(controller, _controller)) return;
+    _unregister();
+    _controller = controller
+      ..addOnStartCallback(_onStepStart)
+      ..addOnCompleteCallback(_onStepComplete);
+  }
+
+  void _onStepStart(int? index, GlobalKey key) =>
+      setState(() => _label = 'registered listener: step ${(index ?? 0) + 1} started');
+
+  void _onStepComplete(int? index, GlobalKey key) =>
+      setState(() => _label = 'registered listener: step ${(index ?? 0) + 1} completed');
+
+  void _unregister() {
+    _controller?.removeOnStartCallback(_onStepStart);
+    _controller?.removeOnCompleteCallback(_onStepComplete);
+  }
+
+  @override
+  void dispose() {
+    _unregister();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      Text(_label, style: const TextStyle(fontSize: 12));
 }
 
 class _Dot extends StatelessWidget {
