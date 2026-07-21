@@ -14,6 +14,8 @@ topics:
 screenshots:
   - description: "Feature walkthrough: tooltip positions, progress dots, exact-shape highlight, multi-widget steps, and lifecycle callbacks."
     path: preview/demo.gif
+  - description: "Animated step transitions: the default instant cut on the left, enableStepTransition gliding the highlight between targets on the right."
+    path: preview/step_transition.gif
   - description: "Step-by-step widget showcase walkthrough."
     path: preview/showcase_tutorial.gif
 
