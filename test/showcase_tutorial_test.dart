@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
+import 'package:showcase_tutorial/src/get_position.dart';
 import 'package:showcase_tutorial/src/measure_size.dart';
 import 'package:showcase_tutorial/src/shape_clipper.dart';
 
@@ -34,6 +35,364 @@ void main() {
       ),
     );
   }
+
+  group('performance characteristics', () {
+    // Counts the OverlayEntry widgets currently mounted in the app's Overlay.
+    int overlayEntries(WidgetTester tester) {
+      var count = 0;
+      void visit(Element element) {
+        if (element.widget.runtimeType.toString() == '_OverlayEntryWidget') count++;
+        element.visitChildren(visit);
+      }
+
+      tester.element(find.byType(Overlay).first).visitChildren(visit);
+      return count;
+    }
+
+    Widget manySteps(List<GlobalKey> keys) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Column(
+                children: [
+                  for (final key in keys)
+                    Showcase(
+                      key: key,
+                      title: 'Step',
+                      description: 'd',
+                      child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('GetPosition measures once per build pass, and re-measures after invalidate', (tester) async {
+      final key = GlobalKey();
+      var top = 0.0;
+      late StateSetter setter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              setter = setState;
+              return Stack(
+                children: [
+                  Positioned(top: top, left: 0, child: SizedBox(key: key, width: 10, height: 10)),
+                ],
+              );
+            },
+          ),
+        ),
+      );
+
+      final position = GetPosition(key: key, screenWidth: 800, screenHeight: 600);
+      final first = position.getRect();
+      expect(first.top, 0);
+
+      setter(() => top = 120);
+      // No duration on purpose: consecutive pumps share a frame timestamp, so
+      // the reading must not be tied to the frame clock.
+      await tester.pump();
+
+      // The reading is reused until it is explicitly dropped...
+      expect(position.getRect(), first);
+
+      // ...and then the target is measured where it actually is now.
+      position.invalidate();
+      expect(position.getRect().top, 120);
+    });
+
+    testWidgets('the tooltip follows a target that moves', (tester) async {
+      final targetKey = GlobalKey();
+      var spacer = 0.0;
+      late StateSetter setter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: StatefulBuilder(
+                  builder: (context, setState) {
+                    setter = setState;
+                    return Column(
+                      children: [
+                        SizedBox(height: spacer),
+                        Showcase(
+                          key: targetKey,
+                          title: 'Moves',
+                          description: 'd',
+                          child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      ShowCaseWidget.of(tester.element(find.byKey(targetKey))).startShowCase([targetKey]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final before = tester.getTopLeft(find.text('Moves')).dy;
+
+      setter(() => spacer = 150);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+
+      // A stale geometry reading would leave the tooltip behind at `before`.
+      expect(tester.getTopLeft(find.text('Moves')).dy, closeTo(before + 150, 1));
+    });
+
+    testWidgets('a step that mounts while it is already active still shows', (tester) async {
+      final targetKey = GlobalKey();
+      var mounted = false;
+      late StateSetter setter;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: StatefulBuilder(
+                  builder: (context, setState) {
+                    setter = setState;
+                    return Column(
+                      children: [
+                        const SizedBox(height: 10, width: 10),
+                        if (mounted)
+                          Showcase(
+                            key: targetKey,
+                            title: 'Late',
+                            description: 'd',
+                            child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // The tour starts on a step whose Showcase is not in the tree yet, so no
+      // overlay entry can have been inserted for it.
+      ShowCaseWidget.of(tester.element(find.byType(Scaffold))).startShowCase([targetKey]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Late'), findsNothing);
+
+      // It mounts already active: the entry has to be inserted on the way in.
+      setter(() => mounted = true);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Late'), findsOneWidget);
+    });
+
+    testWidgets('an idle Showcase mounts no overlay entry', (tester) async {
+      final keys = List.generate(10, (_) => GlobalKey());
+      await tester.pumpWidget(manySteps(keys));
+      await tester.pumpAndSettle();
+
+      final idle = overlayEntries(tester);
+
+      ShowCaseWidget.of(tester.element(find.byKey(keys.first))).startShowCase([keys.first]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Exactly one step is showing, so exactly one entry was added — the other
+      // nine Showcases must not each keep an entry inserted.
+      expect(overlayEntries(tester), idle + 1);
+    });
+
+    testWidgets('the active step releases its overlay entry when the tour ends', (tester) async {
+      final keys = List.generate(3, (_) => GlobalKey());
+      await tester.pumpWidget(manySteps(keys));
+      await tester.pumpAndSettle();
+
+      final idle = overlayEntries(tester);
+      final state = ShowCaseWidget.of(tester.element(find.byKey(keys.first)));
+      state.startShowCase([keys.first]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(overlayEntries(tester), idle + 1);
+
+      state.dismiss();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(overlayEntries(tester), idle);
+    });
+
+    testWidgets('highlightExactShape captures the target once, not per rebuild', (tester) async {
+      final targetKey = GlobalKey();
+      final hostKey = GlobalKey<_RebuildHostState>();
+
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ShowCaseWidget(
+              disableMovingAnimation: true,
+              disableScaleAnimation: true,
+              builder: Builder(
+                builder: (context) => _RebuildHost(
+                  key: hostKey,
+                  builder: (context) => Scaffold(
+                    body: Center(
+                      child: Showcase(
+                        key: targetKey,
+                        title: 'Exact',
+                        description: 'Body',
+                        highlightExactShape: true,
+                        child: Container(
+                          key: const ValueKey('exactTarget'),
+                          width: 48,
+                          height: 48,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        final state = ShowCaseWidget.of(tester.element(find.byKey(targetKey)));
+        state.startShowCase([targetKey]);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(milliseconds: 400));
+
+        // The snapshot is painted as a raw image — no PNG encode/decode round
+        // trip through Image.memory.
+        expect(find.byType(RawImage), findsOneWidget);
+        expect(find.byType(Image), findsNothing);
+
+        // The snapshot is drawn exactly over the target it was captured from.
+        expect(
+          tester.getRect(find.byType(RawImage)),
+          tester.getRect(find.byKey(const ValueKey('exactTarget'))),
+        );
+
+        final first = tester.widget<RawImage>(find.byType(RawImage)).image!;
+
+        // Rebuilding the screen must reuse the captured image rather than
+        // re-encoding the target every frame.
+        for (var i = 0; i < 3; i++) {
+          hostKey.currentState!.rebuild();
+          await tester.pump();
+          await tester.pump();
+        }
+
+        final latest = tester.widget<RawImage>(find.byType(RawImage)).image!;
+        expect(latest.isCloneOf(first), isTrue, reason: 'the target was re-captured on rebuild');
+        expect(
+          tester.getRect(find.byType(RawImage)),
+          tester.getRect(find.byKey(const ValueKey('exactTarget'))),
+        );
+
+        // Ending the tour drops the snapshot so its image memory is released
+        // rather than being left to a finaliser.
+        final handle = tester.widget<RawImage>(find.byType(RawImage)).image!;
+        expect(handle.debugDisposed, isFalse);
+
+        state.dismiss();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.byType(RawImage), findsNothing);
+        expect(handle.debugDisposed, isTrue);
+      });
+    });
+
+    testWidgets('a multi-widget step paints one raw image per key', (tester) async {
+      final anchor = GlobalKey();
+      final one = GlobalKey();
+      final two = GlobalKey();
+
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ShowCaseWidget(
+              disableMovingAnimation: true,
+              disableScaleAnimation: true,
+              builder: Builder(
+                builder: (context) => Scaffold(
+                  body: Column(
+                    children: [
+                      Showcase(
+                        key: anchor,
+                        keys: [one, two],
+                        title: 'Multi',
+                        description: 'd',
+                        child: const SizedBox(height: 40, width: 100, child: Text('anchor')),
+                      ),
+                      MultiView(
+                        key: one,
+                        child: Container(
+                          key: const ValueKey('one'),
+                          width: 30,
+                          height: 30,
+                          color: Colors.red,
+                        ),
+                      ),
+                      MultiView(
+                        key: two,
+                        child: Container(
+                          key: const ValueKey('two'),
+                          width: 30,
+                          height: 30,
+                          color: Colors.green,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        ShowCaseWidget.of(tester.element(find.byKey(anchor))).startShowCase([anchor]);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(milliseconds: 400));
+
+        expect(find.byType(RawImage), findsNWidgets(2));
+
+        // Each copy is painted over the widget it was captured from.
+        final drawn = tester.widgetList<RawImage>(find.byType(RawImage)).map(
+          (image) => tester.getRect(find.byWidget(image)),
+        );
+        expect(
+          drawn,
+          containsAll(<Rect>[
+            tester.getRect(find.byKey(const ValueKey('one'))),
+            tester.getRect(find.byKey(const ValueKey('two'))),
+          ]),
+        );
+      });
+    });
+  });
 
   testWidgets('renders the child before the showcase starts', (tester) async {
     final targetKey = GlobalKey();
@@ -2751,4 +3110,24 @@ class _SetStateLifecycleAppState extends State<_SetStateLifecycleApp> {
       ),
     );
   }
+}
+
+
+/// Rebuilds its subtree on demand, standing in for an ordinary ancestor
+/// `setState` in the app the showcase runs in.
+class _RebuildHost extends StatefulWidget {
+  const _RebuildHost({super.key, required this.builder});
+
+  final WidgetBuilder builder;
+
+  @override
+  State<_RebuildHost> createState() => _RebuildHostState();
+}
+
+class _RebuildHostState extends State<_RebuildHost> {
+  /// Rebuilds the subtree, reconstructing the Showcase widgets in it.
+  void rebuild() => setState(() {});
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context);
 }

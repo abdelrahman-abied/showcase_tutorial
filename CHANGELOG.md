@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.14.1
+
+A performance pass over the showcase overlay. No API changes — every item below
+is internal, and behaviour is unchanged.
+
+* PERF: **an idle `Showcase` no longer mounts an overlay entry.** Every
+  `Showcase` used to insert its own `OverlayEntry` as soon as it was built and
+  keep it for the life of the route, so a screen with 30 steps carried 30
+  entries — each rebuilt on every ancestor rebuild only to return an empty box.
+  Only the step that is actually showing mounts one now, and it is removed when
+  the tour moves on.
+* PERF: **the target snapshot is captured once per step instead of once per
+  rebuild.** `highlightExactShape` and multi-widget (`keys`) steps used a
+  `FutureBuilder` whose future was created inside `build`, so every rebuild
+  re-ran `RenderRepaintBoundary.toImage` followed by a full PNG encode and
+  decode — several times a second while the tooltip animates — and leaked every
+  `ui.Image` it produced. The capture now happens once when the step opens, the
+  PNG round trip is gone (the image is painted directly), and the images are
+  disposed when the step closes. The snapshot's *position* is still re-read each
+  build, so it keeps tracking a target that scrolls.
+* PERF: **the target's geometry is measured once per frame.** Laying out a
+  tooltip asks for the target's center, top, bottom and height dozens of times,
+  and each ask used to walk the render tree again. A single measurement is now
+  shared for the frame — roughly 23x fewer render-tree walks per rebuild in a
+  20-step tour.
+* PERF: **the tour's state is resolved once per overlay build.** Building the
+  overlay read ~20 values off `ShowCaseWidget.of(context)`, and each one was a
+  fresh `findAncestorStateOfType` walk to the top of the element tree.
+* PERF: **no more `LayoutBuilder` around every showcased widget.** It added a
+  render object per `Showcase` and rebuilt the widget's whole subtree during
+  layout on any constraint change (rotation, keyboard, window resize), while its
+  constraints were never used.
+* PERF: the tooltip is painted on its own layer, so the looping "moving"
+  animation translates a cached layer instead of re-rasterising the tooltip's
+  text, arrow and background every frame; the dimmed scrim is a plain
+  `ColoredBox` rather than a decorated `Container`; and the `TextPainter` used to
+  measure tooltip text is disposed instead of leaking its native paragraph.
+
 ## 1.14.0
 
 * FEAT: **dynamic callback registration** — register step listeners on the
