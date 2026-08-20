@@ -16,6 +16,14 @@ analyzer:
     dead_code: warning
     overridden_fields: ignore
     use_key_in_widget_constructors: ignore
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   rules:
