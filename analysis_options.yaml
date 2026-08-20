@@ -1,5 +1,14 @@
 include: package:flutter_lints/flutter.yaml
 
+# The repo is formatted at 120 columns; declare it so `dart format` uses that
+# width instead of the 80-col default (which would rewrap ~140 lines).
+# NOTE: the sources are still short-style (pre-Dart-3.7). Dart 3.7+ formats in
+# tall style, so a modern `dart format .` will restructure ~15 files even with
+# this set. CI pins an older Flutter, so it stays green; a full tall-style
+# reformat (+ a CI Dart bump) is the only way to make the two agree.
+formatter:
+  page_width: 120
+
 analyzer:
   errors:
     argument_type_not_assignable: error
