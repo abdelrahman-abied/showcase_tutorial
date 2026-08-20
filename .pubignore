@@ -50,6 +50,11 @@ ROADMAP.md
 # produces still ships (the README links it); the capture harness doesn't.
 tool/
 
+# Maintainer benchmark harness. It is an alternate entrypoint in the example so
+# it can be run on a device (`flutter run --profile -t lib/perf_harness.dart`),
+# but it is not part of the example anyone reads on pub.dev.
+example/lib/perf_harness.dart
+
 # Example app native scaffolding. The example sources (example/lib) and its
 # assets still ship so the pub.dev "Example" tab works; the generated native
 # projects below are not needed to read the example and only add weight.

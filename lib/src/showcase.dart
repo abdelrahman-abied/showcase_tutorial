@@ -642,14 +642,40 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   /// be captured with [RenderRepaintBoundary.toImage].
   final GlobalKey _childBoundaryKey = GlobalKey();
 
+  /// The [Showcase.highlightExactShape] snapshot for the active step, captured
+  /// once when the step opens.
+  _TargetSnapshot? _exactShapeSnapshot;
+
+  /// The [Showcase.keys] snapshots for the active step, captured once when the
+  /// step opens.
+  List<_TargetSnapshot> _multiSnapshots = const [];
+
+  /// Identifies the in-flight capture, so a capture started for a step that has
+  /// since closed (or restarted) discards its images instead of showing them.
+  Object? _snapshotToken;
+
   ShowCaseWidgetState get showCaseWidgetState => ShowCaseWidget.of(context);
 
   @override
   void dispose() {
+    _releaseSnapshots();
     _focusNode.dispose();
     _transitionController?.dispose();
     timer?.cancel();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(Showcase oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The snapshots are captured once per activation, so a step whose snapshot
+    // inputs change while it is showing has to capture again.
+    if (_showShowCase &&
+        (oldWidget.highlightExactShape != widget.highlightExactShape ||
+            !listEquals(oldWidget.keys, widget.keys))) {
+      _releaseSnapshots();
+      _scheduleSnapshotCapture();
+    }
   }
 
   @override
@@ -669,6 +695,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
 
   /// show overlay if there is any target widget
   void showOverlay() {
+    final showcaseState = showCaseWidgetState;
     final activeStep = ShowCaseWidget.activeTargetWidget(context);
     final isActiveNow = activeStep == widget.key;
     final wasActive = _showShowCase;
@@ -681,30 +708,32 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     // rebuild for an unrelated dependency change (e.g. a rotation) doesn't
     // re-trigger them.
     if (isActiveNow && !wasActive) {
+      _scheduleSnapshotCapture();
       _startStepTransition();
       _announceForAccessibility();
       _notifyLifecycle(widget.onShow);
       // Take focus so keyboard navigation works without the user tapping first.
-      if (showCaseWidgetState.enableKeyboardNavigation) {
+      if (showcaseState.enableKeyboardNavigation) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _focusNode.requestFocus();
         });
       }
     } else if (!isActiveNow && wasActive) {
+      _releaseSnapshots();
       _transitionFrom = null;
       _transitionController?.stop();
       _notifyLifecycle(widget.onDismiss);
     }
 
     if (isActiveNow) {
-      if (showCaseWidgetState.enableAutoScroll) {
+      if (showcaseState.enableAutoScroll) {
         _scrollIntoView();
       }
 
-      if (showCaseWidgetState.autoPlay) {
+      if (showcaseState.autoPlay) {
         // Per-step [Showcase.autoPlayDelay] overrides the tour-wide delay; the
         // full Duration is used (no longer truncated to whole seconds).
-        final autoPlayDelay = widget.autoPlayDelay ?? showCaseWidgetState.autoPlayDelay;
+        final autoPlayDelay = widget.autoPlayDelay ?? showcaseState.autoPlayDelay;
         timer = Timer(autoPlayDelay, _nextIfAny);
       }
     }
@@ -880,6 +909,11 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
       }
       if (!mounted) return;
       setState(() => _isScrollRunning = false);
+      // A target that was off-screen when the step opened could not be captured
+      // then; now that it has been scrolled into view, try once more.
+      if (_showShowCase && _exactShapeSnapshot == null && _multiSnapshots.isEmpty) {
+        _scheduleSnapshotCapture();
+      }
     });
   }
 
@@ -898,7 +932,10 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
 
           return buildOverlayOnTarget(offset, rectBound.size, rectBound, size);
         },
-        showOverlay: true,
+        // Only the active step mounts an OverlayEntry. Otherwise every Showcase
+        // on the screen keeps one inserted for the whole life of the route, and
+        // each is rebuilt on every ancestor rebuild just to return an empty box.
+        showOverlay: _showShowCase,
         // Wrap in a RepaintBoundary so the target can be captured as a snapshot
         // and highlighted in its exact painted shape.
         child: widget.highlightExactShape ? RepaintBoundary(key: _childBoundaryKey, child: widget.child) : widget.child,
@@ -930,83 +967,89 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<List<Widget>> _buildCopys(BuildContext context) async {
-    final list = <Widget>[];
-    final keys = widget.keys;
-    if (keys == null || keys.isEmpty) return list;
-
-    // Build an overlay copy for every key. Each one is handled independently
-    // so a single missing or unmounted widget is simply skipped instead of
-    // dropping the highlights for the whole multi-widget step.
-    for (final element in keys) {
-      try {
-        final keyContext = element.currentContext;
-        if (keyContext == null || !keyContext.mounted) continue;
-
-        final boundary = keyContext.findRenderObject();
-        if (boundary is! RenderRepaintBoundary || !boundary.hasSize) continue;
-
-        final image = await boundary.toImage(pixelRatio: 2.0);
-        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-        if (byteData == null) continue;
-
-        final offset = boundary.localToGlobal(Offset.zero);
-        list.add(
-          Positioned(
-            left: offset.dx,
-            top: offset.dy,
-            child: Container(
-              width: boundary.size.width,
-              height: boundary.size.height,
-              decoration: BoxDecoration(
-                image: DecorationImage(image: MemoryImage(byteData.buffer.asUint8List()), fit: BoxFit.fill),
-              ),
-            ),
-          ),
-        );
-      } catch (_) {
-        // Ignore this widget and keep building the remaining copies.
-        continue;
-      }
-    }
-    return list;
-  }
-
-  /// Captures the target widget and returns it as a [Positioned] image so the
-  /// highlight matches the widget's exact painted shape. Used when
-  /// [Showcase.highlightExactShape] is enabled. Returns `null` if the target
-  /// cannot be captured (e.g. not yet laid out), in which case the plain
-  /// dimmed overlay is shown.
-  Future<Widget?> _buildExactShapeCopy(BuildContext context) async {
+  /// Captures the widget behind [key] as a [ui.Image].
+  ///
+  /// Returns `null` when the widget is not mounted, is not a
+  /// [RepaintBoundary], or has not been laid out yet.
+  Future<_TargetSnapshot?> _capture(GlobalKey key, double pixelRatio) async {
     try {
-      final keyContext = _childBoundaryKey.currentContext;
+      final keyContext = key.currentContext;
       if (keyContext == null || !keyContext.mounted) return null;
 
       final boundary = keyContext.findRenderObject();
       if (boundary is! RenderRepaintBoundary || !boundary.hasSize) return null;
 
-      final pixelRatio = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
+      final size = boundary.size;
       final image = await boundary.toImage(pixelRatio: pixelRatio);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return null;
-
-      final offset = boundary.localToGlobal(Offset.zero);
-      return Positioned(
-        left: offset.dx,
-        top: offset.dy,
-        // The snapshot is purely visual; taps fall through to [_TargetWidget].
-        child: IgnorePointer(
-          child: Image.memory(
-            byteData.buffer.asUint8List(),
-            width: boundary.size.width,
-            height: boundary.size.height,
-            fit: BoxFit.fill,
-          ),
-        ),
-      );
+      return _TargetSnapshot(key: key, image: image, size: size);
     } catch (_) {
+      // A widget that cannot be captured is simply not highlighted.
       return null;
     }
+  }
+
+  /// Captures the snapshots this step paints above the overlay — the
+  /// [Showcase.highlightExactShape] copy of the target and one copy per
+  /// [Showcase.keys] entry — once, when the step opens.
+  ///
+  /// The capture is deliberately *not* redone per build. Encoding a widget to an
+  /// image is expensive, and re-running it on every rebuild (as a `FutureBuilder`
+  /// with an inline future does) re-encodes the target several times a second
+  /// and leaks every [ui.Image] it produces. The step shows a static snapshot by
+  /// design, so one capture per activation is all it needs; only the snapshot's
+  /// *position* is re-read per build, so it still tracks a target that scrolls.
+  void _scheduleSnapshotCapture() {
+    final keys = widget.keys;
+    final wantsMulti = keys != null && keys.isNotEmpty;
+    if (!widget.highlightExactShape && !wantsMulti) return;
+
+    final token = Object();
+    _snapshotToken = token;
+    // Capture after the frame: the boundary needs a painted layer, and the
+    // step has only just been made active.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || _snapshotToken != token) return;
+      final pixelRatio = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
+
+      final exact = widget.highlightExactShape ? await _capture(_childBoundaryKey, pixelRatio) : null;
+      final multi = <_TargetSnapshot>[];
+      if (wantsMulti) {
+        for (final key in keys) {
+          final snapshot = await _capture(key, 2.0);
+          if (snapshot != null) multi.add(snapshot);
+        }
+      }
+
+      // The step may have closed while the capture ran.
+      if (!mounted || _snapshotToken != token) {
+        exact?.dispose();
+        for (final snapshot in multi) {
+          snapshot.dispose();
+        }
+        return;
+      }
+
+      setState(() {
+        // Never overwrite a live snapshot without freeing it first.
+        _exactShapeSnapshot?.dispose();
+        for (final snapshot in _multiSnapshots) {
+          snapshot.dispose();
+        }
+        _exactShapeSnapshot = exact;
+        _multiSnapshots = multi;
+      });
+    });
+  }
+
+  /// Frees the captured images when the step closes or the widget is disposed.
+  void _releaseSnapshots() {
+    _snapshotToken = null;
+    _exactShapeSnapshot?.dispose();
+    _exactShapeSnapshot = null;
+    for (final snapshot in _multiSnapshots) {
+      snapshot.dispose();
+    }
+    _multiSnapshots = const [];
   }
 
   Future<void> _getOnTooltipTap() async {
@@ -1041,15 +1084,6 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     Offset? offsetChild,
     Size? sizeChild,
   }) {
-    var blur = 0.0;
-    if (_showShowCase) {
-      blur = widget.blurValue ?? showCaseWidgetState.blurValue;
-    }
-
-    // Set blur to 0 if application is running on web and
-    // provided blur is less than 0.
-    blur = kIsWeb && blur < 0 ? 0 : blur;
-
     if (!_showShowCase) {
       // Forget the last reported bounds so returning to this step reports its
       // rect again from scratch.
@@ -1057,27 +1091,48 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
       return const SizedBox.shrink();
     }
 
+    // Resolved once, and only for the step that is actually showing:
+    // `showCaseWidgetState` is a `findAncestorStateOfType` walk up the whole
+    // element tree, and this method reads ~20 values off it.
+    final showcaseState = showCaseWidgetState;
+
+    var blur = widget.blurValue ?? showcaseState.blurValue;
+
+    // Set blur to 0 if application is running on web and
+    // provided blur is less than 0.
+    blur = kIsWeb && blur < 0 ? 0 : blur;
+
     _notifyTargetRectUpdate(rectBound);
 
     // Resolve the optional highlight border (per-Showcase wins, then the global
     // ShowcaseStyle). A null color means no border is drawn.
-    final style = showCaseWidgetState.style;
+    final style = showcaseState.style;
     final highlightBorderColor = widget.highlightBorderColor ?? style.highlightBorderColor;
     final highlightBorderWidth = widget.highlightBorderWidth ?? style.highlightBorderWidth ?? 2.0;
 
     // Resolve what a barrier tap does: an explicit per-step
     // [Showcase.barrierInteraction] wins over the tour-wide value (which already
     // accounts for the legacy `disableBarrierInteraction` flag).
-    final barrierInteraction = widget.barrierInteraction ?? showCaseWidgetState.barrierInteraction;
+    final barrierInteraction = widget.barrierInteraction ?? showcaseState.barrierInteraction;
 
     // Resolve the screen-anchored floating widget: a per-step
     // [Showcase.floatingActionWidget] wins; otherwise fall back to the tour-wide
     // [ShowCaseWidget.globalFloatingActionWidget] unless this step is in
     // [hideFloatingActionWidgetForShowcase].
     final floatingSuppressed =
-        showCaseWidgetState.hideFloatingActionWidgetForShowcase.contains(widget.key);
+        showcaseState.hideFloatingActionWidgetForShowcase.contains(widget.key);
     final Widget? floatingActionWidget = widget.floatingActionWidget ??
-        (floatingSuppressed ? null : showCaseWidgetState.globalFloatingActionWidget?.call(context));
+        (floatingSuppressed ? null : showcaseState.globalFloatingActionWidget?.call(context));
+
+    // Hoisted so the (potentially full-screen, blurred) scrim is built once: a
+    // plain color needs a ColoredBox, not the BoxDecoration/BoxPainter
+    // machinery a decorated Container sets up.
+    final screen = MediaQuery.sizeOf(context);
+    final scrim = SizedBox(
+      width: screen.width,
+      height: screen.height,
+      child: ColoredBox(color: widget.overlayColor.withValues(alpha: widget.overlayOpacity)),
+    );
 
     final Widget overlay = Directionality(
       textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
@@ -1089,7 +1144,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
               onTap: () {
                 // Notify the barrier-tap listener first, regardless of what the
                 // tap is configured to do (it fires even for `.none`).
-                showCaseWidgetState.onBarrierClick?.call();
+                showcaseState.onBarrierClick?.call();
                 switch (barrierInteraction) {
                   case BarrierInteraction.next:
                     _nextIfAny();
@@ -1115,21 +1170,9 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                   child: blur != 0
                       ? BackdropFilter(
                           filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                          child: Container(
-                            width: MediaQuery.sizeOf(context).width,
-                            height: MediaQuery.sizeOf(context).height,
-                            decoration: BoxDecoration(
-                              color: widget.overlayColor.withValues(alpha: widget.overlayOpacity),
-                            ),
-                          ),
+                          child: scrim,
                         )
-                      : Container(
-                          width: MediaQuery.sizeOf(context).width,
-                          height: MediaQuery.sizeOf(context).height,
-                          decoration: BoxDecoration(
-                            color: widget.overlayColor.withValues(alpha: widget.overlayOpacity),
-                          ),
-                        ),
+                      : scrim,
                 ),
               ),
             ),
@@ -1143,7 +1186,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                     targetRect: _paddedRect(cutOut),
                     isCircle: widget.targetShapeBorder is CircleBorder,
                     borderRadius: widget.targetBorderRadius,
-                    color: widget.pulseColor ?? showCaseWidgetState.style.pulseColor ?? Colors.white,
+                    color: widget.pulseColor ?? showcaseState.style.pulseColor ?? Colors.white,
                     duration: widget.pulseDuration,
                   ),
                 ),
@@ -1158,25 +1201,10 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                 disableDefaultChildGestures: widget.disableDefaultTargetGestures,
                 cursor: _targetCursor,
               ),
-              if (widget.keys != null && widget.keys!.isNotEmpty) ...[
-                FutureBuilder<List<Widget>>(
-                  future: _buildCopys(context),
-                  builder: (context, AsyncSnapshot<List<Widget>> snapshot) {
-                    if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
-                      return Stack(children: snapshot.data!);
-                    } else {
-                      return const SizedBox.shrink();
-                    }
-                  },
-                ),
-              ],
-              if (widget.highlightExactShape)
-                FutureBuilder<Widget?>(
-                  future: _buildExactShapeCopy(context),
-                  builder: (context, AsyncSnapshot<Widget?> snapshot) {
-                    return snapshot.data ?? const SizedBox.shrink();
-                  },
-                ),
+              for (final snapshot in _multiSnapshots) ?snapshot.build(),
+              // The snapshot is purely visual; taps fall through to
+              // [_TargetWidget].
+              ?_exactShapeSnapshot?.build(),
               if (highlightBorderColor != null)
                 _withCutOut(
                   rectBound,
@@ -1196,12 +1224,12 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                 titleAlignment: widget.titleAlignment,
                 description: widget.description,
                 descriptionAlignment: widget.descriptionAlignment,
-                titleTextStyle: widget.titleTextStyle ?? showCaseWidgetState.style.titleTextStyle,
-                descTextStyle: widget.descTextStyle ?? showCaseWidgetState.style.descTextStyle,
+                titleTextStyle: widget.titleTextStyle ?? showcaseState.style.titleTextStyle,
+                descTextStyle: widget.descTextStyle ?? showcaseState.style.descTextStyle,
                 container: widget.container,
                 tooltipBackgroundColor:
-                    widget.tooltipBackgroundColor ?? showCaseWidgetState.style.tooltipBackgroundColor ?? Colors.white,
-                textColor: widget.textColor ?? showCaseWidgetState.style.textColor ?? Colors.black,
+                    widget.tooltipBackgroundColor ?? showcaseState.style.tooltipBackgroundColor ?? Colors.white,
+                textColor: widget.textColor ?? showcaseState.style.textColor ?? Colors.black,
                 showArrow: widget.showArrow,
                 arrowColor: widget.arrowColor ?? style.arrowColor,
                 arrowWidth: widget.arrowWidth ?? style.arrowWidth ?? 18.0,
@@ -1212,12 +1240,12 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                 contentWidth: widget.width,
                 onTooltipTap: _getOnTooltipTap,
                 mouseCursor: _tooltipCursor,
-                enablePointerCursor: showCaseWidgetState.enablePointerCursor,
+                enablePointerCursor: showcaseState.enablePointerCursor,
                 tooltipPadding: widget.tooltipPadding,
-                disableMovingAnimation: widget.disableMovingAnimation ?? showCaseWidgetState.disableMovingAnimation,
-                disableScaleAnimation: widget.disableScaleAnimation ?? showCaseWidgetState.disableScaleAnimation,
+                disableMovingAnimation: widget.disableMovingAnimation ?? showcaseState.disableMovingAnimation,
+                disableScaleAnimation: widget.disableScaleAnimation ?? showcaseState.disableScaleAnimation,
                 movingAnimationDuration: widget.movingAnimationDuration,
-                tooltipBorderRadius: widget.tooltipBorderRadius ?? showCaseWidgetState.style.tooltipBorderRadius,
+                tooltipBorderRadius: widget.tooltipBorderRadius ?? showcaseState.style.tooltipBorderRadius,
                 scaleAnimationDuration: widget.scaleAnimationDuration,
                 scaleAnimationCurve: widget.scaleAnimationCurve,
                 scaleAnimationAlignment: widget.scaleAnimationAlignment,
@@ -1228,12 +1256,12 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                 actions: widget.actions,
                 actionSettings: widget.actionSettings,
                 actionButtonsPosition: widget.actionButtonsPosition,
-                showProgress: showCaseWidgetState.showProgress,
-                progressStyle: showCaseWidgetState.progressStyle,
-                showSkip: showCaseWidgetState.showSkip,
-                skipText: showCaseWidgetState.skipButtonText,
-                currentStep: showCaseWidgetState.currentIndex ?? 0,
-                totalSteps: showCaseWidgetState.totalSteps,
+                showProgress: showcaseState.showProgress,
+                progressStyle: showcaseState.progressStyle,
+                showSkip: showcaseState.showSkip,
+                skipText: showcaseState.skipButtonText,
+                currentStep: showcaseState.currentIndex ?? 0,
+                totalSteps: showcaseState.totalSteps,
                 onSkip: _dismissShowcaseTour,
               ),
               // Screen-anchored floating widget, painted above the tooltip and
@@ -1245,11 +1273,56 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
       ),
     );
 
-    if (!showCaseWidgetState.enableKeyboardNavigation) return overlay;
+    if (!showcaseState.enableKeyboardNavigation) return overlay;
     // Focus-scoped: keys are handled only while this overlay holds focus, so
     // navigation never hijacks keys from the rest of the app.
     return Focus(focusNode: _focusNode, autofocus: true, onKeyEvent: _handleKeyEvent, child: overlay);
   }
+}
+
+/// A captured image of a highlighted widget, painted above the dimmed overlay.
+///
+/// Holds the [ui.Image] for as long as the step is showing so it is encoded
+/// once rather than on every rebuild, and re-reads the source widget's position
+/// per build so the snapshot still follows a target that scrolls.
+class _TargetSnapshot {
+  _TargetSnapshot({required this.key, required this.image, required this.size});
+
+  /// The [RepaintBoundary] the image was captured from, used to re-read the
+  /// live position.
+  final GlobalKey key;
+
+  final ui.Image image;
+
+  /// The boundary's logical size, which the image is drawn at.
+  final Size size;
+
+  /// The source widget's current top-left in global coordinates, or `null` if
+  /// it is no longer laid out.
+  Offset? get _offset {
+    final box = key.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero);
+  }
+
+  /// The positioned image, or `null` while the source widget is not laid out.
+  Widget? build() {
+    final offset = _offset;
+    if (offset == null) return null;
+    return Positioned(
+      left: offset.dx,
+      top: offset.dy,
+      child: IgnorePointer(
+        // Passed uncloned on purpose: [RawImage] clones the image itself and
+        // hands the clone to its [RenderImage], which disposes it. Cloning here
+        // as well would create a handle nobody owns, leaking one per build.
+        // This class stays the owner of [image] and disposes it in [dispose].
+        child: RawImage(image: image, width: size.width, height: size.height, fit: BoxFit.fill),
+      ),
+    );
+  }
+
+  void dispose() => image.dispose();
 }
 
 class _TargetWidget extends StatelessWidget {

@@ -51,26 +51,27 @@ class AnchoredOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return OverlayBuilder(
-          showOverlay: showOverlay,
-          overlayBuilder: (overlayContext) {
-            // To calculate the "anchor" point we grab the render box of
-            // our parent Container and then we find the center of that box.
-            final box = context.findRenderObject() as RenderBox;
-            final topLeft = box.size.topLeft(box.localToGlobal(const Offset(0.0, 0.0)));
-            final bottomRight = box.size.bottomRight(box.localToGlobal(const Offset(0.0, 0.0)));
-            Rect anchorBounds;
-            anchorBounds = (topLeft.dx.isNaN || topLeft.dy.isNaN || bottomRight.dx.isNaN || bottomRight.dy.isNaN)
-                ? const Rect.fromLTRB(0.0, 0.0, 0.0, 0.0)
-                : Rect.fromLTRB(topLeft.dx, topLeft.dy, bottomRight.dx, bottomRight.dy);
-            final anchorCenter = box.size.center(topLeft);
-            return overlayBuilder!(overlayContext, anchorBounds, anchorCenter);
-          },
-          child: child,
-        );
+    // No LayoutBuilder here on purpose: the anchor is read from the render tree,
+    // not from the incoming constraints. Wrapping every showcased widget in one
+    // added a render object per Showcase and rebuilt its whole subtree during
+    // layout on any constraint change (rotation, keyboard, window resize).
+    return OverlayBuilder(
+      showOverlay: showOverlay,
+      overlayBuilder: (overlayContext) {
+        // To calculate the "anchor" point we grab the render box of
+        // our parent Container and then we find the center of that box.
+        final box = context.findRenderObject() as RenderBox;
+        final origin = box.localToGlobal(Offset.zero);
+        final topLeft = box.size.topLeft(origin);
+        final bottomRight = box.size.bottomRight(origin);
+        Rect anchorBounds;
+        anchorBounds = (topLeft.dx.isNaN || topLeft.dy.isNaN || bottomRight.dx.isNaN || bottomRight.dy.isNaN)
+            ? const Rect.fromLTRB(0.0, 0.0, 0.0, 0.0)
+            : Rect.fromLTRB(topLeft.dx, topLeft.dy, bottomRight.dx, bottomRight.dy);
+        final anchorCenter = box.size.center(topLeft);
+        return overlayBuilder!(overlayContext, anchorBounds, anchorCenter);
       },
+      child: child,
     );
   }
 }
