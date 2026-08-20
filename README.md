@@ -18,6 +18,10 @@ controller API.
 
 ![Feature walkthrough](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/demo.gif)
 
+Animated step transitions — the default instant cut (left) vs `enableStepTransition` gliding the highlight between targets (right):
+
+![Animated step transitions: instant cut on the left, enableStepTransition glide on the right.](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/step_transition.gif)
+
 ![The example app running on iOS](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/showcase_tutorial.gif)
 
 ## Features
