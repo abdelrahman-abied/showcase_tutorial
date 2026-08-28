@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.15.0
+
+* PERF: **a step change no longer rebuilds every `Showcase` on the screen.**
+  `_InheritedShowCaseView` published the active step's key as a plain
+  `InheritedWidget`, so every `Showcase` in the tree was a dependent and every
+  one of them rebuilt whenever the tour advanced — along with the
+  `AnchoredOverlay` and `OverlayBuilder` each wraps. The cost grew with the
+  tour: measured at `119 + 3N` element rebuilds per "next" for an `N`-step tour,
+  or 299 rebuilds in a 60-step tour, where only two steps can actually have
+  changed. It is now an `InheritedModel` and each `Showcase` depends on its own
+  key as an aspect, so a step change notifies just the step being left and the
+  step being entered. The rebuild count is a flat 125 at every tour length
+  (-58% at 60 steps, -40% at 30), and the same fix takes starting a tour from
+  `84 + 3N` to a flat 102.
+* FEAT: **`ShowCaseWidget.activeTargetWidget` takes an optional `aspect`.**
+  Pass a step's `GlobalKey` to depend on that step alone, so your widget rebuilds
+  only when that step becomes active or inactive rather than on every step
+  change. Omitting it keeps the previous behaviour of rebuilding on any step
+  change, so existing callers are unaffected.
+* Honest scope: this removes work, not frame time. Frame CPU, step latency and
+  idle element counts are unchanged, and on an Infinix X687 (Android 10, profile
+  mode) the before and after are indistinguishable — raster dominates the frame
+  and the rebuilds removed here were cheap ones. The win is UI-thread headroom
+  that no longer scales with the number of steps on screen.
+* Adds two regression tests: that advancing a step rebuilds exactly two
+  `Showcase` widgets whatever the tour's length, and that a dependant which does
+  not name a step still rebuilds on every step change.
+
 ## 1.14.1
 
 A performance pass over the showcase overlay. No API changes — every item below

@@ -392,6 +392,100 @@ void main() {
         );
       });
     });
+
+    // Counts elements Flutter actually rebuilt while [action] ran, keyed by
+    // widget type.
+    Future<Map<String, int>> rebuildsDuring(Future<void> Function() action) async {
+      final counts = <String, int>{};
+      final savedPrint = debugPrint;
+      debugPrint = (String? message, {int? wrapWidth}) {
+        if (message == null) return;
+        if (!message.startsWith('Rebuilding ') && !message.startsWith('Building ')) return;
+        final name = message.split(' ')[1].split('-').first.split('(').first;
+        counts[name] = (counts[name] ?? 0) + 1;
+      };
+      debugPrintRebuildDirtyWidgets = true;
+      await action();
+      debugPrintRebuildDirtyWidgets = false;
+      debugPrint = savedPrint;
+      return counts;
+    }
+
+    // Advances a [stepCount]-long tour by one step and reports how many
+    // Showcase elements were rebuilt doing it.
+    Future<int> showcasesRebuiltAdvancing(WidgetTester tester, int stepCount) async {
+      final keys = List.generate(stepCount, (_) => GlobalKey());
+      await tester.pumpWidget(manySteps(keys));
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+
+      final counts = await rebuildsDuring(() async {
+        ShowCaseWidget.of(context).next();
+        await tester.pump();
+      });
+      return counts['Showcase'] ?? 0;
+    }
+
+    testWidgets('advancing a step rebuilds only the two steps involved', (tester) async {
+      // The step being left and the step being entered - and nothing else,
+      // however long the tour is. A plain InheritedWidget would rebuild every
+      // Showcase on screen, so this count would track the tour's length.
+      final short = await showcasesRebuiltAdvancing(tester, 3);
+      final long = await showcasesRebuiltAdvancing(tester, 12);
+
+      expect(short, 2);
+      expect(long, equals(short));
+    });
+
+    testWidgets('a dependant that does not name a step still rebuilds on every step change', (tester) async {
+      // ShowCaseWidget.activeTargetWidget(context) without an aspect keeps the
+      // original contract: rebuild whenever the active step changes, whichever
+      // step that is.
+      final keys = List.generate(3, (_) => GlobalKey());
+      var builds = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Column(
+                  children: [
+                    Builder(
+                      builder: (inner) {
+                        ShowCaseWidget.activeTargetWidget(inner);
+                        builds++;
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                    for (final key in keys)
+                      Showcase(
+                        key: key,
+                        title: 'Step',
+                        description: 'd',
+                        child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+
+      final before = builds;
+      ShowCaseWidget.of(context).next();
+      await tester.pumpAndSettle();
+
+      expect(builds, greaterThan(before));
+    });
   });
 
   testWidgets('renders the child before the showcase starts', (tester) async {

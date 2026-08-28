@@ -2,6 +2,10 @@
 
 `showcase_tutorial` 1.14.1 vs `showcaseview` 5.1.0.
 
+> The `showcase_tutorial` figures below are the **1.14.1 baseline**. 1.15.0
+> changed `_InheritedShowCaseView` in response to them; see
+> [After the InheritedModel fix](#after-the-inheritedmodel-fix-1150).
+
 Environment: Flutter 3.47.2 / Dart 3.13.2, macOS 26.6.2 (Apple Silicon) for the
 widget tests; Infinix X687 (Android 10, arm64, Mali GPU) for the profile runs.
 Recorded 2026-08-28. Widget-test figures are the median of 3 independent runs;
@@ -80,6 +84,29 @@ this hardware. The ratio is headroom, not visible jank.
 Independent of tour length. `showcaseview.next()` awaits a full reverse scale
 animation before the next step appears; this package swaps on the next frame.
 A user feels this one; the microseconds above they do not.
+
+## After the `InheritedModel` fix (1.15.0)
+
+The step-change rebuild count above is what 1.15.0 set out to fix: each
+`Showcase` now depends on its own key as an `InheritedModel` aspect, so only the
+step being left and the step being entered are notified.
+
+| steps | rebuilds before | rebuilds after | showcaseview |
+| ----: | --------------: | -------------: | -----------: |
+| 5  | 134 | 125 | 34 |
+| 15 | 164 | 125 | 34 |
+| 30 | 209 | 125 | 34 |
+| 60 | 299 | 125 | 34 |
+
+`119 + 3N` becomes a flat 125 at every tour length; opening a tour goes from
+`84 + 3N` to a flat 102. Everything else is unchanged: step CPU stays within
+run-to-run noise (-13% to +2% across the four sizes), frame CPU within ±4%, step
+latency still 2 frames, idle element counts identical — the wrappers are still
+there, they are just no longer rebuilt.
+
+That is the honest shape of this fix. **It removes work that scaled with the
+tour; it does not make a frame faster.** The rebuilds it removed were cheap, as
+the before/after CPU columns already predicted.
 
 ## Real frame timings on a device (`--profile`)
 

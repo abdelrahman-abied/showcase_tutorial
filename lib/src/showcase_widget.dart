@@ -344,8 +344,15 @@ class ShowCaseWidget extends StatefulWidget {
   ///
   /// Reads the nearest [_InheritedShowCaseView], so callers rebuild when the
   /// active step changes.
-  static GlobalKey? activeTargetWidget(BuildContext context) {
-    return context.dependOnInheritedWidgetOfExactType<_InheritedShowCaseView>()?.activeWidgetIds;
+  ///
+  /// Pass [aspect] to depend on one step only: the caller is then rebuilt just
+  /// for the changes that make that step active or inactive, instead of on
+  /// every step change in the tour. [Showcase] passes its own key, which is why
+  /// advancing a tour rebuilds the two steps involved rather than all of them.
+  /// Omitting [aspect] keeps the original behaviour of rebuilding on any step
+  /// change.
+  static GlobalKey? activeTargetWidget(BuildContext context, {GlobalKey? aspect}) {
+    return InheritedModel.inheritFrom<_InheritedShowCaseView>(context, aspect: aspect)?.activeWidgetIds;
   }
 
   /// Returns the [ShowCaseWidgetState] of the nearest [ShowCaseWidget] ancestor.
@@ -762,11 +769,27 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   }
 }
 
-class _InheritedShowCaseView extends InheritedWidget {
+/// Publishes the active step's key to the [Showcase] widgets below.
+///
+/// This is an [InheritedModel] rather than a plain [InheritedWidget] so a step
+/// change does not rebuild every [Showcase] on the screen. Each [Showcase]
+/// depends on its own key as an aspect, and a step change only ever alters two
+/// of them: the one being left and the one being entered. Dependents that
+/// registered without an aspect (an empty dependency set) are still notified on
+/// every change, which is what [InheritedModel] does by default.
+class _InheritedShowCaseView extends InheritedModel<GlobalKey> {
   final GlobalKey? activeWidgetIds;
 
   const _InheritedShowCaseView({required this.activeWidgetIds, required super.child});
 
   @override
   bool updateShouldNotify(_InheritedShowCaseView oldWidget) => oldWidget.activeWidgetIds != activeWidgetIds;
+
+  @override
+  bool updateShouldNotifyDependent(_InheritedShowCaseView oldWidget, Set<GlobalKey> aspects) {
+    // Only the step that just became active and the one that just stopped being
+    // active can have changed; every other step's answer to "am I active?" is
+    // still no.
+    return aspects.contains(activeWidgetIds) || aspects.contains(oldWidget.activeWidgetIds);
+  }
 }
