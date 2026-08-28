@@ -791,7 +791,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   }
 }
 
-/// Publishes the active step's key to the [Showcase] widgets below.
+/// Publishes the active step's key, and whether the tour is enabled at all, to
+/// the [Showcase] widgets below.
 ///
 /// This is an [InheritedModel] rather than a plain [InheritedWidget] so a step
 /// change does not rebuild every [Showcase] on the screen. Each [Showcase]

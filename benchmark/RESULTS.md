@@ -1,10 +1,10 @@
 # Results
 
-`showcase_tutorial` 1.14.1 vs `showcaseview` 5.1.0.
+`showcase_tutorial` vs `showcaseview` 5.1.0.
 
-> The `showcase_tutorial` figures below are the **1.14.1 baseline**. 1.15.0
-> changed `_InheritedShowCaseView` in response to them; see
-> [After the InheritedModel fix](#after-the-inheritedmodel-fix-1150).
+> The tables in the first section are the **1.14.1 baseline** — the state that
+> motivated the `_InheritedShowCaseView` change. For where the package stands
+> now, jump to [Current standing (1.15.0)](#current-standing-1150).
 
 Environment: Flutter 3.47.2 / Dart 3.13.2, macOS 26.6.2 (Apple Silicon) for the
 widget tests; Infinix X687 (Android 10, arm64, Mali GPU) for the profile runs.
@@ -85,7 +85,7 @@ Independent of tour length. `showcaseview.next()` awaits a full reverse scale
 animation before the next step appears; this package swaps on the next frame.
 A user feels this one; the microseconds above they do not.
 
-## After the `InheritedModel` fix (1.15.0)
+## Current standing (1.15.0)
 
 The step-change rebuild count above is what 1.15.0 set out to fix: each
 `Showcase` now depends on its own key as an `InheritedModel` aspect, so only the
@@ -107,6 +107,40 @@ there, they are just no longer rebuilt.
 That is the honest shape of this fix. **It removes work that scaled with the
 tour; it does not make a frame faster.** The rebuilds it removed were cheap, as
 the before/after CPU columns already predicted.
+
+Head to head at 1.15.0, median of 3 runs per size:
+
+| metric | ours | showcaseview | ours / theirs |
+| --- | ---: | ---: | ---: |
+| rebuilds per step change | 125 (flat) | 34 (flat) | 3.68x |
+| rebuilds per tour start | 102 (flat) | 82 (flat) | 1.24x |
+| CPU per step change | 8.2-9.1 ms | ~5.2 ms | 1.6-1.8x |
+| CPU per steady frame | 73-90 us | 41-51 us | 1.8-1.9x |
+| idle elements | `183 + 10N` | `181 + 8N` | 1.05-1.18x |
+| step latency | 2 frames | 21 frames | **0.10x** |
+
+Every figure on both sides is now flat in tour length except the idle element
+counts, which are linear on both. The package had exactly one metric that grew
+against a constant; it no longer does.
+
+The remaining CPU gap is unchanged and is not explained by rebuild counts. The
+next thing to look at is the per-frame animation path: this package rebuilds one
+element per frame while `showcaseview` rebuilds none, animating the tooltip at
+the `RenderObject` level.
+
+### A device measurement that did not reproduce
+
+The first 1.15.0 profile run reported 222 of 1091 tour frames over 16 ms, with
+raster p90 at 15.79 ms against the 1.14.1 baseline's 6.69 ms. Two repeat runs did
+not reproduce it: 0 and 1 janky frames, raster p90 6.27 ms and 7.01 ms, in line
+with the baseline. Build time was unchanged or better in all three.
+
+Recorded here rather than dropped, because it is the shape of result worth being
+suspicious of. Nothing in the change touches painting -- it only reduces which
+widgets are notified, and the painted output is identical -- so a raster-only
+effect with unchanged build time is not a mechanism this change has. A
+same-session 1.14.1 control was attempted and failed to collect frames, so this
+is "did not reproduce", not "ruled out".
 
 ## Real frame timings on a device (`--profile`)
 
