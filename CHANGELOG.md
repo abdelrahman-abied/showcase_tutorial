@@ -27,6 +27,17 @@
 * Adds two regression tests: that advancing a step rebuilds exactly two
   `Showcase` widgets whatever the tour's length, and that a dependant which does
   not name a step still rebuilds on every step change.
+* FIX: **`enableShowcase` now takes effect at runtime.** Flipping it to `false`
+  while a tour was running left the overlay on screen: `ShowCaseWidget.builder`
+  is a single stored widget instance, so nothing below it rebuilt and no
+  `Showcase` ever learned the tour had been switched off. The flag is published
+  through `_InheritedShowCaseView` now, so disabling mid-tour hides the overlay
+  and ends the tour — the step that was showing gets its `Showcase.onDismiss`,
+  and the tour-level `ShowCaseWidget.onDismiss` reports the step the user was
+  left on, keeping the "exactly one of `onFinish`/`onDismiss` per tour" rule.
+  Re-enabling does not resume the dismissed tour; call `startShowCase` again.
+  This matches what the flag already meant at construction time, where
+  `startShowCase` throws outright. Covered by four new tests.
 
 ## 1.14.1
 

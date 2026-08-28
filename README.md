@@ -890,6 +890,16 @@ ShowCaseWidget(
 );
 ```
 
+`enableShowcase` can also be flipped at runtime — useful for a "don't show me
+tips" setting. Switching it to `false` while a tour is running ends that tour:
+the overlay disappears, the step that was showing gets its `onDismiss`, and the
+tour-level [`onDismiss`](#step-lifecycle-callbacks) reports the step the user was
+left on. Switching it back to `true` does not resume the tour; call
+`startShowCase` again to start a new one.
+
+`startShowCase` throws while the showcase is disabled, so check the flag (or
+just keep it enabled) before starting a tour.
+
 ## Auto-scrolling caveat
 
 Set `enableAutoScroll: true` to scroll an off-screen target into view before its
