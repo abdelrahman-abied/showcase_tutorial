@@ -3151,6 +3151,143 @@ void main() {
       expectRect(cutOut(tester), r1);
     });
   });
+
+  group('enableShowcase toggled at runtime', () {
+    // A tour of [stepCount] steps whose enableShowcase can be flipped from the
+    // returned setter.
+    Widget togglableTour({
+      required List<GlobalKey> keys,
+      required void Function(ValueSetter<bool>) exposeSetter,
+      void Function(GlobalKey?)? onDismiss,
+      VoidCallback? onFinish,
+      VoidCallback? onStepDismiss,
+    }) {
+      var enabled = true;
+      return MaterialApp(
+        home: StatefulBuilder(
+          builder: (context, setState) {
+            exposeSetter((value) => setState(() => enabled = value));
+            return ShowCaseWidget(
+              enableShowcase: enabled,
+              onDismiss: onDismiss,
+              onFinish: onFinish,
+              disableMovingAnimation: true,
+              disableScaleAnimation: true,
+              builder: Builder(
+                builder: (inner) => Scaffold(
+                  body: Column(
+                    children: [
+                      for (final key in keys)
+                        Showcase(
+                          key: key,
+                          title: 'Step',
+                          description: 'd',
+                          onDismiss: onStepDismiss,
+                          child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    testWidgets('disabling mid-tour hides the showcase and ends the tour', (tester) async {
+      final keys = List.generate(3, (_) => GlobalKey());
+      late ValueSetter<bool> setEnabled;
+      GlobalKey? dismissedAt;
+      var finished = 0;
+      var stepDismissals = 0;
+
+      await tester.pumpWidget(
+        togglableTour(
+          keys: keys,
+          exposeSetter: (setter) => setEnabled = setter,
+          onDismiss: (key) => dismissedAt = key,
+          onFinish: () => finished++,
+          onStepDismiss: () => stepDismissals++,
+        ),
+      );
+
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+      ShowCaseWidget.of(context).next();
+      await tester.pumpAndSettle();
+      expect(find.text('Step'), findsOneWidget);
+
+      // Step 0 was already dismissed by the next() above; count from here so
+      // this asserts the teardown of the step that was actually showing.
+      final dismissalsBefore = stepDismissals;
+
+      setEnabled(false);
+      await tester.pumpAndSettle();
+
+      // The overlay is gone...
+      expect(find.text('Step'), findsNothing);
+      // ...the step it was on was torn down properly...
+      expect(stepDismissals, dismissalsBefore + 1);
+      // ...and the tour reports where it was left, exactly once, through the
+      // early-close callback rather than the completion one.
+      expect(dismissedAt, same(keys[1]));
+      expect(finished, 0);
+    });
+
+    testWidgets('the child still renders while the tour is disabled', (tester) async {
+      final keys = List.generate(2, (_) => GlobalKey());
+      late ValueSetter<bool> setEnabled;
+
+      await tester.pumpWidget(togglableTour(keys: keys, exposeSetter: (setter) => setEnabled = setter));
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+
+      setEnabled(false);
+      await tester.pumpAndSettle();
+
+      // "every Showcase just renders its child, no overlay"
+      expect(find.text('t'), findsNWidgets(keys.length));
+    });
+
+    testWidgets('re-enabling leaves no stale overlay and a new tour can start', (tester) async {
+      final keys = List.generate(3, (_) => GlobalKey());
+      late ValueSetter<bool> setEnabled;
+
+      await tester.pumpWidget(togglableTour(keys: keys, exposeSetter: (setter) => setEnabled = setter));
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+
+      setEnabled(false);
+      await tester.pumpAndSettle();
+      setEnabled(true);
+      await tester.pumpAndSettle();
+
+      // Re-enabling on its own must not bring the dismissed tour back.
+      expect(find.text('Step'), findsNothing);
+
+      // And the tour is startable again, from the top.
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+      expect(find.text('Step'), findsOneWidget);
+      expect(ShowCaseWidget.of(context).currentIndex, 0);
+    });
+
+    testWidgets('startShowCase still refuses to run while disabled', (tester) async {
+      final keys = List.generate(2, (_) => GlobalKey());
+      late ValueSetter<bool> setEnabled;
+
+      await tester.pumpWidget(togglableTour(keys: keys, exposeSetter: (setter) => setEnabled = setter));
+      setEnabled(false);
+      await tester.pumpAndSettle();
+
+      final context = tester.element(find.byType(Scaffold));
+      expect(() => ShowCaseWidget.of(context).startShowCase(keys), throwsException);
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this
