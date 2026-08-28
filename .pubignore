@@ -55,6 +55,10 @@ tool/
 # but it is not part of the example anyone reads on pub.dev.
 example/lib/perf_harness.dart
 
+# Head-to-head benchmark against showcaseview. A separate project (it depends on
+# a competing package), maintainer-only, and irrelevant to package consumers.
+benchmark/
+
 # Example app native scaffolding. The example sources (example/lib) and its
 # assets still ship so the pub.dev "Example" tab works; the generated native
 # projects below are not needed to read the example and only add weight.

@@ -1,0 +1,15 @@
+# The benchmark drives two packages side by side and reports to stdout, so the
+# root package's stricter lints (notably avoid_print) do not apply here.
+include: package:flutter_lints/flutter.yaml
+
+formatter:
+  page_width: 120
+
+linter:
+  rules:
+    avoid_print: false
+analyzer:
+  exclude:
+    - build/**
+    - macos/**
+    - android/**
