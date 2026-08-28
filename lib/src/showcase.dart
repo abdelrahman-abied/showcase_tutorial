@@ -696,7 +696,9 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   /// show overlay if there is any target widget
   void showOverlay() {
     final showcaseState = showCaseWidgetState;
-    final activeStep = ShowCaseWidget.activeTargetWidget(context);
+    // Depend on this step's key only, so advancing the tour rebuilds the step
+    // being left and the step being entered instead of every Showcase on screen.
+    final activeStep = ShowCaseWidget.activeTargetWidget(context, aspect: widget.key);
     final isActiveNow = activeStep == widget.key;
     final wasActive = _showShowCase;
 
