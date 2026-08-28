@@ -123,10 +123,31 @@ Every figure on both sides is now flat in tour length except the idle element
 counts, which are linear on both. The package had exactly one metric that grew
 against a constant; it no longer does.
 
-The remaining CPU gap is unchanged and is not explained by rebuild counts. The
-next thing to look at is the per-frame animation path: this package rebuilds one
-element per frame while `showcaseview` rebuilds none, animating the tooltip at
-the `RenderObject` level.
+### Where the remaining CPU gap comes from, and why it was left alone
+
+The gap is not explained by rebuild counts. It is the per-frame animation path.
+
+While a tooltip is on screen this package wraps it in `ScaleTransition` +
+`SlideTransition` (`lib/src/tooltip_widget.dart`), both `AnimatedWidget`s, so
+every animation tick rebuilds the transition element before painting. The moving
+animation loops forever — a status listener reverses at the end and forwards at
+the start — so the build phase runs every frame for as long as a step is open.
+
+`showcaseview` drives the same animation from a custom `RenderObject`
+(`_RenderAnimationDelegate`), which subscribes `markNeedsPaint` to the animations
+and applies the transform inside `paint()`. No widget rebuild per frame: the
+pipeline skips build and layout. (It also throttles repaints to 8 ms, but that is
+~120 fps and therefore a no-op at 60 Hz, so the saving is not there.) That is the
+whole of the 1 rebuild vs 0, and of the 73-90 us vs 41-51 us.
+
+**Investigated and deliberately not adopted.** On the device, tour build time is
+0.81 ms p50 on both sides — the ~40 us that separates them under `flutter test`
+does not survive contact with real hardware, where raster (5.5-6.3 ms) dominates
+the frame anyway. Matching their approach would mean replacing two stock Flutter
+widgets with a custom render object owning positioning, scale and translation
+together, inside the package's most feature-dense file (tooltip positions, RTL,
+arrow, actions, margins). High risk on the densest code for a saving no user can
+perceive.
 
 ### A device measurement that did not reproduce
 
