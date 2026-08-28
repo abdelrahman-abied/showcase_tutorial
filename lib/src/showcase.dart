@@ -689,8 +689,11 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
         screenWidth: MediaQuery.sizeOf(context).width,
         screenHeight: MediaQuery.sizeOf(context).height,
       );
-      showOverlay();
     }
+    // Runs even while the tour is disabled. It is what tears the active step
+    // down if the tour is switched off mid-flight, and it keeps this step's
+    // dependency registered so switching back on is delivered.
+    showOverlay();
   }
 
   /// show overlay if there is any target widget
@@ -699,7 +702,9 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     // Depend on this step's key only, so advancing the tour rebuilds the step
     // being left and the step being entered instead of every Showcase on screen.
     final activeStep = ShowCaseWidget.activeTargetWidget(context, aspect: widget.key);
-    final isActiveNow = activeStep == widget.key;
+    // A disabled tour has no active step, so switching it off runs this step
+    // through the same teardown as the tour moving on.
+    final isActiveNow = _enableShowcase && activeStep == widget.key;
     final wasActive = _showShowCase;
 
     setState(() {

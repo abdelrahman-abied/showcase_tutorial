@@ -761,15 +761,38 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     super.dispose();
   }
 
+  @override
+  void didUpdateWidget(covariant ShowCaseWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A running tour cannot survive being disabled: [startShowCase] refuses to
+    // run at all while [ShowCaseWidget.enableShowcase] is false, so leaving the
+    // tour half-alive would be a state the API cannot otherwise reach. Ending it
+    // goes through [dismiss], so [ShowCaseWidget.onDismiss] still reports where
+    // the user left off and exactly one of onFinish/onDismiss runs per tour.
+    //
+    // Deferred to after the frame because [dismiss] invokes that callback, and
+    // user callbacks commonly call setState, which is illegal during a build.
+    if (oldWidget.enableShowcase && !widget.enableShowcase && ids != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !widget.enableShowcase && ids != null) dismiss();
+      });
+    }
+  }
+
   /// Exposes the active step's target key to descendants and builds the
   /// configured [ShowCaseWidget.builder] subtree.
   @override
   Widget build(BuildContext context) {
-    return _InheritedShowCaseView(activeWidgetIds: ids?.elementAt(activeWidgetId!), child: widget.builder);
+    return _InheritedShowCaseView(
+      activeWidgetIds: ids?.elementAt(activeWidgetId!),
+      enableShowcase: widget.enableShowcase,
+      child: widget.builder,
+    );
   }
 }
 
-/// Publishes the active step's key to the [Showcase] widgets below.
+/// Publishes the active step's key, and whether the tour is enabled at all, to
+/// the [Showcase] widgets below.
 ///
 /// This is an [InheritedModel] rather than a plain [InheritedWidget] so a step
 /// change does not rebuild every [Showcase] on the screen. Each [Showcase]
@@ -780,16 +803,30 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 class _InheritedShowCaseView extends InheritedModel<GlobalKey> {
   final GlobalKey? activeWidgetIds;
 
-  const _InheritedShowCaseView({required this.activeWidgetIds, required super.child});
+  /// Mirrors [ShowCaseWidget.enableShowcase] so a change to it reaches the
+  /// [Showcase] widgets below. Without it, flipping the flag published nothing:
+  /// [ShowCaseWidget.builder] is one stored widget instance, so the subtree is
+  /// never rebuilt on its own.
+  final bool enableShowcase;
+
+  const _InheritedShowCaseView({
+    required this.activeWidgetIds,
+    required this.enableShowcase,
+    required super.child,
+  });
 
   @override
-  bool updateShouldNotify(_InheritedShowCaseView oldWidget) => oldWidget.activeWidgetIds != activeWidgetIds;
+  bool updateShouldNotify(_InheritedShowCaseView oldWidget) =>
+      oldWidget.activeWidgetIds != activeWidgetIds || oldWidget.enableShowcase != enableShowcase;
 
   @override
   bool updateShouldNotifyDependent(_InheritedShowCaseView oldWidget, Set<GlobalKey> aspects) {
-    // Only the step that just became active and the one that just stopped being
-    // active can have changed; every other step's answer to "am I active?" is
-    // still no.
+    // Turning the tour off or back on changes every step's answer, so it has to
+    // reach all of them.
+    if (oldWidget.enableShowcase != enableShowcase) return true;
+    // A step change can only ever alter two: the one that just became active
+    // and the one that just stopped being active. Every other step's answer to
+    // "am I active?" is still no.
     return aspects.contains(activeWidgetIds) || aspects.contains(oldWidget.activeWidgetIds);
   }
 }
