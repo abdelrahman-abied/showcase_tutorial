@@ -1,6 +1,10 @@
 # Results
 
-`showcase_tutorial` 1.14.1 vs `showcaseview` 5.1.0.
+`showcase_tutorial` vs `showcaseview` 5.1.0.
+
+> The tables in the first section are the **1.14.1 baseline** — the state that
+> motivated the `_InheritedShowCaseView` change. For where the package stands
+> now, jump to [Current standing (1.15.0)](#current-standing-1150).
 
 Environment: Flutter 3.47.2 / Dart 3.13.2, macOS 26.6.2 (Apple Silicon) for the
 widget tests; Infinix X687 (Android 10, arm64, Mali GPU) for the profile runs.
@@ -80,6 +84,84 @@ this hardware. The ratio is headroom, not visible jank.
 Independent of tour length. `showcaseview.next()` awaits a full reverse scale
 animation before the next step appears; this package swaps on the next frame.
 A user feels this one; the microseconds above they do not.
+
+## Current standing (1.15.0)
+
+The step-change rebuild count above is what 1.15.0 set out to fix: each
+`Showcase` now depends on its own key as an `InheritedModel` aspect, so only the
+step being left and the step being entered are notified.
+
+| steps | rebuilds before | rebuilds after | showcaseview |
+| ----: | --------------: | -------------: | -----------: |
+| 5  | 134 | 125 | 34 |
+| 15 | 164 | 125 | 34 |
+| 30 | 209 | 125 | 34 |
+| 60 | 299 | 125 | 34 |
+
+`119 + 3N` becomes a flat 125 at every tour length; opening a tour goes from
+`84 + 3N` to a flat 102. Everything else is unchanged: step CPU stays within
+run-to-run noise (-13% to +2% across the four sizes), frame CPU within ±4%, step
+latency still 2 frames, idle element counts identical — the wrappers are still
+there, they are just no longer rebuilt.
+
+That is the honest shape of this fix. **It removes work that scaled with the
+tour; it does not make a frame faster.** The rebuilds it removed were cheap, as
+the before/after CPU columns already predicted.
+
+Head to head at 1.15.0, median of 3 runs per size:
+
+| metric | ours | showcaseview | ours / theirs |
+| --- | ---: | ---: | ---: |
+| rebuilds per step change | 125 (flat) | 34 (flat) | 3.68x |
+| rebuilds per tour start | 102 (flat) | 82 (flat) | 1.24x |
+| CPU per step change | 8.2-9.1 ms | ~5.2 ms | 1.6-1.8x |
+| CPU per steady frame | 73-90 us | 41-51 us | 1.8-1.9x |
+| idle elements | `183 + 10N` | `181 + 8N` | 1.05-1.18x |
+| step latency | 2 frames | 21 frames | **0.10x** |
+
+Every figure on both sides is now flat in tour length except the idle element
+counts, which are linear on both. The package had exactly one metric that grew
+against a constant; it no longer does.
+
+### Where the remaining CPU gap comes from, and why it was left alone
+
+The gap is not explained by rebuild counts. It is the per-frame animation path.
+
+While a tooltip is on screen this package wraps it in `ScaleTransition` +
+`SlideTransition` (`lib/src/tooltip_widget.dart`), both `AnimatedWidget`s, so
+every animation tick rebuilds the transition element before painting. The moving
+animation loops forever — a status listener reverses at the end and forwards at
+the start — so the build phase runs every frame for as long as a step is open.
+
+`showcaseview` drives the same animation from a custom `RenderObject`
+(`_RenderAnimationDelegate`), which subscribes `markNeedsPaint` to the animations
+and applies the transform inside `paint()`. No widget rebuild per frame: the
+pipeline skips build and layout. (It also throttles repaints to 8 ms, but that is
+~120 fps and therefore a no-op at 60 Hz, so the saving is not there.) That is the
+whole of the 1 rebuild vs 0, and of the 73-90 us vs 41-51 us.
+
+**Investigated and deliberately not adopted.** On the device, tour build time is
+0.81 ms p50 on both sides — the ~40 us that separates them under `flutter test`
+does not survive contact with real hardware, where raster (5.5-6.3 ms) dominates
+the frame anyway. Matching their approach would mean replacing two stock Flutter
+widgets with a custom render object owning positioning, scale and translation
+together, inside the package's most feature-dense file (tooltip positions, RTL,
+arrow, actions, margins). High risk on the densest code for a saving no user can
+perceive.
+
+### A device measurement that did not reproduce
+
+The first 1.15.0 profile run reported 222 of 1091 tour frames over 16 ms, with
+raster p90 at 15.79 ms against the 1.14.1 baseline's 6.69 ms. Two repeat runs did
+not reproduce it: 0 and 1 janky frames, raster p90 6.27 ms and 7.01 ms, in line
+with the baseline. Build time was unchanged or better in all three.
+
+Recorded here rather than dropped, because it is the shape of result worth being
+suspicious of. Nothing in the change touches painting -- it only reduces which
+widgets are notified, and the painted output is identical -- so a raster-only
+effect with unchanged build time is not a mechanism this change has. A
+same-session 1.14.1 control was attempted and failed to collect frames, so this
+is "did not reproduce", not "ruled out".
 
 ## Real frame timings on a device (`--profile`)
 
