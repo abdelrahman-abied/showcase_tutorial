@@ -3358,8 +3358,13 @@ void main() {
       ShowCaseWidget.of(context).startShowCase([key]);
       await tester.pumpAndSettle();
 
-      for (final finder in [find.text('Title'), find.text('beside the target'), find.byKey(globalKeyed)]) {
-        expect(tester.getRect(finder).top, greaterThanOrEqualTo(0), reason: '${finder.description} is off screen');
+      final parts = {
+        'title': find.text('Title'),
+        'description': find.text('beside the target'),
+        'actions': find.byKey(globalKeyed),
+      };
+      for (final part in parts.entries) {
+        expect(tester.getRect(part.value).top, greaterThanOrEqualTo(0), reason: '${part.key} is off screen');
       }
     });
 
