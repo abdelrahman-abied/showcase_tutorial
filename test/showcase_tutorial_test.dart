@@ -410,6 +410,72 @@ void main() {
       return counts['Showcase'] ?? 0;
     }
 
+    testWidgets('an idle Showcase wraps its child in nothing', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(manySteps([key]));
+
+      // The overlay entry is owned by the State, so the element below Showcase
+      // is the child itself. It used to be an AnchoredOverlay wrapping an
+      // OverlayBuilder, two elements per step whether or not the tour ran.
+      final children = <Element>[];
+      tester.element(find.byType(Showcase)).visitChildren(children.add);
+
+      expect(children, hasLength(1));
+      expect(children.single.widget, isA<SizedBox>());
+    });
+
+    testWidgets('the child keeps its state when a step opens and closes', (tester) async {
+      // Moving overlay ownership out of wrapper widgets is only safe if the
+      // child's position in the tree does not change with the tour: otherwise
+      // every highlighted widget would lose its State each time it is shown.
+      final keys = List.generate(2, (_) => GlobalKey());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Column(
+                  children: [
+                    Showcase(
+                      key: keys[0],
+                      title: 'One',
+                      description: 'd',
+                      child: const SizedBox(height: 20, width: 100, child: _Counter()),
+                    ),
+                    Showcase(
+                      key: keys[1],
+                      title: 'Two',
+                      description: 'd',
+                      child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final state = tester.state<_CounterState>(find.byType(_Counter));
+      state.bump();
+      await tester.pump();
+      expect(state.value, 1);
+
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+      ShowCaseWidget.of(context).next();
+      await tester.pumpAndSettle();
+      ShowCaseWidget.of(context).dismiss();
+      await tester.pumpAndSettle();
+
+      // Same State object, same value: the child was never rebuilt from scratch.
+      expect(tester.state<_CounterState>(find.byType(_Counter)), same(state));
+      expect(state.value, 1);
+    });
+
     testWidgets('advancing a step rebuilds only the two steps involved', (tester) async {
       // The step being left and the step being entered - and nothing else,
       // however long the tour is. A plain InheritedWidget would rebuild every
@@ -3293,4 +3359,22 @@ class _RebuildHostState extends State<_RebuildHost> {
 
   @override
   Widget build(BuildContext context) => widget.builder(context);
+}
+
+/// A child with State, used to prove a showcased widget is not rebuilt from
+/// scratch when its step opens or closes.
+class _Counter extends StatefulWidget {
+  const _Counter();
+
+  @override
+  State<_Counter> createState() => _CounterState();
+}
+
+class _CounterState extends State<_Counter> {
+  int value = 0;
+
+  void bump() => setState(() => value++);
+
+  @override
+  Widget build(BuildContext context) => Text('$value');
 }
