@@ -7,10 +7,10 @@ on:
       - '**.yaml'
       - '**.yml'
     branches:
-      - master
+      - main
   pull_request:
     branches:
-      - master
+      - main
 
 jobs:
   build:
