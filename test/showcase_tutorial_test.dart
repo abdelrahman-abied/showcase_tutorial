@@ -3288,6 +3288,152 @@ void main() {
       expect(() => ShowCaseWidget.of(context).startShowCase(keys), throwsException);
     });
   });
+
+  group('tour-wide action buttons', () {
+    const globalKeyed = ValueKey('global-actions');
+    const perStepKeyed = ValueKey('per-step-actions');
+
+    Widget tour({
+      required List<GlobalKey> keys,
+      WidgetBuilder? globalActions,
+      ActionsSettings? globalActionSettings,
+      List<GlobalKey> hideActionsForShowcase = const [],
+      TooltipActionPosition actionsPosition = TooltipActionPosition.outside,
+      Widget? stepZeroActions,
+      TooltipActionPosition? stepZeroActionsPosition,
+    }) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          globalActions: globalActions,
+          globalActionSettings: globalActionSettings,
+          hideActionsForShowcase: hideActionsForShowcase,
+          actionsPosition: actionsPosition,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Column(
+                children: [
+                  for (var i = 0; i < keys.length; i++)
+                    Showcase(
+                      key: keys[i],
+                      title: 'Step $i',
+                      description: 'd',
+                      actions: i == 0 ? stepZeroActions : null,
+                      actionsPosition: i == 0 ? stepZeroActionsPosition : null,
+                      child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('globalActions show on a step that declares none of its own', (tester) async {
+      final keys = List.generate(2, (_) => GlobalKey());
+      await tester.pumpWidget(
+        tour(keys: keys, globalActions: (_) => const SizedBox(key: globalKeyed, height: 20)),
+      );
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(globalKeyed), findsOneWidget);
+
+      // ...and on the next step too, without repeating `actions:` per step.
+      ShowCaseWidget.of(context).next();
+      await tester.pumpAndSettle();
+      expect(find.byKey(globalKeyed), findsOneWidget);
+    });
+
+    testWidgets('a per-step actions widget wins over globalActions', (tester) async {
+      final keys = List.generate(2, (_) => GlobalKey());
+      await tester.pumpWidget(
+        tour(
+          keys: keys,
+          globalActions: (_) => const SizedBox(key: globalKeyed, height: 20),
+          stepZeroActions: const SizedBox(key: perStepKeyed, height: 20),
+        ),
+      );
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(perStepKeyed), findsOneWidget);
+      expect(find.byKey(globalKeyed), findsNothing);
+    });
+
+    testWidgets('hideActionsForShowcase suppresses the global actions on that step only', (tester) async {
+      final keys = List.generate(2, (_) => GlobalKey());
+      await tester.pumpWidget(
+        tour(
+          keys: keys,
+          globalActions: (_) => const SizedBox(key: globalKeyed, height: 20),
+          hideActionsForShowcase: [keys.first],
+        ),
+      );
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+      expect(find.byKey(globalKeyed), findsNothing, reason: 'hidden on the first step');
+
+      ShowCaseWidget.of(context).next();
+      await tester.pumpAndSettle();
+      expect(find.byKey(globalKeyed), findsOneWidget, reason: 'still shown on the others');
+    });
+
+    testWidgets('inside placement puts the actions in the tooltip box; outside does not', (tester) async {
+      final keys = List.generate(1, (_) => GlobalKey());
+
+      // The tooltip box is the ClipRRect the title lives in. Actions placed
+      // outside are a sibling of it in the Stack, so they have no such ancestor.
+      Finder insideTheBox() => find.ancestor(
+        of: find.byKey(globalKeyed),
+        matching: find.byType(ClipRRect),
+      );
+
+      await tester.pumpWidget(
+        tour(keys: keys, globalActions: (_) => const SizedBox(key: globalKeyed, height: 20)),
+      );
+      var context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+      expect(insideTheBox(), findsNothing, reason: 'outside is the default');
+
+      await tester.pumpWidget(
+        tour(
+          keys: keys,
+          globalActions: (_) => const SizedBox(key: globalKeyed, height: 20),
+          actionsPosition: TooltipActionPosition.inside,
+        ),
+      );
+      context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+      expect(insideTheBox(), findsWidgets, reason: 'inside draws within the tooltip box');
+    });
+
+    testWidgets('a per-step actionsPosition overrides the tour-wide one', (tester) async {
+      final keys = List.generate(1, (_) => GlobalKey());
+      await tester.pumpWidget(
+        tour(
+          keys: keys,
+          globalActions: (_) => const SizedBox(key: globalKeyed, height: 20),
+          stepZeroActionsPosition: TooltipActionPosition.inside,
+        ),
+      );
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.ancestor(of: find.byKey(globalKeyed), matching: find.byType(ClipRRect)),
+        findsWidgets,
+      );
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

@@ -49,6 +49,21 @@ enum TooltipPosition {
 ///
 /// Set it on [ShowCaseWidget.progressStyle] (only applies when
 /// [ShowCaseWidget.showProgress] is `true`).
+/// Where a step's action buttons ([Showcase.actions]) are drawn relative to the
+/// tooltip.
+enum TooltipActionPosition {
+  /// Inside the tooltip, flowing below the title, description and progress
+  /// footer, so the tooltip grows to contain them.
+  inside,
+
+  /// Outside the tooltip box, positioned absolutely. This is how actions have
+  /// always been drawn, so it stays the default.
+  outside;
+
+  /// Whether the actions are drawn within the tooltip's own box.
+  bool get isInside => this == inside;
+}
+
 enum ShowcaseProgressStyle {
   /// One dot per step, with the active step highlighted (the default).
   dots,

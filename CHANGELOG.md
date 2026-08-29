@@ -27,7 +27,30 @@
 * Adds two regression tests: that advancing a step rebuilds exactly two
   `Showcase` widgets whatever the tour's length, and that a dependant which does
   not name a step still rebuilds on every step change.
-* FIX: **`enableShowcase` now takes effect at runtime.** Flipping it to `false`
+* FEAT: **tour-wide action buttons.** `ShowCaseWidget.globalActions` declares
+  the tooltip's Previous / Stop / Next row once for the whole tour instead of
+  repeating `actions:` on every `Showcase`. `globalActionSettings` and
+  `globalActionButtonsPosition` do the same for the styling and the absolute
+  placement, and `hideActionsForShowcase` takes the `GlobalKey`s of steps that
+  should not show them — the same pattern `globalFloatingActionWidget` and
+  `hideFloatingActionWidgetForShowcase` already use. A per-step
+  `Showcase.actions` still wins, and the styling and placement fall back
+  independently, so one step can change only its buttons and keep the tour's
+  look.
+* FEAT: **`TooltipActionPosition`** — action buttons can now be drawn *inside*
+  the tooltip box, flowing below the description and the progress footer, with
+  the tooltip growing to contain them. Set it tour-wide with
+  `ShowCaseWidget.actionsPosition` or per step with `Showcase.actionsPosition`.
+  Defaults to `TooltipActionPosition.outside`, the absolute placement actions
+  have always used, so nothing changes for existing tours. Inside actions
+  reserve 40 logical pixels of height unless `ActionsSettings.containerHeight`
+  says otherwise, because a widget you supply cannot be measured the way the
+  title and description are.
+* `Showcase.actionSettings` now defaults to `null` rather than an
+  all-null `ActionsSettings()`, which is what lets a step fall back to
+  `globalActionSettings`. The field was already nullable and every read inside
+  the package was null-safe, so rendering is unchanged.
+* * FIX: **`enableShowcase` now takes effect at runtime.** Flipping it to `false`
   while a tour was running left the overlay on screen: `ShowCaseWidget.builder`
   is a single stored widget instance, so nothing below it rebuilt and no
   `Showcase` ever learned the tour had been switched off. The flag is published

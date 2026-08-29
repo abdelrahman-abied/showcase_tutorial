@@ -87,6 +87,9 @@ class ToolTipWidget extends StatefulWidget {
   final ActionsSettings? actionSettings;
   final ActionButtonsPosition? actionButtonsPosition;
 
+  /// Whether [actions] are drawn inside the tooltip box or positioned outside.
+  final TooltipActionPosition actionsPosition;
+
   /// Whether to render a built-in step indicator in the default tooltip.
   final bool showProgress;
 
@@ -150,6 +153,7 @@ class ToolTipWidget extends StatefulWidget {
     this.actions,
     this.actionSettings,
     this.actionButtonsPosition,
+    this.actionsPosition = TooltipActionPosition.outside,
     this.showProgress = false,
     this.progressStyle = ShowcaseProgressStyle.dots,
     this.showSkip = false,
@@ -214,7 +218,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
               widget.tooltipPadding!.left +
               (widget.descriptionPadding?.right ?? 0) +
               (widget.descriptionPadding?.left ?? 0));
-    var maxTextWidth = max(max(titleLength, descriptionLength), _footerWidth);
+    var maxTextWidth = max(max(titleLength, descriptionLength), max(_footerWidth, _insideActionsWidth));
     if (maxTextWidth > widget.screenSize!.width - widget.toolTipMargin.horizontal) {
       tooltipWidth = widget.screenSize!.width - widget.toolTipMargin.horizontal;
     } else {
@@ -235,7 +239,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
         : (_textSize(widget.description!, descriptionStyle).height +
               widget.tooltipPadding!.bottom +
               widget.tooltipPadding!.top);
-    var maxTextHeight = titleLength + descriptionLength + _footerHeight;
+    var maxTextHeight = titleLength + descriptionLength + _footerHeight + _insideActionsHeight;
     if (maxTextHeight > widget.screenSize!.height - widget.toolTipMargin.vertical) {
       tooltipHeight = widget.screenSize!.height - widget.toolTipMargin.vertical;
     } else {
@@ -248,6 +252,41 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
 
   /// Reserved vertical space for the progress/skip footer.
   double get _footerHeight => _hasFooter ? 28.0 : 0.0;
+
+  /// Whether the action buttons flow inside the tooltip box rather than being
+  /// positioned outside it.
+  bool get _hasInsideActions => widget.actions != null && widget.actionsPosition.isInside;
+
+  /// Vertical space the tooltip reserves for inside actions.
+  ///
+  /// The widget belongs to the caller, so its height cannot be measured the way
+  /// the title and description are. [ActionsSettings.containerHeight] is how to
+  /// say how much room it needs; 40 matches the height the outside placement
+  /// has always given it.
+  double get _insideActionsHeight => _hasInsideActions ? (widget.actionSettings?.containerHeight ?? 40.0) : 0.0;
+
+  /// Width the tooltip reserves for inside actions, when the caller declared
+  /// one. Without it the actions take whatever width the text sets.
+  double get _insideActionsWidth {
+    if (!_hasInsideActions) return 0;
+    final declared = widget.actionSettings?.containerWidth;
+    if (declared == null) return 0;
+    return declared + widget.tooltipPadding!.left + widget.tooltipPadding!.right;
+  }
+
+  /// Builds the action row that flows inside the tooltip box, or `null` when
+  /// the actions are positioned outside it (or absent).
+  Widget? _buildInsideActions() {
+    if (!_hasInsideActions) return null;
+    return Padding(
+      padding: widget.actionSettings?.containerPadding ?? const EdgeInsets.only(top: 8),
+      child: SizedBox(
+        height: widget.actionSettings?.containerHeight,
+        width: widget.actionSettings?.containerWidth,
+        child: ColoredBox(color: widget.actionSettings?.containerColor ?? Colors.transparent, child: widget.actions),
+      ),
+    );
+  }
 
   /// The "current / total" label for the numeric progress style, e.g. `1/6`.
   /// [ToolTipWidget.currentStep] is zero-based, so it is shown one-based.
@@ -547,6 +586,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
                   ),
                 ),
               if (_hasFooter) _buildProgressFooter()!,
+              if (_hasInsideActions) _buildInsideActions()!,
             ],
           ),
         ),
@@ -737,6 +777,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
                                             ),
                                           ),
                                         if (_hasFooter) _buildProgressFooter()!,
+                                        if (_hasInsideActions) _buildInsideActions()!,
                                       ],
                                     ),
                                   ),
@@ -752,7 +793,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
               ),
             ),
           ),
-          if (widget.actions != null)
+          if (widget.actions != null && !widget.actionsPosition.isInside)
             Positioned(
               left: widget.actionButtonsPosition?.left ?? _getLeft(),
               right: widget.actionButtonsPosition?.right ?? _getRight(),
@@ -796,7 +837,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
             ),
           ),
         ),
-        if (widget.actions != null)
+        if (widget.actions != null && !widget.actionsPosition.isInside)
           Positioned(
             top: widget.actionButtonsPosition?.top ?? actionTopPosWithContainer,
             left: widget.actionButtonsPosition?.left ?? _getSpace(),

@@ -244,6 +244,45 @@ Showcase(
 );
 ```
 
+### Set the buttons once for the whole tour
+
+Repeating `actions:` on every step gets old fast. Declare them on
+`ShowCaseWidget` instead and every step gets them:
+
+```dart
+ShowCaseWidget(
+  globalActions: (context) => const ShowCaseDefaultActions(),
+  globalActionSettings: const ActionsSettings(containerHeight: 40),
+  // Steps that should not offer the buttons, e.g. a final "you're done" step.
+  hideActionsForShowcase: [_last],
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+A per-step `Showcase.actions` still wins wherever you set one, and
+`Showcase.actionSettings` / `Showcase.actionButtonsPosition` override the
+tour-wide styling and placement independently — so a step can change just its
+buttons and keep the tour's look.
+
+### Inside or outside the tooltip
+
+By default the buttons are positioned outside the tooltip box, which is how they
+have always been drawn. Set `actionsPosition` to draw them inside it instead, so
+they flow below the description and the tooltip grows to contain them:
+
+```dart
+ShowCaseWidget(
+  globalActions: (context) => const ShowCaseDefaultActions(),
+  actionsPosition: TooltipActionPosition.inside,
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+Tour-wide, or per step with `Showcase.actionsPosition`. Inside actions are given
+40 logical pixels of height by default; use `ActionsSettings.containerHeight`
+(and `containerWidth`) when yours need more, since the package cannot measure a
+widget you supply the way it measures the title and description.
+
 ## Progress indicator & Skip button
 
 Add a built-in step indicator and a skip control to the default tooltip — no
