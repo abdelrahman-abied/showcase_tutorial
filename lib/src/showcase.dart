@@ -359,6 +359,13 @@ class Showcase extends StatefulWidget {
   /// When `null` the buttons are positioned automatically.
   final ActionButtonsPosition? actionButtonsPosition;
 
+  /// Whether this step's [actions] are drawn inside the tooltip box or
+  /// positioned outside it.
+  ///
+  /// Overrides the tour-wide [ShowCaseWidget.actionsPosition]. Defaults to
+  /// `null` (use the tour-wide value).
+  final TooltipActionPosition? actionsPosition;
+
   /// Defines vertical position of tooltip respective to Target widget
   ///
   /// Defaults to adaptive into available space.
@@ -515,8 +522,9 @@ class Showcase extends StatefulWidget {
     this.titlePadding,
     this.descriptionPadding,
     this.actions,
-    this.actionSettings = const ActionsSettings(),
+    this.actionSettings,
     this.actionButtonsPosition,
+    this.actionsPosition,
     this.floatingActionWidget,
     this.autoPlayDelay,
     this.targetTooltipGap = 0.0,
@@ -574,8 +582,9 @@ class Showcase extends StatefulWidget {
     this.disableDefaultTargetGestures = false,
     this.tooltipPosition,
     this.actions,
-    this.actionSettings = const ActionsSettings(),
+    this.actionSettings,
     this.actionButtonsPosition,
+    this.actionsPosition,
     this.floatingActionWidget,
     this.autoPlayDelay,
     this.targetTooltipGap = 0.0,
@@ -1131,6 +1140,18 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     final Widget? floatingActionWidget = widget.floatingActionWidget ??
         (floatingSuppressed ? null : showcaseState.globalFloatingActionWidget?.call(context));
 
+    // Same precedence for the tooltip's action buttons: [Showcase.actions]
+    // wins, otherwise the tour-wide [ShowCaseWidget.globalActions] unless this
+    // step is in [hideActionsForShowcase]. The styling and placement fall back
+    // to the tour-wide values independently, so a step can override just its
+    // buttons and keep the tour's look.
+    final actionsSuppressed = showcaseState.hideActionsForShowcase.contains(widget.key);
+    final Widget? actions =
+        widget.actions ?? (actionsSuppressed ? null : showcaseState.globalActions?.call(context));
+    final actionSettings = widget.actionSettings ?? showcaseState.globalActionSettings;
+    final actionButtonsPosition = widget.actionButtonsPosition ?? showcaseState.globalActionButtonsPosition;
+    final actionsPosition = widget.actionsPosition ?? showcaseState.actionsPosition;
+
     // Hoisted so the (potentially full-screen, blurred) scrim is built once: a
     // plain color needs a ColoredBox, not the BoxDecoration/BoxPainter
     // machinery a decorated Container sets up.
@@ -1260,9 +1281,10 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                 tooltipPosition: widget.tooltipPosition,
                 titlePadding: widget.titlePadding,
                 descriptionPadding: widget.descriptionPadding,
-                actions: widget.actions,
-                actionSettings: widget.actionSettings,
-                actionButtonsPosition: widget.actionButtonsPosition,
+                actions: actions,
+                actionSettings: actionSettings,
+                actionButtonsPosition: actionButtonsPosition,
+                actionsPosition: actionsPosition,
                 showProgress: showcaseState.showProgress,
                 progressStyle: showcaseState.progressStyle,
                 showSkip: showcaseState.showSkip,

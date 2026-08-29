@@ -97,6 +97,40 @@ class ShowCaseWidget extends StatefulWidget {
   /// Defaults to an empty list.
   final List<GlobalKey> hideFloatingActionWidgetForShowcase;
 
+  /// Action buttons shown in **every** step's tooltip — typically a
+  /// [ShowCaseDefaultActions] with Previous / Stop / Next.
+  ///
+  /// Set it once for the tour instead of repeating `actions:` on every
+  /// [Showcase]. Built lazily per step, so it can read the current tour state
+  /// via `ShowCaseWidget.of(context)`. A per-step [Showcase.actions] overrides
+  /// this, and [hideActionsForShowcase] suppresses it on specific steps.
+  /// Defaults to `null` (no actions).
+  final WidgetBuilder? globalActions;
+
+  /// Container styling for [globalActions]. Overridden by a per-step
+  /// [Showcase.actionSettings]. Defaults to `null`.
+  final ActionsSettings? globalActionSettings;
+
+  /// Absolute placement for [globalActions] when [actionsPosition] is
+  /// [TooltipActionPosition.outside]. Overridden by a per-step
+  /// [Showcase.actionButtonsPosition]. Defaults to `null` (auto).
+  final ActionButtonsPosition? globalActionButtonsPosition;
+
+  /// Whether action buttons are drawn inside the tooltip box or positioned
+  /// outside it, for every step of the tour.
+  ///
+  /// Overridden per step by [Showcase.actionsPosition]. Defaults to
+  /// [TooltipActionPosition.outside], which is how actions have always been
+  /// drawn, so existing tours are unaffected.
+  final TooltipActionPosition actionsPosition;
+
+  /// The [GlobalKey]s of the steps on which [globalActions] should be hidden —
+  /// e.g. a final step that should not offer "Next".
+  ///
+  /// Ignored by a per-step [Showcase.actions], which always wins.
+  /// Defaults to an empty list.
+  final List<GlobalKey> hideActionsForShowcase;
+
   /// Whether all showcases will auto sequentially start
   /// having time interval of [autoPlayDelay] .
   ///
@@ -310,6 +344,11 @@ class ShowCaseWidget extends StatefulWidget {
     this.onBarrierClick,
     this.globalFloatingActionWidget,
     this.hideFloatingActionWidgetForShowcase = const [],
+    this.globalActions,
+    this.globalActionSettings,
+    this.globalActionButtonsPosition,
+    this.actionsPosition = TooltipActionPosition.outside,
+    this.hideActionsForShowcase = const [],
     this.autoPlay = false,
     this.autoPlayDelay = const Duration(milliseconds: 2000),
     this.enableAutoPlayLock = false,
@@ -429,6 +468,21 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Value of [ShowCaseWidget.hideFloatingActionWidgetForShowcase].
   List<GlobalKey> get hideFloatingActionWidgetForShowcase =>
       widget.hideFloatingActionWidgetForShowcase;
+
+  /// Value of [ShowCaseWidget.globalActions].
+  WidgetBuilder? get globalActions => widget.globalActions;
+
+  /// Value of [ShowCaseWidget.globalActionSettings].
+  ActionsSettings? get globalActionSettings => widget.globalActionSettings;
+
+  /// Value of [ShowCaseWidget.globalActionButtonsPosition].
+  ActionButtonsPosition? get globalActionButtonsPosition => widget.globalActionButtonsPosition;
+
+  /// Value of [ShowCaseWidget.actionsPosition].
+  TooltipActionPosition get actionsPosition => widget.actionsPosition;
+
+  /// Value of [ShowCaseWidget.hideActionsForShowcase].
+  List<GlobalKey> get hideActionsForShowcase => widget.hideActionsForShowcase;
 
   /// Value of [ShowCaseWidget.enableShowcase].
   bool get enableShowcase => widget.enableShowcase;

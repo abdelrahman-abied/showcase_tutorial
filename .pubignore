@@ -55,6 +55,10 @@ tool/
 # but it is not part of the example anyone reads on pub.dev.
 example/lib/perf_harness.dart
 
+# Maintainer test for the example app's own wiring. The example sources ship so
+# the pub.dev "Example" tab works; its tests are not part of that.
+example/test/
+
 # Head-to-head benchmark against showcaseview. A separate project (it depends on
 # a competing package), maintainer-only, and irrelevant to package consumers.
 benchmark/
