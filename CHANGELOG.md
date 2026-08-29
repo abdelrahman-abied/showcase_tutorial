@@ -20,6 +20,17 @@
 * `lib/src/layout_overlays.dart` is deleted. It was never exported from
   `package:showcase_tutorial/showcase_tutorial.dart`, so this is not a public API
   change; only code reaching into `src/` directly would notice.
+* FIX: **outside action buttons no longer draw off screen.** For a tooltip above
+  its target the action row is placed above the tooltip, which ran past the top
+  edge when the target was near it — the buttons drew over the status bar,
+  clipped, at `top: -118` in the case that found this. They are now held inside
+  `toolTipMargin`, like the tooltip already was. An explicit
+  `Showcase.actionButtonsPosition` is still honoured exactly and never clamped.
+  Found by running the example on a device once `globalActions` put buttons on
+  every step, including ones at the screen edge.
+  * Even clamped, `TooltipActionPosition.outside` has no room to spare on an
+    edge target and will crowd the tooltip. `inside` is the placement to use
+    when the buttons appear on every step; the README now says so.
 * Adds two regression tests: that an idle `Showcase` has exactly one child
   element and it is the child itself, and that a showcased widget keeps its
   `State` across a step opening and closing — the risk this refactor had to

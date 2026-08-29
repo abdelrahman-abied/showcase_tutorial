@@ -3271,6 +3271,44 @@ void main() {
       expect(insideTheBox(), findsWidgets, reason: 'inside draws within the tooltip box');
     });
 
+    testWidgets('outside actions stay on screen for a target near the top edge', (tester) async {
+      // A tooltip above its target puts the action row above the tooltip, which
+      // runs off the top of the screen when the target is near it: the buttons
+      // draw over the status bar, clipped. Found by running the example on a
+      // device, where every step gets the tour-wide actions.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            globalActions: (_) => const SizedBox(key: globalKeyed, height: 20, width: 80),
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Align(
+                  alignment: Alignment.topCenter,
+                  child: Showcase(
+                    key: key,
+                    title: 'Top',
+                    description: 'd',
+                    tooltipPosition: TooltipPosition.top,
+                    child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase([key]);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(globalKeyed), findsOneWidget);
+      expect(tester.getRect(find.byKey(globalKeyed)).top, greaterThanOrEqualTo(0));
+    });
+
     testWidgets('a per-step actionsPosition overrides the tour-wide one', (tester) async {
       final keys = List.generate(1, (_) => GlobalKey());
       await tester.pumpWidget(

@@ -676,6 +676,23 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
         ? (contentY + arrowHeight + tooltipHeight + widget.position!.getHeightContainer())
         : contentY - (arrowHeight + tooltipHeight + widget.position!.getHeightContainer());
 
+    // Keep the outside action row on screen. For a tooltip above its target the
+    // row is placed above the tooltip, which runs off the top edge when the
+    // target is near it -- the buttons then draw over the status bar, clipped.
+    // The tooltip itself is already held inside toolTipMargin; the actions were
+    // not. An explicit ActionButtonsPosition still wins: it is not clamped.
+    final screenH = widget.screenSize!.height;
+    double clampActionTop(double top, double height) {
+      final maxTop = max(widget.toolTipMargin.top, screenH - height - widget.toolTipMargin.bottom);
+      return top.clamp(widget.toolTipMargin.top, maxTop);
+    }
+
+    actionTopPos = clampActionTop(actionTopPos, min(tooltipHeight - arrowHeight, 40.0));
+    actionTopPosWithContainer = clampActionTop(
+      actionTopPosWithContainer,
+      widget.actionSettings?.containerHeight ?? 40.0,
+    );
+
     if (widget.container == null) {
       return Stack(
         children: [

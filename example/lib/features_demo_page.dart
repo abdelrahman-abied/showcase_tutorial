@@ -37,8 +37,9 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   bool _wideMargin =
       false; // on => the "R" step's tooltip is held further from the edges
   bool _glideSteps = false; // on => the highlight glides between targets
-  bool _actionsInside =
-      false; // on => the tour's buttons render inside the tooltip box
+  // Starts on: `outside` places the buttons absolutely, so on a step whose
+  // target sits near a screen edge they crowd the tooltip. Uncheck to compare.
+  bool _actionsInside = true;
   int _step = 0;
   int _total = 0;
   BarrierInteraction _barrier = BarrierInteraction.next;
