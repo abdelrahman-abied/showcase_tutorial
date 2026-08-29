@@ -35,6 +35,8 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   bool _wideGap = false; // on => the "C" step's tooltip sits further from it
   bool _wideMargin = false; // on => the "R" step's tooltip is held further from the edges
   bool _glideSteps = false; // on => the highlight glides between targets
+  bool _actionsInside =
+      false; // on => the tour's buttons render inside the tooltip box
   int _step = 0;
   int _total = 0;
   BarrierInteraction _barrier = BarrierInteraction.next;
@@ -70,6 +72,19 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
           ),
         ),
         hideFloatingActionWidgetForShowcase: [_bottom],
+        // Previous/Next declared once for the whole tour instead of on every
+        // Showcase. The "C" step sets its own `actions:`, which wins, and the
+        // first step is listed below because "Previous" has nowhere to go.
+        globalActions: (context) => ShowCaseDefaultActions(
+          previous: const ActionButtonConfig(text: 'Back'),
+          stop: const ActionButtonConfig(text: 'Skip'),
+          next: const ActionButtonConfig(text: 'Next'),
+        ),
+        hideActionsForShowcase: [_topLeft],
+        // Outside the tooltip box (the default) or flowing inside it.
+        actionsPosition: _actionsInside
+            ? TooltipActionPosition.inside
+            : TooltipActionPosition.outside,
         showProgress: true,
         progressStyle: _numericProgress
             ? ShowcaseProgressStyle.numeric
@@ -344,6 +359,14 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                                 setState(() => _glideSteps = v ?? false),
                             title: const Text(
                                 'Glide the highlight between steps (400ms)'),
+                          ),
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: _actionsInside,
+                            onChanged: (v) =>
+                                setState(() => _actionsInside = v ?? false),
+                            title: const Text(
+                                'Draw the tour buttons inside the tooltip'),
                           ),
                           CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
