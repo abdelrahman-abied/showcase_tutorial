@@ -2,40 +2,30 @@
 
 ## 1.15.1
 
-* PERF: **an idle `Showcase` no longer adds anything to the element tree.** Each
-  one wrapped its child in an `AnchoredOverlay` and an `OverlayBuilder` for the
-  life of the route, whether or not the tour was running — two elements per
-  step, rebuilt and re-scheduling post-frame work on every ancestor rebuild. The
-  overlay entry is owned by `Showcase`'s own `State` now, so `build` returns the
-  child and nothing else. Idle element counts go from `183 + 10N` to `183 + 8N`
-  for an `N`-step tour: 663 elements at 60 steps instead of 783, against
-  `showcaseview` 5.1.0's 661. This was the last measurement that grew with tour
-  length; what is left is a constant 2. Element rebuilds per step change also
-  drop from 125 to 121, and per tour start from 102 to 100.
-* The anchor is measured from the same render object as before — `build` returns
-  the child directly, so `Showcase`'s own render object *is* the target's, which
-  is what the wrapper measured. No behaviour, timing or API change: the entry is
-  still inserted after the frame, into the same `Overlay`, and removed when the
-  step closes or the widget is disposed.
-* `lib/src/layout_overlays.dart` is deleted. It was never exported from
-  `package:showcase_tutorial/showcase_tutorial.dart`, so this is not a public API
-  change; only code reaching into `src/` directly would notice.
-* FIX: **outside action buttons no longer draw off screen.** For a tooltip above
-  its target the action row is placed above the tooltip, which ran past the top
-  edge when the target was near it — the buttons drew over the status bar,
-  clipped, at `top: -118` in the case that found this. They are now held inside
-  `toolTipMargin`, like the tooltip already was. An explicit
-  `Showcase.actionButtonsPosition` is still honoured exactly and never clamped.
-  Found by running the example on a device once `globalActions` put buttons on
-  every step, including ones at the screen edge.
-  * Even clamped, `TooltipActionPosition.outside` has no room to spare on an
-    edge target and will crowd the tooltip. `inside` is the placement to use
-    when the buttons appear on every step; the README now says so.
-* Adds two regression tests: that an idle `Showcase` has exactly one child
-  element and it is the child itself, and that a showcased widget keeps its
-  `State` across a step opening and closing — the risk this refactor had to
-  avoid, since a child that changed position in the tree would be rebuilt from
-  scratch every time the tour highlighted it.
+* PERF: **an idle `Showcase` no longer adds anything to the element tree.** It
+  wrapped its child in an `AnchoredOverlay` + `OverlayBuilder` pair for the life
+  of the route; the overlay entry is owned by `Showcase`'s own `State` now, so
+  `build` returns the child and nothing else. Idle element counts go from
+  `183 + 10N` to `183 + 8N` — 663 at 60 steps instead of 783, against
+  `showcaseview` 5.1.0's 661. This was the last figure that grew with tour
+  length. Rebuilds per step change drop 125 → 121, per tour start 102 → 100.
+  No behaviour or API change; `lib/src/layout_overlays.dart` is deleted, and it
+  was never exported.
+* FIX: **a left/right step with action buttons no longer renders off screen.**
+  The horizontal layout path was skipped whenever a step had actions, dropping
+  it to the vertical layout, which positions the tooltip from the target with no
+  top clamp — the tooltip landed at `top: -158` for a target near the top edge.
+  Inside actions are part of the tooltip box the horizontal path already builds,
+  so they no longer trigger that fallback. Reachable on every left/right step
+  once `globalActions` is set.
+* FIX: **outside action buttons are held inside `toolTipMargin`**, as the
+  tooltip already was; they used to draw over the status bar, clipped, at
+  `top: -118`. An explicit `Showcase.actionButtonsPosition` is never clamped.
+  `TooltipActionPosition.outside` still has little room on an edge target —
+  prefer `inside` when the buttons appear on every step, as the README now says.
+* Adds four regression tests: an idle `Showcase` has exactly one child element
+  and it is the child; a showcased widget keeps its `State` across a step
+  opening and closing; and the two off-screen cases above.
 
 ## 1.15.0
 

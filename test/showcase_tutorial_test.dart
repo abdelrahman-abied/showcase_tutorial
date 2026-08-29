@@ -3306,7 +3306,61 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(globalKeyed), findsOneWidget);
-      expect(tester.getRect(find.byKey(globalKeyed)).top, greaterThanOrEqualTo(0));
+
+      final actions = tester.getRect(find.byKey(globalKeyed));
+      final tooltip = tester.getRect(find.text('Top'));
+
+      // On screen...
+      expect(actions.top, greaterThanOrEqualTo(0));
+      expect(actions.bottom, lessThanOrEqualTo(tester.view.physicalSize.height));
+      // ...and not on top of the tooltip. Clamping alone would satisfy the
+      // first check by pushing the buttons over the tooltip's own text.
+      expect(actions.overlaps(tooltip), isFalse);
+    });
+
+    testWidgets('a left/right step with inside actions stays on screen', (tester) async {
+      // Left/right placement has its own layout path, which was skipped
+      // whenever a step had actions -- the step fell back to the vertical
+      // layout, which positions the tooltip from the target with no top clamp
+      // and puts it off screen for a target near the top edge. Inside actions
+      // are part of the tooltip box the horizontal path already builds, so they
+      // must not trigger that fallback. Without the fix the title renders at
+      // top: -158.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            showProgress: true,
+            showSkip: true,
+            globalActions: (_) => const SizedBox(key: globalKeyed, height: 20, width: 200),
+            actionsPosition: TooltipActionPosition.inside,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Align(
+                  alignment: Alignment.topRight,
+                  child: Showcase(
+                    key: key,
+                    title: 'Title',
+                    description: 'beside the target',
+                    tooltipPosition: TooltipPosition.left,
+                    child: const SizedBox(height: 60, width: 60, child: Text('t')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase([key]);
+      await tester.pumpAndSettle();
+
+      for (final finder in [find.text('Title'), find.text('beside the target'), find.byKey(globalKeyed)]) {
+        expect(tester.getRect(finder).top, greaterThanOrEqualTo(0), reason: '${finder.description} is off screen');
+      }
     });
 
     testWidgets('a per-step actionsPosition overrides the tour-wide one', (tester) async {
