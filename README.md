@@ -283,6 +283,15 @@ Tour-wide, or per step with `Showcase.actionsPosition`. Inside actions are given
 (and `containerWidth`) when yours need more, since the package cannot measure a
 widget you supply the way it measures the title and description.
 
+**Prefer `inside` when the buttons are shown on every step.** `outside` positions
+them absolutely, above or below the tooltip depending on which way its arrow
+points. They are held inside `toolTipMargin` so they cannot run off screen, but
+on a step whose target sits near a screen edge there is no room left and they
+crowd the tooltip. `inside` has no such problem: the tooltip grows to fit them.
+Use `outside` when you want the buttons detached from the tooltip and you know
+the targets have room, or place them yourself with
+`Showcase.actionButtonsPosition`, which is never clamped.
+
 ## Progress indicator & Skip button
 
 Add a built-in step indicator and a skip control to the default tooltip — no

@@ -627,11 +627,18 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     widget.position?.invalidate();
     position = widget.offset;
 
-    // Left/right placement uses a dedicated horizontal layout path. (Custom
-    // containers and action buttons keep the vertical layout.)
+    // Left/right placement uses a dedicated horizontal layout path. A custom
+    // container keeps the vertical layout, and so do *outside* actions, which
+    // need the absolute Positioned that only the vertical path emits.
+    //
+    // Inside actions are part of the tooltip box, which the horizontal path
+    // already builds, so they must not force the fallback: doing so put a
+    // left/right step back on the vertical path, where the tooltip is placed
+    // from the target with no top clamp and lands off screen for a target near
+    // the top edge. Reachable on every step once `globalActions` is set.
     final tp = widget.tooltipPosition;
     if (widget.container == null &&
-        widget.actions == null &&
+        (widget.actions == null || widget.actionsPosition.isInside) &&
         widget.position != null &&
         (tp == TooltipPosition.left || tp == TooltipPosition.right)) {
       return _buildHorizontalTooltip(isLeft: tp == TooltipPosition.left);
@@ -675,6 +682,23 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     var actionTopPosWithContainer = isArrowUp
         ? (contentY + arrowHeight + tooltipHeight + widget.position!.getHeightContainer())
         : contentY - (arrowHeight + tooltipHeight + widget.position!.getHeightContainer());
+
+    // Hold the outside action row inside toolTipMargin, as the tooltip already
+    // is. The row sits on the far side of the tooltip from the target, which
+    // has no room when the tooltip is against a screen edge: the buttons drew
+    // over the status bar, clipped. An explicit ActionButtonsPosition is
+    // honoured exactly and never clamped.
+    final screenH = widget.screenSize!.height;
+    double clampActionTop(double top, double height) {
+      final maxTop = max(widget.toolTipMargin.top, screenH - height - widget.toolTipMargin.bottom);
+      return top.clamp(widget.toolTipMargin.top, maxTop);
+    }
+
+    actionTopPos = clampActionTop(actionTopPos, min(tooltipHeight - arrowHeight, 40.0));
+    actionTopPosWithContainer = clampActionTop(
+      actionTopPosWithContainer,
+      widget.actionSettings?.containerHeight ?? 40.0,
+    );
 
     if (widget.container == null) {
       return Stack(

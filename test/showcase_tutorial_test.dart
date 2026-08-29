@@ -410,6 +410,72 @@ void main() {
       return counts['Showcase'] ?? 0;
     }
 
+    testWidgets('an idle Showcase wraps its child in nothing', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(manySteps([key]));
+
+      // The overlay entry is owned by the State, so the element below Showcase
+      // is the child itself. It used to be an AnchoredOverlay wrapping an
+      // OverlayBuilder, two elements per step whether or not the tour ran.
+      final children = <Element>[];
+      tester.element(find.byType(Showcase)).visitChildren(children.add);
+
+      expect(children, hasLength(1));
+      expect(children.single.widget, isA<SizedBox>());
+    });
+
+    testWidgets('the child keeps its state when a step opens and closes', (tester) async {
+      // Moving overlay ownership out of wrapper widgets is only safe if the
+      // child's position in the tree does not change with the tour: otherwise
+      // every highlighted widget would lose its State each time it is shown.
+      final keys = List.generate(2, (_) => GlobalKey());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Column(
+                  children: [
+                    Showcase(
+                      key: keys[0],
+                      title: 'One',
+                      description: 'd',
+                      child: const SizedBox(height: 20, width: 100, child: _Counter()),
+                    ),
+                    Showcase(
+                      key: keys[1],
+                      title: 'Two',
+                      description: 'd',
+                      child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final state = tester.state<_CounterState>(find.byType(_Counter));
+      state.bump();
+      await tester.pump();
+      expect(state.value, 1);
+
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase(keys);
+      await tester.pumpAndSettle();
+      ShowCaseWidget.of(context).next();
+      await tester.pumpAndSettle();
+      ShowCaseWidget.of(context).dismiss();
+      await tester.pumpAndSettle();
+
+      // Same State object, same value: the child was never rebuilt from scratch.
+      expect(tester.state<_CounterState>(find.byType(_Counter)), same(state));
+      expect(state.value, 1);
+    });
+
     testWidgets('advancing a step rebuilds only the two steps involved', (tester) async {
       // The step being left and the step being entered - and nothing else,
       // however long the tour is. A plain InheritedWidget would rebuild every
@@ -3205,6 +3271,98 @@ void main() {
       expect(insideTheBox(), findsWidgets, reason: 'inside draws within the tooltip box');
     });
 
+    testWidgets('outside actions stay on screen for a target near the top edge', (tester) async {
+      // A tooltip above its target puts the action row above the tooltip, which
+      // runs off the top of the screen when the target is near it: the buttons
+      // draw over the status bar, clipped. Found by running the example on a
+      // device, where every step gets the tour-wide actions.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            globalActions: (_) => const SizedBox(key: globalKeyed, height: 20, width: 80),
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Align(
+                  alignment: Alignment.topCenter,
+                  child: Showcase(
+                    key: key,
+                    title: 'Top',
+                    description: 'd',
+                    tooltipPosition: TooltipPosition.top,
+                    child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase([key]);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(globalKeyed), findsOneWidget);
+
+      final actions = tester.getRect(find.byKey(globalKeyed));
+      final tooltip = tester.getRect(find.text('Top'));
+
+      // On screen...
+      expect(actions.top, greaterThanOrEqualTo(0));
+      expect(actions.bottom, lessThanOrEqualTo(tester.view.physicalSize.height));
+      // ...and not on top of the tooltip. Clamping alone would satisfy the
+      // first check by pushing the buttons over the tooltip's own text.
+      expect(actions.overlaps(tooltip), isFalse);
+    });
+
+    testWidgets('a left/right step with inside actions stays on screen', (tester) async {
+      // Left/right placement has its own layout path, which was skipped
+      // whenever a step had actions -- the step fell back to the vertical
+      // layout, which positions the tooltip from the target with no top clamp
+      // and puts it off screen for a target near the top edge. Inside actions
+      // are part of the tooltip box the horizontal path already builds, so they
+      // must not trigger that fallback. Without the fix the title renders at
+      // top: -158.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            showProgress: true,
+            showSkip: true,
+            globalActions: (_) => const SizedBox(key: globalKeyed, height: 20, width: 200),
+            actionsPosition: TooltipActionPosition.inside,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Align(
+                  alignment: Alignment.topRight,
+                  child: Showcase(
+                    key: key,
+                    title: 'Title',
+                    description: 'beside the target',
+                    tooltipPosition: TooltipPosition.left,
+                    child: const SizedBox(height: 60, width: 60, child: Text('t')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final context = tester.element(find.byType(Scaffold));
+      ShowCaseWidget.of(context).startShowCase([key]);
+      await tester.pumpAndSettle();
+
+      for (final finder in [find.text('Title'), find.text('beside the target'), find.byKey(globalKeyed)]) {
+        expect(tester.getRect(finder).top, greaterThanOrEqualTo(0), reason: '${finder.description} is off screen');
+      }
+    });
+
     testWidgets('a per-step actionsPosition overrides the tour-wide one', (tester) async {
       final keys = List.generate(1, (_) => GlobalKey());
       await tester.pumpWidget(
@@ -3293,4 +3451,22 @@ class _RebuildHostState extends State<_RebuildHost> {
 
   @override
   Widget build(BuildContext context) => widget.builder(context);
+}
+
+/// A child with State, used to prove a showcased widget is not rebuilt from
+/// scratch when its step opens or closes.
+class _Counter extends StatefulWidget {
+  const _Counter();
+
+  @override
+  State<_Counter> createState() => _CounterState();
+}
+
+class _CounterState extends State<_Counter> {
+  int value = 0;
+
+  void bump() => setState(() => value++);
+
+  @override
+  Widget build(BuildContext context) => Text('$value');
 }

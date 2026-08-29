@@ -32,7 +32,6 @@ import 'package:flutter/services.dart';
 
 import '../showcase_tutorial.dart';
 import 'get_position.dart';
-import 'layout_overlays.dart';
 import 'shape_clipper.dart';
 import 'tooltip_widget.dart';
 import 'utilities/_showcase_context_provider.dart';
@@ -659,6 +658,12 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   /// step opens.
   List<_TargetSnapshot> _multiSnapshots = const [];
 
+  /// This step's overlay entry, mounted only while the step is showing.
+  ///
+  /// Owned here instead of by an `AnchoredOverlay` / `OverlayBuilder` pair, so
+  /// an idle Showcase adds no elements to the tree.
+  OverlayEntry? _overlayEntry;
+
   /// Identifies the in-flight capture, so a capture started for a step that has
   /// since closed (or restarted) discards its images instead of showing them.
   Object? _snapshotToken;
@@ -667,6 +672,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
 
   @override
   void dispose() {
+    _removeOverlayEntry();
     _releaseSnapshots();
     _focusNode.dispose();
     _transitionController?.dispose();
@@ -931,29 +937,87 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    if (_enableShowcase) {
-      return AnchoredOverlay(
-        overlayBuilder: (context, rectBound, offset) {
-          final size = MediaQuery.sizeOf(context);
-          position = GetPosition(
-            key: widget.key,
-            padding: widget.targetPadding,
-            screenWidth: size.width,
-            screenHeight: size.height,
-          );
+    // The overlay entry is owned by this State rather than by wrapper widgets,
+    // so an idle Showcase contributes nothing to the element tree beyond
+    // itself: `build` returns the child, and nothing else.
+    _syncOverlayEntry();
+    // Wrap in a RepaintBoundary so the target can be captured as a snapshot
+    // and highlighted in its exact painted shape.
+    return widget.highlightExactShape ? RepaintBoundary(key: _childBoundaryKey, child: widget.child) : widget.child;
+  }
 
-          return buildOverlayOnTarget(offset, rectBound.size, rectBound, size);
-        },
-        // Only the active step mounts an OverlayEntry. Otherwise every Showcase
-        // on the screen keeps one inserted for the whole life of the route, and
-        // each is rebuilt on every ancestor rebuild just to return an empty box.
-        showOverlay: _showShowCase,
-        // Wrap in a RepaintBoundary so the target can be captured as a snapshot
-        // and highlighted in its exact painted shape.
-        child: widget.highlightExactShape ? RepaintBoundary(key: _childBoundaryKey, child: widget.child) : widget.child,
-      );
-    }
-    return widget.child;
+  /// Inserts, refreshes or removes this step's [OverlayEntry] so it matches
+  /// [_showShowCase].
+  ///
+  /// Always deferred to after the frame: the entry's builder reads the target's
+  /// render object, which has to be laid out first. When the step is idle and
+  /// owns no entry this returns without scheduling anything, so a screen full
+  /// of inactive steps costs nothing per build.
+  void _syncOverlayEntry() {
+    final shouldShow = _enableShowcase && _showShowCase;
+    if (!shouldShow && _overlayEntry == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        _removeOverlayEntry();
+        return;
+      }
+      if (!(_enableShowcase && _showShowCase)) {
+        _removeOverlayEntry();
+        return;
+      }
+      final entry = _overlayEntry;
+      if (entry != null) {
+        entry.markNeedsBuild();
+        return;
+      }
+      final created = OverlayEntry(builder: _buildOverlayEntry);
+      _overlayEntry = created;
+      // Prefer the ShowCaseWidget's own Overlay so the showcase paints above
+      // the whole tour, and fall back to the nearest one.
+      final showcaseContext = showCaseWidgetState.context;
+      final overlay = Overlay.maybeOf(showcaseContext) ?? Overlay.maybeOf(context);
+      if (overlay == null) {
+        _overlayEntry = null;
+        return;
+      }
+      overlay.insert(created);
+    });
+  }
+
+  /// Removes the overlay entry if one is mounted. Safe to call repeatedly.
+  void _removeOverlayEntry() {
+    final entry = _overlayEntry;
+    _overlayEntry = null;
+    if (entry != null && entry.mounted) entry.remove();
+  }
+
+  /// Builds this step's overlay: the scrim, the cut-out and the tooltip.
+  ///
+  /// The anchor is this Showcase's own render object. [build] returns the child
+  /// directly, so that box *is* the target -- the same one the wrapper widgets
+  /// used to measure from.
+  Widget _buildOverlayEntry(BuildContext overlayContext) {
+    final box = context.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize) return const SizedBox.shrink();
+
+    final origin = box.localToGlobal(Offset.zero);
+    final topLeft = box.size.topLeft(origin);
+    final bottomRight = box.size.bottomRight(origin);
+    final anchorBounds = (topLeft.dx.isNaN || topLeft.dy.isNaN || bottomRight.dx.isNaN || bottomRight.dy.isNaN)
+        ? Rect.zero
+        : Rect.fromLTRB(topLeft.dx, topLeft.dy, bottomRight.dx, bottomRight.dy);
+    final anchorCenter = box.size.center(topLeft);
+
+    final size = MediaQuery.sizeOf(overlayContext);
+    position = GetPosition(
+      key: widget.key,
+      padding: widget.targetPadding,
+      screenWidth: size.width,
+      screenHeight: size.height,
+    );
+
+    return buildOverlayOnTarget(anchorCenter, anchorBounds.size, anchorBounds, size);
   }
 
   Future<void> _nextIfAny() async {

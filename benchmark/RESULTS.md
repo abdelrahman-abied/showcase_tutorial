@@ -123,6 +123,24 @@ Every figure on both sides is now flat in tour length except the idle element
 counts, which are linear on both. The package had exactly one metric that grew
 against a constant; it no longer does.
 
+### Idle element counts, closed in 1.15.1
+
+Each `Showcase` used to wrap its child in an `AnchoredOverlay` + `OverlayBuilder`
+pair for the life of the route. The overlay entry is owned by the `State` now, so
+`build` returns the child and nothing else:
+
+| steps | 1.15.0 | 1.15.1 | showcaseview |
+| ----: | -----: | -----: | -----------: |
+| 5  | 233 | **223** | 221 |
+| 15 | 333 | **303** | 301 |
+| 30 | 483 | **423** | 421 |
+| 60 | 783 | **663** | 661 |
+
+`183 + 10N` becomes `183 + 8N`, the same slope as `showcaseview`. The gap at 60
+steps went from 122 elements to 2, and what remains is a constant rather than
+something that grows with the tour. Rebuilds per step change came down with it,
+125 to 121, and per tour start 102 to 100.
+
 ### Where the remaining CPU gap comes from, and why it was left alone
 
 The gap is not explained by rebuild counts. It is the per-frame animation path.

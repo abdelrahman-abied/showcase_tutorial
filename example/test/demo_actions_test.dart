@@ -58,7 +58,7 @@ void main() {
     expect(find.text('Back'), findsOneWidget);
   });
 
-  testWidgets('demo: the inside toggle moves the buttons into the tooltip', (
+  testWidgets('demo: the toggle moves the buttons in and out of the tooltip', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1400, 2400);
@@ -68,27 +68,40 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: FeaturesDemoPage()));
     await tester.pumpAndSettle();
 
+    final context = tester.element(find.text('Start tour'));
+
+    // Inside placement puts the buttons within the tooltip's own clipped box;
+    // outside is a sibling of it in the overlay Stack. The demo starts on
+    // inside, because outside crowds the tooltip on steps whose targets sit
+    // near a screen edge.
+    Finder insideTheBox() => find.ancestor(
+      of: find.byType(ShowCaseDefaultActions),
+      matching: find.byType(ClipRRect),
+    );
+
+    Future<void> runToSecondStep() async {
+      await tester.tap(find.text('Start tour'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      // Step 0 suppresses the actions, so move to one that shows them.
+      ShowCaseWidget.of(context).next();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    await runToSecondStep();
+    expect(insideTheBox(), findsWidgets, reason: 'the demo starts inside');
+
+    ShowCaseWidget.of(context).dismiss();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Draw the tour buttons inside the tooltip'));
     await tester.pumpAndSettle();
 
-    final context = tester.element(find.text('Start tour'));
-    await tester.tap(find.text('Start tour'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-
-    // Step 0 suppresses the actions, so move to one that shows them.
-    ShowCaseWidget.of(context).next();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-
-    // Inside placement puts the buttons within the tooltip's own clipped box;
-    // the outside placement is a sibling of it in the overlay Stack.
+    await runToSecondStep();
     expect(
-      find.ancestor(
-        of: find.byType(ShowCaseDefaultActions),
-        matching: find.byType(ClipRRect),
-      ),
-      findsWidgets,
+      insideTheBox(),
+      findsNothing,
+      reason: 'unchecking moves them outside',
     );
   });
 }
