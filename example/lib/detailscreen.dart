@@ -35,10 +35,7 @@ class _DetailState extends State<Detail> {
               backgroundColor: Colors.transparent,
               elevation: 0,
               leading: IconButton(
-                icon: const Icon(
-                  Icons.arrow_back,
-                  color: Colors.black,
-                ),
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
                 onPressed: () {
                   Navigator.pop(context);
                 },
@@ -63,17 +60,13 @@ class _DetailState extends State<Detail> {
                       ),
                     ),
                   ),
-                  const SizedBox(
-                    height: 16,
-                  ),
+                  const SizedBox(height: 16),
                   const Text(
                     'Hi, you have new Notification from flutter group, open '
                     'slack and check it out',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
                   ),
-                  const SizedBox(
-                    height: 16,
-                  ),
+                  const SizedBox(height: 16),
                   RichText(
                     text: const TextSpan(
                       style: TextStyle(
@@ -83,7 +76,8 @@ class _DetailState extends State<Detail> {
                       children: [
                         TextSpan(text: 'Hi team,\n\n'),
                         TextSpan(
-                          text: 'As some of you know, we’re moving to Slack for '
+                          text:
+                              'As some of you know, we’re moving to Slack for '
                               'our internal team communications. Slack is a '
                               'messaging app where we can talk, share files, '
                               'and work together. It also connects with tools '
@@ -98,7 +92,8 @@ class _DetailState extends State<Detail> {
                           ),
                         ),
                         TextSpan(
-                          text: 'We want to use the best communication tools to '
+                          text:
+                              'We want to use the best communication tools to '
                               'make our lives easier and be more productive. '
                               'Having everything in one place will help us '
                               'work together better and faster, rather than '

@@ -30,10 +30,12 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
   bool _rtl = false;
   bool _numericProgress = false; // dots vs "1/6" progress indicator
   bool _includeConditional = false; // off => that step is auto-skipped
-  bool _branchSkipAhead = false; // on => branch from P straight to the last step
+  bool _branchSkipAhead =
+      false; // on => branch from P straight to the last step
   bool _autoPlay = false; // on => the tour auto-advances (1.5s/step)
   bool _wideGap = false; // on => the "C" step's tooltip sits further from it
-  bool _wideMargin = false; // on => the "R" step's tooltip is held further from the edges
+  bool _wideMargin =
+      false; // on => the "R" step's tooltip is held further from the edges
   bool _glideSteps = false; // on => the highlight glides between targets
   bool _actionsInside =
       false; // on => the tour's buttons render inside the tooltip box
@@ -105,9 +107,11 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
               appBar: AppBar(
                 backgroundColor: const Color(0xff0077b6),
                 foregroundColor: Colors.white,
-                title: Text(show.isShowcaseRunning
-                    ? 'Step $_step of $_total  ·  $_lastEvent'
-                    : 'Feature demos (1.14.0)'),
+                title: Text(
+                  show.isShowcaseRunning
+                      ? 'Step $_step of $_total  ·  $_lastEvent'
+                      : 'Feature demos (1.14.0)',
+                ),
                 actions: [
                   const Center(child: Text('1/6')),
                   Switch(
@@ -197,7 +201,8 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                         // tour-wide 1.5s when auto-play is on.
                         autoPlayDelay: const Duration(seconds: 4),
                         title: 'Exact shape',
-                        description: 'Highlight hugs the star. Lingers 4s in auto-play.',
+                        description:
+                            'Highlight hugs the star. Lingers 4s in auto-play.',
                         child: const Icon(
                           Icons.star,
                           size: 72,
@@ -330,19 +335,21 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                             _centerRect == null
                                 ? 'onTargetRectUpdate ("C"): —'
                                 : 'onTargetRectUpdate ("C"): '
-                                    '${_centerRect!.left.toStringAsFixed(0)},'
-                                    '${_centerRect!.top.toStringAsFixed(0)} '
-                                    '${_centerRect!.width.toStringAsFixed(0)}×'
-                                    '${_centerRect!.height.toStringAsFixed(0)}',
+                                      '${_centerRect!.left.toStringAsFixed(0)},'
+                                      '${_centerRect!.top.toStringAsFixed(0)} '
+                                      '${_centerRect!.width.toStringAsFixed(0)}×'
+                                      '${_centerRect!.height.toStringAsFixed(0)}',
                             style: const TextStyle(fontSize: 12),
                           ),
                           CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
                             value: _includeConditional,
-                            onChanged: (v) =>
-                                setState(() => _includeConditional = v ?? false),
+                            onChanged: (v) => setState(
+                              () => _includeConditional = v ?? false,
+                            ),
                             title: const Text(
-                                'Include conditional step (off → auto-skipped)'),
+                              'Include conditional step (off → auto-skipped)',
+                            ),
                           ),
                           CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
@@ -350,7 +357,8 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                             onChanged: (v) =>
                                 setState(() => _branchSkipAhead = v ?? false),
                             title: const Text(
-                                'Branch: skip from P straight to the last step'),
+                              'Branch: skip from P straight to the last step',
+                            ),
                           ),
                           CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
@@ -358,7 +366,8 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                             onChanged: (v) =>
                                 setState(() => _glideSteps = v ?? false),
                             title: const Text(
-                                'Glide the highlight between steps (400ms)'),
+                              'Glide the highlight between steps (400ms)',
+                            ),
                           ),
                           CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
@@ -366,7 +375,8 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                             onChanged: (v) =>
                                 setState(() => _actionsInside = v ?? false),
                             title: const Text(
-                                'Draw the tour buttons inside the tooltip'),
+                              'Draw the tour buttons inside the tooltip',
+                            ),
                           ),
                           CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
@@ -374,7 +384,8 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                             onChanged: (v) =>
                                 setState(() => _autoPlay = v ?? false),
                             title: const Text(
-                                'Auto-play (1.5s/step; the star step lingers 4s)'),
+                              'Auto-play (1.5s/step; the star step lingers 4s)',
+                            ),
                           ),
                           CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
@@ -382,7 +393,8 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                             onChanged: (v) =>
                                 setState(() => _wideGap = v ?? false),
                             title: const Text(
-                                'Wide tooltip gap (the "C" step sits further away)'),
+                              'Wide tooltip gap (the "C" step sits further away)',
+                            ),
                           ),
                           CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
@@ -390,20 +402,24 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                             onChanged: (v) =>
                                 setState(() => _wideMargin = v ?? false),
                             title: const Text(
-                                'Wide tooltip margin (the "R" step held in from the edges)'),
+                              'Wide tooltip margin (the "R" step held in from the edges)',
+                            ),
                           ),
                           // Barrier-tap behavior: tap the dimmed background to see it.
                           SegmentedButton<BarrierInteraction>(
                             segments: const [
                               ButtonSegment(
-                                  value: BarrierInteraction.next,
-                                  label: Text('next')),
+                                value: BarrierInteraction.next,
+                                label: Text('next'),
+                              ),
                               ButtonSegment(
-                                  value: BarrierInteraction.dismiss,
-                                  label: Text('dismiss')),
+                                value: BarrierInteraction.dismiss,
+                                label: Text('dismiss'),
+                              ),
                               ButtonSegment(
-                                  value: BarrierInteraction.none,
-                                  label: Text('none')),
+                                value: BarrierInteraction.none,
+                                label: Text('none'),
+                              ),
                             ],
                             selected: {_barrier},
                             onSelectionChanged: (s) =>
@@ -436,8 +452,9 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
-                                        'The "?" target is not on screen — tick the '
-                                        'checkbox above first.'),
+                                      'The "?" target is not on screen — tick the '
+                                      'checkbox above first.',
+                                    ),
                                   ),
                                 );
                                 return;
@@ -500,11 +517,13 @@ class _StepListenerLabelState extends State<_StepListenerLabel> {
       ..addOnCompleteCallback(_onStepComplete);
   }
 
-  void _onStepStart(int? index, GlobalKey key) =>
-      setState(() => _label = 'registered listener: step ${(index ?? 0) + 1} started');
+  void _onStepStart(int? index, GlobalKey key) => setState(
+    () => _label = 'registered listener: step ${(index ?? 0) + 1} started',
+  );
 
-  void _onStepComplete(int? index, GlobalKey key) =>
-      setState(() => _label = 'registered listener: step ${(index ?? 0) + 1} completed');
+  void _onStepComplete(int? index, GlobalKey key) => setState(
+    () => _label = 'registered listener: step ${(index ?? 0) + 1} completed',
+  );
 
   void _unregister() {
     _controller?.removeOnStartCallback(_onStepStart);

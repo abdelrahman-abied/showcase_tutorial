@@ -16,8 +16,6 @@ class MultiView extends StatelessWidget {
   /// Builds a [RepaintBoundary] around [child] so its snapshot can be captured.
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: child,
-    );
+    return RepaintBoundary(child: child);
   }
 }

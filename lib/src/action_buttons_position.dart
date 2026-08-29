@@ -16,10 +16,5 @@ class ActionButtonsPosition {
   final double? bottom;
 
   /// Creates an [ActionButtonsPosition] from optional per-edge offsets.
-  const ActionButtonsPosition({
-    this.left,
-    this.right,
-    this.top,
-    this.bottom,
-  });
+  const ActionButtonsPosition({this.left, this.right, this.top, this.bottom});
 }

@@ -466,8 +466,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   WidgetBuilder? get globalFloatingActionWidget => widget.globalFloatingActionWidget;
 
   /// Value of [ShowCaseWidget.hideFloatingActionWidgetForShowcase].
-  List<GlobalKey> get hideFloatingActionWidgetForShowcase =>
-      widget.hideFloatingActionWidgetForShowcase;
+  List<GlobalKey> get hideFloatingActionWidgetForShowcase => widget.hideFloatingActionWidgetForShowcase;
 
   /// Value of [ShowCaseWidget.globalActions].
   WidgetBuilder? get globalActions => widget.globalActions;
@@ -764,10 +763,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     if (!mounted) return;
     // Capture the active step before clearing state so [ShowCaseWidget.onDismiss]
     // can report where the user left off.
-    final dismissedAt = (ids != null &&
-            activeWidgetId != null &&
-            activeWidgetId! >= 0 &&
-            activeWidgetId! < ids!.length)
+    final dismissedAt = (ids != null && activeWidgetId != null && activeWidgetId! >= 0 && activeWidgetId! < ids!.length)
         ? ids![activeWidgetId!]
         : null;
     setState(_cleanupAfterSteps);
@@ -863,11 +859,7 @@ class _InheritedShowCaseView extends InheritedModel<GlobalKey> {
   /// never rebuilt on its own.
   final bool enableShowcase;
 
-  const _InheritedShowCaseView({
-    required this.activeWidgetIds,
-    required this.enableShowcase,
-    required super.child,
-  });
+  const _InheritedShowCaseView({required this.activeWidgetIds, required this.enableShowcase, required super.child});
 
   @override
   bool updateShouldNotify(_InheritedShowCaseView oldWidget) =>

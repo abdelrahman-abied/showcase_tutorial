@@ -10,13 +10,10 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter ShowCase',
-      theme: ThemeData(
-        primaryColor: const Color(0xff0077b6),
-      ),
+      theme: ThemeData(primaryColor: const Color(0xff0077b6)),
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         body: ShowCaseWidget(
