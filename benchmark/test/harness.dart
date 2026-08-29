@@ -18,6 +18,23 @@ import 'package:flutter_test/flutter_test.dart';
 const int _windowFrames = 30;
 const Duration _frame = Duration(milliseconds: 16);
 
+/// The version of [package] actually resolved for this run, read from the
+/// benchmark's `pubspec.lock`.
+///
+/// The result labels used to carry hardcoded versions, which went stale the
+/// moment the package was bumped: a sweep run against 1.15.0 reported itself as
+/// 1.14.1. Reading the lockfile means a label can only ever name the version
+/// that was measured.
+String resolvedVersion(String package) {
+  final lock = File('pubspec.lock').readAsStringSync();
+  final match = RegExp(
+    '^  ${RegExp.escape(package)}:\$.*?^    version: "([^"]+)"',
+    multiLine: true,
+    dotAll: true,
+  ).firstMatch(lock);
+  return match?.group(1) ?? 'unknown';
+}
+
 abstract class Driver {
   String get name;
   Future<void> pump(WidgetTester tester, List<GlobalKey> keys);

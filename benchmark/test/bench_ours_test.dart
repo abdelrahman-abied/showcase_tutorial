@@ -8,7 +8,7 @@ class OursDriver extends Driver {
   late BuildContext ctx;
 
   @override
-  String get name => 'showcase_tutorial 1.14.1';
+  String get name => 'showcase_tutorial ${resolvedVersion('showcase_tutorial')}';
 
   @override
   Future<void> pump(WidgetTester tester, List<GlobalKey> keys) =>

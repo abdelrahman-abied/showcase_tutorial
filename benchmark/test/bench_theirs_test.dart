@@ -6,7 +6,7 @@ import 'package:showcaseview/showcaseview.dart' as theirs;
 
 class TheirsDriver extends Driver {
   @override
-  String get name => 'showcaseview 5.1.0';
+  String get name => 'showcaseview ${resolvedVersion('showcaseview')}';
 
   @override
   Future<void> pump(WidgetTester tester, List<GlobalKey> keys) async {

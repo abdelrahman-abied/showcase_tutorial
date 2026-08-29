@@ -149,19 +149,30 @@ together, inside the package's most feature-dense file (tooltip positions, RTL,
 arrow, actions, margins). High risk on the densest code for a saving no user can
 perceive.
 
-### A device measurement that did not reproduce
+### The device cannot rank these packages, and here is the evidence
 
-The first 1.15.0 profile run reported 222 of 1091 tour frames over 16 ms, with
-raster p90 at 15.79 ms against the 1.14.1 baseline's 6.69 ms. Two repeat runs did
-not reproduce it: 0 and 1 janky frames, raster p90 6.27 ms and 7.01 ms, in line
-with the baseline. Build time was unchanged or better in all three.
+Every profile run on the Infinix X687 draws the same scrim, cut-out and tooltip,
+so raster time should be near-constant. It is not. Across runs of the *same*
+workload in the same session, tour raster p50 ranged from **3.96 ms to 15.71 ms**.
 
-Recorded here rather than dropped, because it is the shape of result worth being
-suspicious of. Nothing in the change touches painting -- it only reduces which
-widgets are notified, and the painted output is identical -- so a raster-only
-effect with unchanged build time is not a mechanism this change has. A
-same-session 1.14.1 control was attempted and failed to collect frames, so this
-is "did not reproduce", not "ruled out".
+That spread is far larger than any difference between the two packages, so device
+numbers here can say "neither drops frames" and nothing finer. Treat any device
+ranking as noise unless it survives repetition on both sides.
+
+The artifact has a recognisable shape -- a raster-only spike, build time normal,
+raster p50 pinned near the 16 ms vsync boundary, and only ever in the tour phase,
+never in the steady phase. It was seen twice, on opposite sides:
+
+| run | janky frames | raster p50 | outcome |
+| --- | ---: | ---: | --- |
+| `showcase_tutorial` 1.15.0, first run | 222 / 1091 | 15.79 p90 | did not reproduce over 2 repeats (0 and 1 janky) |
+| `showcaseview` 5.1.0 | 801 / 1091 | 15.71 | did not reproduce on repeat (0 janky, 5.57 p50) |
+
+It landed on this package first, which is exactly when it would have been
+convenient to explain away as a competitor problem, and on `showcaseview` later,
+which is exactly when it would have been convenient to publish as a win. Neither
+is true: it is thermal or scheduling state on the phone, not a property of either
+package. Repeat before believing a device number here.
 
 ## Real frame timings on a device (`--profile`)
 
