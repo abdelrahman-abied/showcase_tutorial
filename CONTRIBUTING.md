@@ -99,7 +99,7 @@ void deprecatedFeature() {}
 
 ### Open a pull request
 
-Go to the [pull request page of ShowCaseView][PRs] and in the top
+Go to the [pull request page of showcase_tutorial][PRs] and in the top
 of the page it will ask you if you want to open a pull request from your newly created branch.
 
 The title of the pull request should start with a [conventional commit] type.
@@ -133,7 +133,7 @@ Examples of PR titles:
 
 ## Maintainers
 
-These instructions are for the maintainers of ShowCaseView.
+These instructions are for the maintainers of showcase_tutorial.
 
 
 ### Merging a pull request

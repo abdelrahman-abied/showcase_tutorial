@@ -2,30 +2,23 @@
 
 ## 1.15.1
 
-* PERF: **an idle `Showcase` no longer adds anything to the element tree.** It
-  wrapped its child in an `AnchoredOverlay` + `OverlayBuilder` pair for the life
-  of the route; the overlay entry is owned by `Showcase`'s own `State` now, so
-  `build` returns the child and nothing else. Idle element counts go from
-  `183 + 10N` to `183 + 8N` — 663 at 60 steps instead of 783, against
-  `showcaseview` 5.1.0's 661. This was the last figure that grew with tour
-  length. Rebuilds per step change drop 125 → 121, per tour start 102 → 100.
-  No behaviour or API change; `lib/src/layout_overlays.dart` is deleted, and it
-  was never exported.
-* FIX: **a left/right step with action buttons no longer renders off screen.**
-  The horizontal layout path was skipped whenever a step had actions, dropping
-  it to the vertical layout, which positions the tooltip from the target with no
-  top clamp — the tooltip landed at `top: -158` for a target near the top edge.
-  Inside actions are part of the tooltip box the horizontal path already builds,
-  so they no longer trigger that fallback. Reachable on every left/right step
-  once `globalActions` is set.
-* FIX: **outside action buttons are held inside `toolTipMargin`**, as the
-  tooltip already was; they used to draw over the status bar, clipped, at
-  `top: -118`. An explicit `Showcase.actionButtonsPosition` is never clamped.
-  `TooltipActionPosition.outside` still has little room on an edge target —
-  prefer `inside` when the buttons appear on every step, as the README now says.
-* Adds four regression tests: an idle `Showcase` has exactly one child element
-  and it is the child; a showcased widget keeps its `State` across a step
-  opening and closing; and the two off-screen cases above.
+Performance and layout fixes. Nothing to change in your code.
+
+* **Lighter tours.** A `Showcase` that isn't currently showing no longer adds
+  anything to your widget tree. A 60-step tour now builds 120 fewer widgets than
+  before, and advancing a step does less work. Tours with many steps benefit the
+  most.
+* **Fixed:** a step using `tooltipPosition: TooltipPosition.left` or `.right`
+  *together with* action buttons could draw its tooltip off the top of the
+  screen when the highlighted widget was near the top edge. It now stays beside
+  its target, where you asked for it.
+* **Fixed:** action buttons placed outside the tooltip could be drawn under the
+  status bar and cut off, again for a widget near the top of the screen. They
+  are kept on screen now. If you position them yourself with
+  `Showcase.actionButtonsPosition`, your values are used exactly as before.
+* **Tip:** if you show buttons on every step with `ShowCaseWidget.globalActions`,
+  prefer `TooltipActionPosition.inside`. The `outside` placement has little room
+  to work with when a target sits near a screen edge.
 
 ## 1.15.0
 
