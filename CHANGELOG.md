@@ -22,65 +22,54 @@ Performance and layout fixes. Nothing to change in your code.
 
 ## 1.15.0
 
-* PERF: **a step change no longer rebuilds every `Showcase` on the screen.**
-  `_InheritedShowCaseView` published the active step's key as a plain
-  `InheritedWidget`, so every `Showcase` in the tree was a dependent and every
-  one of them rebuilt whenever the tour advanced — along with the
-  `AnchoredOverlay` and `OverlayBuilder` each wraps. The cost grew with the
-  tour: measured at `119 + 3N` element rebuilds per "next" for an `N`-step tour,
-  or 299 rebuilds in a 60-step tour, where only two steps can actually have
-  changed. It is now an `InheritedModel` and each `Showcase` depends on its own
-  key as an aspect, so a step change notifies just the step being left and the
-  step being entered. The rebuild count is a flat 125 at every tour length
-  (-58% at 60 steps, -40% at 30), and the same fix takes starting a tour from
-  `84 + 3N` to a flat 102.
-* FEAT: **`ShowCaseWidget.activeTargetWidget` takes an optional `aspect`.**
-  Pass a step's `GlobalKey` to depend on that step alone, so your widget rebuilds
-  only when that step becomes active or inactive rather than on every step
-  change. Omitting it keeps the previous behaviour of rebuilding on any step
-  change, so existing callers are unaffected.
-* Honest scope: this removes work, not frame time. Frame CPU, step latency and
-  idle element counts are unchanged, and on an Infinix X687 (Android 10, profile
-  mode) the before and after are indistinguishable — raster dominates the frame
-  and the rebuilds removed here were cheap ones. The win is UI-thread headroom
-  that no longer scales with the number of steps on screen.
-* Adds two regression tests: that advancing a step rebuilds exactly two
-  `Showcase` widgets whatever the tour's length, and that a dependant which does
-  not name a step still rebuilds on every step change.
-* FEAT: **tour-wide action buttons.** `ShowCaseWidget.globalActions` declares
-  the tooltip's Previous / Stop / Next row once for the whole tour instead of
-  repeating `actions:` on every `Showcase`. `globalActionSettings` and
-  `globalActionButtonsPosition` do the same for the styling and the absolute
-  placement, and `hideActionsForShowcase` takes the `GlobalKey`s of steps that
-  should not show them — the same pattern `globalFloatingActionWidget` and
-  `hideFloatingActionWidgetForShowcase` already use. A per-step
-  `Showcase.actions` still wins, and the styling and placement fall back
-  independently, so one step can change only its buttons and keep the tour's
+New action-button options, a fix, and a speed-up. Everything is additive —
+existing tours behave exactly as before.
+
+### New
+
+* **Set the tooltip's buttons once for the whole tour.** Instead of repeating
+  `actions:` on every `Showcase`, declare them on `ShowCaseWidget`:
+
+  ```dart
+  ShowCaseWidget(
+    globalActions: (context) => const ShowCaseDefaultActions(),
+    globalActionSettings: const ActionsSettings(containerHeight: 40),
+    hideActionsForShowcase: [_lastStep], // steps that shouldn't show them
+    builder: Builder(builder: (context) => const HomePage()),
+  );
+  ```
+
+  A per-step `Showcase.actions` still wins. Styling
+  (`globalActionSettings`) and placement (`globalActionButtonsPosition`) fall
+  back separately, so a step can change just its buttons and keep the tour's
   look.
-* FEAT: **`TooltipActionPosition`** — action buttons can now be drawn *inside*
-  the tooltip box, flowing below the description and the progress footer, with
-  the tooltip growing to contain them. Set it tour-wide with
-  `ShowCaseWidget.actionsPosition` or per step with `Showcase.actionsPosition`.
-  Defaults to `TooltipActionPosition.outside`, the absolute placement actions
-  have always used, so nothing changes for existing tours. Inside actions
-  reserve 40 logical pixels of height unless `ActionsSettings.containerHeight`
-  says otherwise, because a widget you supply cannot be measured the way the
-  title and description are.
-* `Showcase.actionSettings` now defaults to `null` rather than an
-  all-null `ActionsSettings()`, which is what lets a step fall back to
-  `globalActionSettings`. The field was already nullable and every read inside
-  the package was null-safe, so rendering is unchanged.
-* * FIX: **`enableShowcase` now takes effect at runtime.** Flipping it to `false`
-  while a tour was running left the overlay on screen: `ShowCaseWidget.builder`
-  is a single stored widget instance, so nothing below it rebuilt and no
-  `Showcase` ever learned the tour had been switched off. The flag is published
-  through `_InheritedShowCaseView` now, so disabling mid-tour hides the overlay
-  and ends the tour — the step that was showing gets its `Showcase.onDismiss`,
-  and the tour-level `ShowCaseWidget.onDismiss` reports the step the user was
-  left on, keeping the "exactly one of `onFinish`/`onDismiss` per tour" rule.
-  Re-enabling does not resume the dismissed tour; call `startShowCase` again.
-  This matches what the flag already meant at construction time, where
-  `startShowCase` throws outright. Covered by four new tests.
+
+* **Buttons inside the tooltip.** `TooltipActionPosition.inside` draws them
+  within the tooltip, below the description, with the tooltip growing to fit.
+  Set it tour-wide with `ShowCaseWidget.actionsPosition` or per step with
+  `Showcase.actionsPosition`. The default stays `outside`, which positions them
+  separately from the tooltip as before. Give inside buttons more room with
+  `ActionsSettings.containerHeight` if 40px isn't enough.
+
+* `ShowCaseWidget.activeTargetWidget` now takes an optional `aspect`. Pass a
+  step's `GlobalKey` to have your widget rebuild only when *that* step becomes
+  active or inactive. Omit it for the previous behaviour.
+
+### Fixed
+
+* **`enableShowcase` now works at runtime.** Setting it to `false` while a tour
+  was running used to leave the overlay on screen. It now ends the tour: the
+  step that was showing gets its `onDismiss`, and `ShowCaseWidget.onDismiss`
+  reports where the user was left. Turning it back on does not resume the tour —
+  call `startShowCase` again.
+
+### Faster
+
+* **Advancing a step no longer rebuilds every `Showcase` on screen**, only the
+  step being left and the one being entered. In a 60-step tour that is 125
+  widget rebuilds per "next" instead of 299, and the number no longer grows with
+  the length of the tour. This frees up work on the UI thread; it does not
+  change how the tour looks or how fast it animates.
 
 ## 1.14.1
 
