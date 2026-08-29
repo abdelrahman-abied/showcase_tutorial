@@ -30,7 +30,9 @@ class _MailPageState extends State<MailPage> {
 
     //Start showcase view after current widget frames are drawn.
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => ShowCaseWidget.of(context).startShowCase([_one, _two, firstMutliWidgetKey]),
+      (_) => ShowCaseWidget.of(
+        context,
+      ).startShowCase([_one, _two, firstMutliWidgetKey]),
     );
     mails = [
       Mail(
@@ -115,9 +117,7 @@ class _MailPageState extends State<MailPage> {
         bottom: false,
         child: Column(
           children: <Widget>[
-            const SizedBox(
-              height: 20,
-            ),
+            const SizedBox(height: 20),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
@@ -149,14 +149,18 @@ class _MailPageState extends State<MailPage> {
                                         previous: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/left.png',
-                                            color: Theme.of(context).primaryColor,
+                                            color: Theme.of(
+                                              context,
+                                            ).primaryColor,
                                           ),
                                           buttonTextVisible: false,
                                         ),
                                         next: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/right.png',
-                                            color: Theme.of(context).primaryColor,
+                                            color: Theme.of(
+                                              context,
+                                            ).primaryColor,
                                           ),
                                           textDirection: TextDirection.rtl,
                                           buttonTextVisible: false,
@@ -164,22 +168,23 @@ class _MailPageState extends State<MailPage> {
                                         stop: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/close.png',
-                                            color: Theme.of(context).primaryColor,
+                                            color: Theme.of(
+                                              context,
+                                            ).primaryColor,
                                           ),
                                           buttonTextVisible: false,
                                         ),
                                       ),
                                       child: GestureDetector(
-                                        onTap: () => debugPrint('menu button clicked'),
+                                        onTap: () =>
+                                            debugPrint('menu button clicked'),
                                         child: Icon(
                                           Icons.menu,
                                           color: Theme.of(context).primaryColor,
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(
-                                      width: 10,
-                                    ),
+                                    const SizedBox(width: 10),
                                     const Text(
                                       'Search email',
                                       style: TextStyle(
@@ -237,20 +242,14 @@ class _MailPageState extends State<MailPage> {
                         padding: const EdgeInsets.all(5),
                         width: 50,
                         height: 50,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                        ),
+                        decoration: const BoxDecoration(shape: BoxShape.circle),
                         child: Image.asset('assets/abdulrahman.png'),
                       ),
                     ),
-                    const SizedBox(
-                      width: 12,
-                    )
+                    const SizedBox(width: 12),
                   ],
                 ),
-                const SizedBox(
-                  height: 10,
-                ),
+                const SizedBox(height: 10),
                 Container(
                   padding: const EdgeInsets.only(left: 16, top: 4),
                   child: const Text(
@@ -298,9 +297,7 @@ class _MailPageState extends State<MailPage> {
             backgroundColor: Theme.of(context).primaryColor,
             onPressed: () => Navigator.push<void>(
               context,
-              MaterialPageRoute<void>(
-                builder: (_) => const FeaturesDemoPage(),
-              ),
+              MaterialPageRoute<void>(builder: (_) => const FeaturesDemoPage()),
             ),
             icon: const Icon(Icons.auto_awesome, color: Colors.white),
             label: const Text(
@@ -322,10 +319,7 @@ class _MailPageState extends State<MailPage> {
                   scrollController.jumpTo(0);
                 });
               },
-              child: const Icon(
-                Icons.add,
-                color: Colors.white,
-              ),
+              child: const Icon(Icons.add, color: Colors.white),
             ),
           ),
         ],
@@ -344,9 +338,7 @@ class _MailPageState extends State<MailPage> {
       onTap: () {
         Navigator.push<void>(
           context,
-          MaterialPageRoute<void>(
-            builder: (_) => const Detail(),
-          ),
+          MaterialPageRoute<void>(builder: (_) => const Detail()),
         );
       },
       child: Container(
@@ -359,10 +351,7 @@ class _MailPageState extends State<MailPage> {
           disposeOnTap: true,
           onTargetClick: () {},
           actionButtonsPosition: const ActionButtonsPosition(),
-          child: MailTile(
-            mail: mail,
-            showCaseDetail: showCaseDetail,
-          ),
+          child: MailTile(mail: mail, showCaseDetail: showCaseDetail),
         ),
       ),
     );

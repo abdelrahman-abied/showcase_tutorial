@@ -76,11 +76,7 @@ class GetPosition {
     final box = key.currentContext?.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return null;
 
-    final metrics = _TargetMetrics(
-      box.localToGlobal(Offset.zero),
-      box.globalToLocal(Offset.zero),
-      box.size,
-    );
+    final metrics = _TargetMetrics(box.localToGlobal(Offset.zero), box.globalToLocal(Offset.zero), box.size);
     _metrics = metrics;
     return metrics;
   }
@@ -149,4 +145,3 @@ class GetPosition {
 
   double getCenter() => (getLeft() + getRight()) / 2;
 }
-

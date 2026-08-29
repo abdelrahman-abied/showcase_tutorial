@@ -680,8 +680,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     // The snapshots are captured once per activation, so a step whose snapshot
     // inputs change while it is showing has to capture again.
     if (_showShowCase &&
-        (oldWidget.highlightExactShape != widget.highlightExactShape ||
-            !listEquals(oldWidget.keys, widget.keys))) {
+        (oldWidget.highlightExactShape != widget.highlightExactShape || !listEquals(oldWidget.keys, widget.keys))) {
       _releaseSnapshots();
       _scheduleSnapshotCapture();
     }
@@ -809,10 +808,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   Widget _withCutOut(Rect rectBound, Widget Function(Rect cutOut) builder) {
     final controller = _transitionController;
     if (_transitionFrom == null || controller == null) return builder(rectBound);
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) => builder(_transitionRect(rectBound)),
-    );
+    return AnimatedBuilder(animation: controller, builder: (context, _) => builder(_transitionRect(rectBound)));
   }
 
   /// [rect] expanded by [Showcase.targetPadding] — the region the cut-out
@@ -1135,9 +1131,9 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     // [Showcase.floatingActionWidget] wins; otherwise fall back to the tour-wide
     // [ShowCaseWidget.globalFloatingActionWidget] unless this step is in
     // [hideFloatingActionWidgetForShowcase].
-    final floatingSuppressed =
-        showcaseState.hideFloatingActionWidgetForShowcase.contains(widget.key);
-    final Widget? floatingActionWidget = widget.floatingActionWidget ??
+    final floatingSuppressed = showcaseState.hideFloatingActionWidgetForShowcase.contains(widget.key);
+    final Widget? floatingActionWidget =
+        widget.floatingActionWidget ??
         (floatingSuppressed ? null : showcaseState.globalFloatingActionWidget?.call(context));
 
     // Same precedence for the tooltip's action buttons: [Showcase.actions]
@@ -1146,8 +1142,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     // to the tour-wide values independently, so a step can override just its
     // buttons and keep the tour's look.
     final actionsSuppressed = showcaseState.hideActionsForShowcase.contains(widget.key);
-    final Widget? actions =
-        widget.actions ?? (actionsSuppressed ? null : showcaseState.globalActions?.call(context));
+    final Widget? actions = widget.actions ?? (actionsSuppressed ? null : showcaseState.globalActions?.call(context));
     final actionSettings = widget.actionSettings ?? showcaseState.globalActionSettings;
     final actionButtonsPosition = widget.actionButtonsPosition ?? showcaseState.globalActionButtonsPosition;
     final actionsPosition = widget.actionsPosition ?? showcaseState.actionsPosition;
@@ -1404,8 +1399,7 @@ class _TargetWidget extends StatelessWidget {
                 decoration: ShapeDecoration(
                   shape: radius != null
                       ? RoundedRectangleBorder(borderRadius: radius!)
-                      : shapeBorder ??
-                            const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+                      : shapeBorder ?? const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
                 ),
               ),
             ),

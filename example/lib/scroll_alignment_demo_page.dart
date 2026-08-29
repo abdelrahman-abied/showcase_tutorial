@@ -34,14 +34,16 @@ class ScrollAlignmentDemoPage extends StatelessWidget {
             child: Column(
               children: [
                 ElevatedButton(
-                  onPressed: () => ShowCaseWidget.of(context)
-                      .startShowCase([top, center, bottom]),
+                  onPressed: () => ShowCaseWidget.of(
+                    context,
+                  ).startShowCase([top, center, bottom]),
                   child: const Text('Start auto-scroll tour'),
                 ),
                 const SizedBox(height: 16),
                 const _Filler(
-                    'Three targets are spaced far apart below. Each step\n'
-                    'auto-scrolls its target to a different position.'),
+                  'Three targets are spaced far apart below. Each step\n'
+                  'auto-scrolls its target to a different position.',
+                ),
                 _Target(
                   showcaseKey: top,
                   // 0.0 = leading edge: rests near the top of the viewport.

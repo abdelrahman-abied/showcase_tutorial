@@ -36,7 +36,8 @@ void main() {
 
 String _report(String label) {
   if (_timings.isEmpty) return 'RESULT $label: no frames';
-  int pct(List<int> xs, double p) => xs[(xs.length * p).clamp(0, xs.length - 1).floor()];
+  int pct(List<int> xs, double p) =>
+      xs[(xs.length * p).clamp(0, xs.length - 1).floor()];
   String fmt(List<int> xs) {
     xs.sort();
     return 'p50=${(pct(xs, 0.50) / 1000).toStringAsFixed(2)} '
@@ -125,7 +126,10 @@ class _DriverState extends State<_Driver> {
     // multi-widget, exact-shape, pulsing, styled, conditional.
     _timings.clear();
     _recording = true;
-    final stepper = Timer.periodic(const Duration(milliseconds: 900), (_) => tour.next());
+    final stepper = Timer.periodic(
+      const Duration(milliseconds: 900),
+      (_) => tour.next(),
+    );
     await Future<void>.delayed(kSample);
     stepper.cancel();
     _recording = false;
@@ -166,7 +170,8 @@ class _EveryFrame extends StatefulWidget {
   State<_EveryFrame> createState() => _EveryFrameState();
 }
 
-class _EveryFrameState extends State<_EveryFrame> with SingleTickerProviderStateMixin {
+class _EveryFrameState extends State<_EveryFrame>
+    with SingleTickerProviderStateMixin {
   late final Ticker _ticker = createTicker((_) => setState(() {}))..start();
 
   @override

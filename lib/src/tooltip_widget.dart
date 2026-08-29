@@ -409,10 +409,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     var space = widget.position!.getCenter() - (widget.contentWidth! / 2);
     // Keep the custom container (Showcase.withWidget) within the screen-edge
     // margins, mirroring how the default tooltip clamps to toolTipMargin.
-    final maxLeft = max(
-      widget.toolTipMargin.left,
-      screenWidth - widget.contentWidth! - widget.toolTipMargin.right,
-    );
+    final maxLeft = max(widget.toolTipMargin.left, screenWidth - widget.contentWidth! - widget.toolTipMargin.right);
     space = space.clamp(widget.toolTipMargin.left, maxLeft);
     return space;
   }
@@ -527,12 +524,10 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     final totalWidth = tooltipWidth + arrowSpace;
 
     double left = isLeft ? rect.left - gap - totalWidth : rect.right + gap;
-    final maxLeft =
-        max(widget.toolTipMargin.left, screenW - totalWidth - widget.toolTipMargin.right);
+    final maxLeft = max(widget.toolTipMargin.left, screenW - totalWidth - widget.toolTipMargin.right);
     left = left.clamp(widget.toolTipMargin.left, maxLeft);
 
-    final maxTop =
-        max(widget.toolTipMargin.top, screenH - tooltipHeight - widget.toolTipMargin.bottom);
+    final maxTop = max(widget.toolTipMargin.top, screenH - tooltipHeight - widget.toolTipMargin.bottom);
     final top = (targetCenterY - tooltipHeight / 2).clamp(widget.toolTipMargin.top, maxTop);
 
     if (!widget.disableScaleAnimation && widget.isTooltipDismissed) {

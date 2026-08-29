@@ -85,7 +85,11 @@ void main() {
               setter = setState;
               return Stack(
                 children: [
-                  Positioned(top: top, left: 0, child: SizedBox(key: key, width: 10, height: 10)),
+                  Positioned(
+                    top: top,
+                    left: 0,
+                    child: SizedBox(key: key, width: 10, height: 10),
+                  ),
                 ],
               );
             },
@@ -262,12 +266,7 @@ void main() {
                         title: 'Exact',
                         description: 'Body',
                         highlightExactShape: true,
-                        child: Container(
-                          key: const ValueKey('exactTarget'),
-                          width: 48,
-                          height: 48,
-                          color: Colors.blue,
-                        ),
+                        child: Container(key: const ValueKey('exactTarget'), width: 48, height: 48, color: Colors.blue),
                       ),
                     ),
                   ),
@@ -289,10 +288,7 @@ void main() {
         expect(find.byType(Image), findsNothing);
 
         // The snapshot is drawn exactly over the target it was captured from.
-        expect(
-          tester.getRect(find.byType(RawImage)),
-          tester.getRect(find.byKey(const ValueKey('exactTarget'))),
-        );
+        expect(tester.getRect(find.byType(RawImage)), tester.getRect(find.byKey(const ValueKey('exactTarget'))));
 
         final first = tester.widget<RawImage>(find.byType(RawImage)).image!;
 
@@ -306,10 +302,7 @@ void main() {
 
         final latest = tester.widget<RawImage>(find.byType(RawImage)).image!;
         expect(latest.isCloneOf(first), isTrue, reason: 'the target was re-captured on rebuild');
-        expect(
-          tester.getRect(find.byType(RawImage)),
-          tester.getRect(find.byKey(const ValueKey('exactTarget'))),
-        );
+        expect(tester.getRect(find.byType(RawImage)), tester.getRect(find.byKey(const ValueKey('exactTarget'))));
 
         // Ending the tour drops the snapshot so its image memory is released
         // rather than being left to a finaliser.
@@ -348,21 +341,11 @@ void main() {
                       ),
                       MultiView(
                         key: one,
-                        child: Container(
-                          key: const ValueKey('one'),
-                          width: 30,
-                          height: 30,
-                          color: Colors.red,
-                        ),
+                        child: Container(key: const ValueKey('one'), width: 30, height: 30, color: Colors.red),
                       ),
                       MultiView(
                         key: two,
-                        child: Container(
-                          key: const ValueKey('two'),
-                          width: 30,
-                          height: 30,
-                          color: Colors.green,
-                        ),
+                        child: Container(key: const ValueKey('two'), width: 30, height: 30, color: Colors.green),
                       ),
                     ],
                   ),
@@ -380,9 +363,9 @@ void main() {
         expect(find.byType(RawImage), findsNWidgets(2));
 
         // Each copy is painted over the widget it was captured from.
-        final drawn = tester.widgetList<RawImage>(find.byType(RawImage)).map(
-          (image) => tester.getRect(find.byWidget(image)),
-        );
+        final drawn = tester
+            .widgetList<RawImage>(find.byType(RawImage))
+            .map((image) => tester.getRect(find.byWidget(image)));
         expect(
           drawn,
           containsAll(<Rect>[
@@ -497,13 +480,11 @@ void main() {
     expect(find.text('Description A'), findsNothing);
   });
 
-  testWidgets('shows the tooltip title and description once started',
-      (tester) async {
+  testWidgets('shows the tooltip title and description once started', (tester) async {
     final targetKey = GlobalKey();
     await tester.pumpWidget(buildApp(targetKey));
 
-    ShowCaseWidget.of(tester.element(find.text('target')))
-        .startShowCase([targetKey]);
+    ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([targetKey]);
 
     // Let the overlay insert and the showcase rebuild.
     await tester.pump();
@@ -513,8 +494,7 @@ void main() {
     expect(find.text('Description A'), findsOneWidget);
   });
 
-  testWidgets('dismiss() tears the showcase overlay back down',
-      (tester) async {
+  testWidgets('dismiss() tears the showcase overlay back down', (tester) async {
     final targetKey = GlobalKey();
     await tester.pumpWidget(buildApp(targetKey));
 
@@ -544,12 +524,7 @@ void main() {
             builder: (context) {
               return Scaffold(
                 body: Center(
-                  child: Showcase(
-                    key: targetKey,
-                    title: 'Styled',
-                    description: 'Body',
-                    child: const Text('target'),
-                  ),
+                  child: Showcase(key: targetKey, title: 'Styled', description: 'Body', child: const Text('target')),
                 ),
               );
             },
@@ -558,8 +533,7 @@ void main() {
       ),
     );
 
-    ShowCaseWidget.of(tester.element(find.text('target')))
-        .startShowCase([targetKey]);
+    ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([targetKey]);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -567,8 +541,7 @@ void main() {
     expect(title.style?.color, Colors.green);
   });
 
-  testWidgets('description is optional and the tooltip still renders',
-      (tester) async {
+  testWidgets('description is optional and the tooltip still renders', (tester) async {
     final targetKey = GlobalKey();
     await tester.pumpWidget(
       MaterialApp(
@@ -579,11 +552,7 @@ void main() {
             builder: (context) {
               return Scaffold(
                 body: Center(
-                  child: Showcase(
-                    key: targetKey,
-                    title: 'Title only',
-                    child: const Text('target'),
-                  ),
+                  child: Showcase(key: targetKey, title: 'Title only', child: const Text('target')),
                 ),
               );
             },
@@ -592,8 +561,7 @@ void main() {
       ),
     );
 
-    ShowCaseWidget.of(tester.element(find.text('target')))
-        .startShowCase([targetKey]);
+    ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([targetKey]);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -601,17 +569,13 @@ void main() {
     expect(find.text('Title only'), findsOneWidget);
   });
 
-  testWidgets('MeasureSize reports the laid-out size of its child',
-      (tester) async {
+  testWidgets('MeasureSize reports the laid-out size of its child', (tester) async {
     Size? reported;
     await tester.pumpWidget(
       Directionality(
         textDirection: TextDirection.ltr,
         child: Center(
-          child: MeasureSize(
-            onSizeChange: (size) => reported = size,
-            child: const SizedBox(width: 120, height: 48),
-          ),
+          child: MeasureSize(onSizeChange: (size) => reported = size, child: const SizedBox(width: 120, height: 48)),
         ),
       ),
     );
@@ -636,12 +600,7 @@ void main() {
         builder: Builder(
           builder: (context) => Scaffold(
             body: Center(
-              child: Showcase(
-                key: targetKey,
-                title: 'Guarded',
-                description: 'Body',
-                child: const Text('target'),
-              ),
+              child: Showcase(key: targetKey, title: 'Guarded', description: 'Body', child: const Text('target')),
             ),
           ),
         ),
@@ -649,8 +608,7 @@ void main() {
     );
   }
 
-  testWidgets('onShouldStartShowcase=false blocks the tour and receives the id',
-      (tester) async {
+  testWidgets('onShouldStartShowcase=false blocks the tour and receives the id', (tester) async {
     final targetKey = GlobalKey();
     String? receivedId;
     await tester.pumpWidget(
@@ -664,8 +622,7 @@ void main() {
       ),
     );
 
-    ShowCaseWidget.of(tester.element(find.text('target')))
-        .startShowCase([targetKey]);
+    ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([targetKey]);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -673,15 +630,11 @@ void main() {
     expect(find.text('Guarded'), findsNothing);
   });
 
-  testWidgets('an async onShouldStartShowcase=true starts the tour',
-      (tester) async {
+  testWidgets('an async onShouldStartShowcase=true starts the tour', (tester) async {
     final targetKey = GlobalKey();
-    await tester.pumpWidget(
-      buildGuardedApp(targetKey, onShouldStartShowcase: (id) async => true),
-    );
+    await tester.pumpWidget(buildGuardedApp(targetKey, onShouldStartShowcase: (id) async => true));
 
-    ShowCaseWidget.of(tester.element(find.text('target')))
-        .startShowCase([targetKey]);
+    ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([targetKey]);
     await tester.pump(); // kick off the guard future
     await tester.pump(); // resolve it
     await tester.pump(const Duration(milliseconds: 400));
@@ -691,12 +644,9 @@ void main() {
 
   testWidgets('force:true bypasses a blocking guard', (tester) async {
     final targetKey = GlobalKey();
-    await tester.pumpWidget(
-      buildGuardedApp(targetKey, onShouldStartShowcase: (id) async => false),
-    );
+    await tester.pumpWidget(buildGuardedApp(targetKey, onShouldStartShowcase: (id) async => false));
 
-    ShowCaseWidget.of(tester.element(find.text('target')))
-        .startShowCase([targetKey], force: true);
+    ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([targetKey], force: true);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -721,13 +671,9 @@ void main() {
           builder: (context) => Scaffold(
             body: Column(
               children: [
-                Showcase(
-                    key: k1, title: 'One', description: 'd', child: const Text('t1')),
-                if (includeSecondTarget)
-                  Showcase(
-                      key: k2, title: 'Two', description: 'd', child: const Text('t2')),
-                Showcase(
-                    key: k3, title: 'Three', description: 'd', child: const Text('t3')),
+                Showcase(key: k1, title: 'One', description: 'd', child: const Text('t1')),
+                if (includeSecondTarget) Showcase(key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                Showcase(key: k3, title: 'Three', description: 'd', child: const Text('t3')),
               ],
             ),
           ),
@@ -736,8 +682,7 @@ void main() {
     );
   }
 
-  testWidgets('progress getters and goTo / goToKey navigate steps',
-      (tester) async {
+  testWidgets('progress getters and goTo / goToKey navigate steps', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
     final k3 = GlobalKey();
@@ -768,14 +713,12 @@ void main() {
     expect(find.text('Two'), findsOneWidget);
   });
 
-  testWidgets('autoSkipUnmountedSteps skips a step whose target is absent',
-      (tester) async {
+  testWidgets('autoSkipUnmountedSteps skips a step whose target is absent', (tester) async {
     final k1 = GlobalKey();
     final kAbsent = GlobalKey(); // never attached to the tree
     final k3 = GlobalKey();
     await tester.pumpWidget(
-      buildMultiStepApp(k1, kAbsent, k3,
-          includeSecondTarget: false, autoSkipUnmountedSteps: true),
+      buildMultiStepApp(k1, kAbsent, k3, includeSecondTarget: false, autoSkipUnmountedSteps: true),
     );
 
     final state = ShowCaseWidget.of(tester.element(find.text('t1')));
@@ -791,8 +734,7 @@ void main() {
     expect(find.text('Three'), findsOneWidget);
   });
 
-  testWidgets('tooltipPosition.right places the tooltip to the right of target',
-      (tester) async {
+  testWidgets('tooltipPosition.right places the tooltip to the right of target', (tester) async {
     final key = GlobalKey();
     await tester.pumpWidget(
       MaterialApp(
@@ -828,8 +770,7 @@ void main() {
     expect(tooltipLeft - targetRight, lessThan(80));
   });
 
-  testWidgets('tooltipPosition.left places the tooltip to the left of target',
-      (tester) async {
+  testWidgets('tooltipPosition.left places the tooltip to the left of target', (tester) async {
     final key = GlobalKey();
     await tester.pumpWidget(
       MaterialApp(
@@ -865,8 +806,7 @@ void main() {
     expect(targetLeft - tooltipRight, lessThan(80));
   });
 
-  testWidgets(
-      'highlightExactShape wraps the target and runs the snapshot highlight '
+  testWidgets('highlightExactShape wraps the target and runs the snapshot highlight '
       'without error', (tester) async {
     final targetKey = GlobalKey();
     await tester.runAsync(() async {
@@ -887,10 +827,7 @@ void main() {
                       key: const ValueKey('exactChild'),
                       width: 48,
                       height: 48,
-                      decoration: const BoxDecoration(
-                        color: Colors.blue,
-                        shape: BoxShape.circle,
-                      ),
+                      decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
                     ),
                   ),
                 ),
@@ -902,15 +839,11 @@ void main() {
 
       // The target is wrapped in a RepaintBoundary so it can be captured.
       expect(
-        find.ancestor(
-          of: find.byKey(const ValueKey('exactChild')),
-          matching: find.byType(RepaintBoundary),
-        ),
+        find.ancestor(of: find.byKey(const ValueKey('exactChild')), matching: find.byType(RepaintBoundary)),
         findsWidgets,
       );
 
-      ShowCaseWidget.of(tester.element(find.byKey(targetKey)))
-          .startShowCase([targetKey]);
+      ShowCaseWidget.of(tester.element(find.byKey(targetKey))).startShowCase([targetKey]);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       // Let the async snapshot capture (toImage) resolve.
@@ -974,8 +907,7 @@ void main() {
       'animation)', (tester) async {
     // The pulse reads disableAnimations from the root MediaQuery, which derives
     // it from the platform accessibility features.
-    tester.platformDispatcher.accessibilityFeaturesTestValue =
-        const FakeAccessibilityFeatures(disableAnimations: true);
+    tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
     addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
 
     final key = GlobalKey();
@@ -1012,8 +944,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('per-step arrow + highlight-border styling renders without error',
-      (tester) async {
+  testWidgets('per-step arrow + highlight-border styling renders without error', (tester) async {
     final key = GlobalKey();
     await tester.pumpWidget(
       MaterialApp(
@@ -1049,8 +980,7 @@ void main() {
     expect(find.text('Styled'), findsOneWidget);
   });
 
-  testWidgets('ShowcaseStyle arrow + highlight-border defaults are applied',
-      (tester) async {
+  testWidgets('ShowcaseStyle arrow + highlight-border defaults are applied', (tester) async {
     final key = GlobalKey();
     await tester.pumpWidget(
       MaterialApp(
@@ -1100,12 +1030,7 @@ void main() {
             builder: Builder(
               builder: (context) => Scaffold(
                 body: Center(
-                  child: Showcase(
-                    key: key,
-                    title: 'عنوان',
-                    description: 'وصف',
-                    child: const Text('t'),
-                  ),
+                  child: Showcase(key: key, title: 'عنوان', description: 'وصف', child: const Text('t')),
                 ),
               ),
             ),
@@ -1122,12 +1047,7 @@ void main() {
     expect(find.text('عنوان'), findsOneWidget);
 
     final directionality = tester.widget<Directionality>(
-      find
-          .ancestor(
-            of: find.text('عنوان'),
-            matching: find.byType(Directionality),
-          )
-          .first,
+      find.ancestor(of: find.text('عنوان'), matching: find.byType(Directionality)).first,
     );
     expect(directionality.textDirection, TextDirection.rtl);
   });
@@ -1164,8 +1084,7 @@ void main() {
                     barrierInteraction: step1Barrier,
                     child: const Text('t1'),
                   ),
-                  Showcase(
-                      key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                  Showcase(key: k2, title: 'Two', description: 'd', child: const Text('t2')),
                 ],
               ),
             ),
@@ -1175,8 +1094,7 @@ void main() {
     );
   }
 
-  testWidgets('barrier tap advances to the next step by default',
-      (tester) async {
+  testWidgets('barrier tap advances to the next step by default', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
     await tester.pumpWidget(buildBarrierApp(k1, k2));
@@ -1196,13 +1114,10 @@ void main() {
     expect(find.text('Two'), findsOneWidget);
   });
 
-  testWidgets('barrierInteraction.dismiss closes the tour on a background tap',
-      (tester) async {
+  testWidgets('barrierInteraction.dismiss closes the tour on a background tap', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
-    await tester.pumpWidget(
-      buildBarrierApp(k1, k2, barrierInteraction: BarrierInteraction.dismiss),
-    );
+    await tester.pumpWidget(buildBarrierApp(k1, k2, barrierInteraction: BarrierInteraction.dismiss));
 
     final state = ShowCaseWidget.of(tester.element(find.text('t1')));
     state.startShowCase([k1, k2]);
@@ -1222,9 +1137,7 @@ void main() {
   testWidgets('barrierInteraction.none ignores background taps', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
-    await tester.pumpWidget(
-      buildBarrierApp(k1, k2, barrierInteraction: BarrierInteraction.none),
-    );
+    await tester.pumpWidget(buildBarrierApp(k1, k2, barrierInteraction: BarrierInteraction.none));
 
     final state = ShowCaseWidget.of(tester.element(find.text('t1')));
     state.startShowCase([k1, k2]);
@@ -1239,13 +1152,10 @@ void main() {
     expect(find.text('One'), findsOneWidget);
   });
 
-  testWidgets('legacy disableBarrierInteraction:true makes the barrier inert',
-      (tester) async {
+  testWidgets('legacy disableBarrierInteraction:true makes the barrier inert', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
-    await tester.pumpWidget(
-      buildBarrierApp(k1, k2, disableBarrierInteraction: true),
-    );
+    await tester.pumpWidget(buildBarrierApp(k1, k2, disableBarrierInteraction: true));
 
     final state = ShowCaseWidget.of(tester.element(find.text('t1')));
     state.startShowCase([k1, k2]);
@@ -1319,8 +1229,7 @@ void main() {
     expect(events, contains('dismiss2'));
   });
 
-  testWidgets('keyboard ArrowRight advances and ArrowLeft goes back',
-      (tester) async {
+  testWidgets('keyboard ArrowRight advances and ArrowLeft goes back', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
     await tester.pumpWidget(buildBarrierApp(k1, k2));
@@ -1363,13 +1272,10 @@ void main() {
     expect(state.isShowcaseRunning, isFalse);
   });
 
-  testWidgets('enableKeyboardNavigation:false ignores key presses',
-      (tester) async {
+  testWidgets('enableKeyboardNavigation:false ignores key presses', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
-    await tester.pumpWidget(
-      buildBarrierApp(k1, k2, enableKeyboardNavigation: false),
-    );
+    await tester.pumpWidget(buildBarrierApp(k1, k2, enableKeyboardNavigation: false));
 
     final state = ShowCaseWidget.of(tester.element(find.text('t1')));
     state.startShowCase([k1, k2]);
@@ -1385,11 +1291,7 @@ void main() {
   });
 
   // Builds a single-step showcase used by the announcement tests.
-  Widget buildAnnounceApp(
-    GlobalKey key, {
-    bool enableAutoAnnouncements = true,
-    String? semanticLabel,
-  }) {
+  Widget buildAnnounceApp(GlobalKey key, {bool enableAutoAnnouncements = true, String? semanticLabel}) {
     return MaterialApp(
       home: ShowCaseWidget(
         disableMovingAnimation: true,
@@ -1414,17 +1316,17 @@ void main() {
 
   testWidgets('an active step is announced to screen readers', (tester) async {
     final announced = <String>[];
-    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(
-      SystemChannels.accessibility,
-      (dynamic message) async {
-        if (message is Map && message['type'] == 'announce') {
-          announced.add((message['data'] as Map)['message'] as String);
-        }
-        return null;
-      },
+    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, (
+      dynamic message,
+    ) async {
+      if (message is Map && message['type'] == 'announce') {
+        announced.add((message['data'] as Map)['message'] as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler(SystemChannels.accessibility, null),
     );
-    addTearDown(() => tester.binding.defaultBinaryMessenger
-        .setMockDecodedMessageHandler(SystemChannels.accessibility, null));
 
     final key = GlobalKey();
     await tester.pumpWidget(buildAnnounceApp(key));
@@ -1439,22 +1341,20 @@ void main() {
 
   testWidgets('semanticLabel overrides the announced text', (tester) async {
     final announced = <String>[];
-    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(
-      SystemChannels.accessibility,
-      (dynamic message) async {
-        if (message is Map && message['type'] == 'announce') {
-          announced.add((message['data'] as Map)['message'] as String);
-        }
-        return null;
-      },
+    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, (
+      dynamic message,
+    ) async {
+      if (message is Map && message['type'] == 'announce') {
+        announced.add((message['data'] as Map)['message'] as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler(SystemChannels.accessibility, null),
     );
-    addTearDown(() => tester.binding.defaultBinaryMessenger
-        .setMockDecodedMessageHandler(SystemChannels.accessibility, null));
 
     final key = GlobalKey();
-    await tester.pumpWidget(
-      buildAnnounceApp(key, semanticLabel: 'Open your profile'),
-    );
+    await tester.pumpWidget(buildAnnounceApp(key, semanticLabel: 'Open your profile'));
     ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
@@ -1462,20 +1362,19 @@ void main() {
     expect(announced, contains('Open your profile'));
   });
 
-  testWidgets('enableAutoAnnouncements:false makes no announcement',
-      (tester) async {
+  testWidgets('enableAutoAnnouncements:false makes no announcement', (tester) async {
     final announced = <String>[];
-    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(
-      SystemChannels.accessibility,
-      (dynamic message) async {
-        if (message is Map && message['type'] == 'announce') {
-          announced.add((message['data'] as Map)['message'] as String);
-        }
-        return null;
-      },
+    tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, (
+      dynamic message,
+    ) async {
+      if (message is Map && message['type'] == 'announce') {
+        announced.add((message['data'] as Map)['message'] as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler(SystemChannels.accessibility, null),
     );
-    addTearDown(() => tester.binding.defaultBinaryMessenger
-        .setMockDecodedMessageHandler(SystemChannels.accessibility, null));
 
     final key = GlobalKey();
     await tester.pumpWidget(buildAnnounceApp(key, enableAutoAnnouncements: false));
@@ -1486,8 +1385,7 @@ void main() {
     expect(announced, isEmpty);
   });
 
-  testWidgets(
-      'onShow/onDismiss can call setState without a "setState during build" '
+  testWidgets('onShow/onDismiss can call setState without a "setState during build" '
       'crash', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
@@ -1529,12 +1427,9 @@ void main() {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Showcase(
-                      key: k1, title: 'One', description: 'd', child: const Text('t1')),
-                  Showcase(
-                      key: k2, title: 'Two', description: 'd', child: const Text('t2')),
-                  Showcase(
-                      key: k3, title: 'Three', description: 'd', child: const Text('t3')),
+                  Showcase(key: k1, title: 'One', description: 'd', child: const Text('t1')),
+                  Showcase(key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                  Showcase(key: k3, title: 'Three', description: 'd', child: const Text('t3')),
                 ],
               ),
             ),
@@ -1550,8 +1445,7 @@ void main() {
     final k3 = GlobalKey();
     await tester.pumpWidget(buildProgressApp(k1, k2, k3, showProgress: true));
 
-    ShowCaseWidget.of(tester.element(find.text('t1')))
-        .startShowCase([k1, k2, k3]);
+    ShowCaseWidget.of(tester.element(find.text('t1'))).startShowCase([k1, k2, k3]);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -1561,13 +1455,13 @@ void main() {
     expect(find.byType(AnimatedContainer), findsNWidgets(3));
   });
 
-  testWidgets('progressStyle.numeric shows "current/total" instead of dots',
-      (tester) async {
+  testWidgets('progressStyle.numeric shows "current/total" instead of dots', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
     final k3 = GlobalKey();
-    await tester.pumpWidget(buildProgressApp(k1, k2, k3,
-        showProgress: true, progressStyle: ShowcaseProgressStyle.numeric));
+    await tester.pumpWidget(
+      buildProgressApp(k1, k2, k3, showProgress: true, progressStyle: ShowcaseProgressStyle.numeric),
+    );
 
     final state = ShowCaseWidget.of(tester.element(find.text('t1')));
     state.startShowCase([k1, k2, k3]);
@@ -1584,8 +1478,7 @@ void main() {
     expect(find.text('2/3'), findsOneWidget);
   });
 
-  testWidgets('showSkip renders a Skip button that dismisses the tour',
-      (tester) async {
+  testWidgets('showSkip renders a Skip button that dismisses the tour', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
     final k3 = GlobalKey();
@@ -1610,12 +1503,9 @@ void main() {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
     final k3 = GlobalKey();
-    await tester.pumpWidget(
-      buildProgressApp(k1, k2, k3, showSkip: true, skipButtonText: 'Skip tour'),
-    );
+    await tester.pumpWidget(buildProgressApp(k1, k2, k3, showSkip: true, skipButtonText: 'Skip tour'));
 
-    ShowCaseWidget.of(tester.element(find.text('t1')))
-        .startShowCase([k1, k2, k3]);
+    ShowCaseWidget.of(tester.element(find.text('t1'))).startShowCase([k1, k2, k3]);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
 
@@ -1640,14 +1530,10 @@ void main() {
           builder: (context) => Scaffold(
             body: Column(
               children: [
-                Showcase(
-                    key: k1, title: 'One', description: 'd', child: const Text('t1')),
-                Showcase(
-                    key: k2, title: 'Two', description: 'd', child: const Text('t2')),
-                Showcase(
-                    key: k3, title: 'Three', description: 'd', child: const Text('t3')),
-                Showcase(
-                    key: k4, title: 'Four', description: 'd', child: const Text('t4')),
+                Showcase(key: k1, title: 'One', description: 'd', child: const Text('t1')),
+                Showcase(key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                Showcase(key: k3, title: 'Three', description: 'd', child: const Text('t3')),
+                Showcase(key: k4, title: 'Four', description: 'd', child: const Text('t4')),
               ],
             ),
           ),
@@ -1662,8 +1548,7 @@ void main() {
       final k2 = GlobalKey();
       final k3 = GlobalKey();
       final k4 = GlobalKey();
-      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
-          onResolveNextStep: (index, key) => key == k1 ? k4 : null));
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4, onResolveNextStep: (index, key) => key == k1 ? k4 : null));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2, k3, k4]);
@@ -1679,14 +1564,12 @@ void main() {
       expect(find.text('Two'), findsNothing);
     });
 
-    testWidgets('completed() (Next button / tap path) honors the branch',
-        (tester) async {
+    testWidgets('completed() (Next button / tap path) honors the branch', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       final k3 = GlobalKey();
       final k4 = GlobalKey();
-      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
-          onResolveNextStep: (index, key) => key == k1 ? k3 : null));
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4, onResolveNextStep: (index, key) => key == k1 ? k3 : null));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2, k3, k4]);
@@ -1701,14 +1584,12 @@ void main() {
       expect(find.text('Three'), findsOneWidget);
     });
 
-    testWidgets('returning null falls through to the normal next step',
-        (tester) async {
+    testWidgets('returning null falls through to the normal next step', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       final k3 = GlobalKey();
       final k4 = GlobalKey();
-      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
-          onResolveNextStep: (index, key) => null));
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4, onResolveNextStep: (index, key) => null));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2, k3, k4]);
@@ -1729,12 +1610,19 @@ void main() {
       final k4 = GlobalKey();
       int? seenIndex;
       GlobalKey? seenKey;
-      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
+      await tester.pumpWidget(
+        buildBranchApp(
+          k1,
+          k2,
+          k3,
+          k4,
           onResolveNextStep: (index, key) {
-        seenIndex = index;
-        seenKey = key;
-        return null;
-      }));
+            seenIndex = index;
+            seenKey = key;
+            return null;
+          },
+        ),
+      );
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2, k3, k4]);
@@ -1746,14 +1634,12 @@ void main() {
       expect(seenKey, k1);
     });
 
-    testWidgets('a branch can jump backward to an earlier step',
-        (tester) async {
+    testWidgets('a branch can jump backward to an earlier step', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       final k3 = GlobalKey();
       final k4 = GlobalKey();
-      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
-          onResolveNextStep: (index, key) => key == k3 ? k1 : null));
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4, onResolveNextStep: (index, key) => key == k3 ? k1 : null));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2, k3, k4]);
@@ -1778,8 +1664,7 @@ void main() {
       final k3 = GlobalKey();
       final k4 = GlobalKey();
       // Resolver would always branch forward to k4 if it were consulted.
-      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
-          onResolveNextStep: (index, key) => k4));
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4, onResolveNextStep: (index, key) => k4));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2, k3, k4]);
@@ -1797,14 +1682,12 @@ void main() {
       expect(find.text('Two'), findsOneWidget);
     });
 
-    testWidgets('branching to the last step still finishes on the next advance',
-        (tester) async {
+    testWidgets('branching to the last step still finishes on the next advance', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       final k3 = GlobalKey();
       final k4 = GlobalKey();
-      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4,
-          onResolveNextStep: (index, key) => key == k1 ? k4 : null));
+      await tester.pumpWidget(buildBranchApp(k1, k2, k3, k4, onResolveNextStep: (index, key) => key == k1 ? k4 : null));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2, k3, k4]);
@@ -1846,10 +1729,8 @@ void main() {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Showcase(
-                      key: k1, title: 'One', description: 'd', child: const Text('t1')),
-                  Showcase(
-                      key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                  Showcase(key: k1, title: 'One', description: 'd', child: const Text('t1')),
+                  Showcase(key: k2, title: 'Two', description: 'd', child: const Text('t2')),
                 ],
               ),
             ),
@@ -1860,22 +1741,23 @@ void main() {
   }
 
   group('tour-level onDismiss (ShowCaseWidget.onDismiss)', () {
-    testWidgets('fires with the active step key when dismiss() is called',
-        (tester) async {
+    testWidgets('fires with the active step key when dismiss() is called', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       GlobalKey? dismissedAt;
       var didDismiss = false;
       var finished = false;
-      await tester.pumpWidget(buildDismissApp(
-        k1,
-        k2,
-        onDismiss: (key) {
-          didDismiss = true;
-          dismissedAt = key;
-        },
-        onFinish: () => finished = true,
-      ));
+      await tester.pumpWidget(
+        buildDismissApp(
+          k1,
+          k2,
+          onDismiss: (key) {
+            didDismiss = true;
+            dismissedAt = key;
+          },
+          onFinish: () => finished = true,
+        ),
+      );
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -1896,8 +1778,7 @@ void main() {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       GlobalKey? dismissedAt;
-      await tester.pumpWidget(
-          buildDismissApp(k1, k2, onDismiss: (key) => dismissedAt = key));
+      await tester.pumpWidget(buildDismissApp(k1, k2, onDismiss: (key) => dismissedAt = key));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -1920,12 +1801,9 @@ void main() {
       final k2 = GlobalKey();
       var dismissed = false;
       var finished = false;
-      await tester.pumpWidget(buildDismissApp(
-        k1,
-        k2,
-        onDismiss: (_) => dismissed = true,
-        onFinish: () => finished = true,
-      ));
+      await tester.pumpWidget(
+        buildDismissApp(k1, k2, onDismiss: (_) => dismissed = true, onFinish: () => finished = true),
+      );
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -1943,17 +1821,13 @@ void main() {
       expect(dismissed, isFalse);
     });
 
-    testWidgets('a barrier-dismiss tap triggers onDismiss with the active key',
-        (tester) async {
+    testWidgets('a barrier-dismiss tap triggers onDismiss with the active key', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       GlobalKey? dismissedAt;
-      await tester.pumpWidget(buildDismissApp(
-        k1,
-        k2,
-        barrierInteraction: BarrierInteraction.dismiss,
-        onDismiss: (key) => dismissedAt = key,
-      ));
+      await tester.pumpWidget(
+        buildDismissApp(k1, k2, barrierInteraction: BarrierInteraction.dismiss, onDismiss: (key) => dismissedAt = key),
+      );
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -1971,13 +1845,11 @@ void main() {
   });
 
   group('onBarrierClick (ShowCaseWidget.onBarrierClick)', () {
-    testWidgets('fires on a barrier tap and still advances by default',
-        (tester) async {
+    testWidgets('fires on a barrier tap and still advances by default', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       var clicks = 0;
-      await tester.pumpWidget(
-          buildBarrierApp(k1, k2, onBarrierClick: () => clicks++));
+      await tester.pumpWidget(buildBarrierApp(k1, k2, onBarrierClick: () => clicks++));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -1997,12 +1869,9 @@ void main() {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       var clicks = 0;
-      await tester.pumpWidget(buildBarrierApp(
-        k1,
-        k2,
-        barrierInteraction: BarrierInteraction.none,
-        onBarrierClick: () => clicks++,
-      ));
+      await tester.pumpWidget(
+        buildBarrierApp(k1, k2, barrierInteraction: BarrierInteraction.none, onBarrierClick: () => clicks++),
+      );
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -2063,13 +1932,16 @@ void main() {
   }
 
   group('floating action widget', () {
-    testWidgets('per-step floatingActionWidget renders while its step is active',
-        (tester) async {
+    testWidgets('per-step floatingActionWidget renders while its step is active', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
-      await tester.pumpWidget(buildFloatingApp(k1, k2,
-          floating1: const Align(
-              alignment: Alignment.bottomCenter, child: Text('FAB1'))));
+      await tester.pumpWidget(
+        buildFloatingApp(
+          k1,
+          k2,
+          floating1: const Align(alignment: Alignment.bottomCenter, child: Text('FAB1')),
+        ),
+      );
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -2083,13 +1955,16 @@ void main() {
       expect(find.text('FAB1'), findsNothing);
     });
 
-    testWidgets('globalFloatingActionWidget renders on every step',
-        (tester) async {
+    testWidgets('globalFloatingActionWidget renders on every step', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
-      await tester.pumpWidget(buildFloatingApp(k1, k2,
-          globalFloatingActionWidget: (_) => const Align(
-              alignment: Alignment.bottomCenter, child: Text('GFAB'))));
+      await tester.pumpWidget(
+        buildFloatingApp(
+          k1,
+          k2,
+          globalFloatingActionWidget: (_) => const Align(alignment: Alignment.bottomCenter, child: Text('GFAB')),
+        ),
+      );
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -2103,17 +1978,17 @@ void main() {
       expect(find.text('GFAB'), findsOneWidget); // still shown on step 2
     });
 
-    testWidgets('hideFloatingActionWidgetForShowcase suppresses the global one',
-        (tester) async {
+    testWidgets('hideFloatingActionWidgetForShowcase suppresses the global one', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
-      await tester.pumpWidget(buildFloatingApp(
-        k1,
-        k2,
-        globalFloatingActionWidget: (_) => const Align(
-            alignment: Alignment.bottomCenter, child: Text('GFAB')),
-        hideFloatingActionWidgetForShowcase: [k2],
-      ));
+      await tester.pumpWidget(
+        buildFloatingApp(
+          k1,
+          k2,
+          globalFloatingActionWidget: (_) => const Align(alignment: Alignment.bottomCenter, child: Text('GFAB')),
+          hideFloatingActionWidgetForShowcase: [k2],
+        ),
+      );
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -2127,18 +2002,17 @@ void main() {
       expect(find.text('GFAB'), findsNothing);
     });
 
-    testWidgets('per-step floatingActionWidget overrides the global one',
-        (tester) async {
+    testWidgets('per-step floatingActionWidget overrides the global one', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
-      await tester.pumpWidget(buildFloatingApp(
-        k1,
-        k2,
-        floating1: const Align(
-            alignment: Alignment.bottomCenter, child: Text('LOCAL')),
-        globalFloatingActionWidget: (_) => const Align(
-            alignment: Alignment.bottomCenter, child: Text('GFAB')),
-      ));
+      await tester.pumpWidget(
+        buildFloatingApp(
+          k1,
+          k2,
+          floating1: const Align(alignment: Alignment.bottomCenter, child: Text('LOCAL')),
+          globalFloatingActionWidget: (_) => const Align(alignment: Alignment.bottomCenter, child: Text('GFAB')),
+        ),
+      );
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -2155,8 +2029,7 @@ void main() {
     });
   });
 
-  testWidgets('per-step autoPlayDelay overrides the tour-wide autoPlayDelay',
-      (tester) async {
+  testWidgets('per-step autoPlayDelay overrides the tour-wide autoPlayDelay', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
     await tester.pumpWidget(
@@ -2180,8 +2053,7 @@ void main() {
                       autoPlayDelay: const Duration(milliseconds: 100),
                       child: const Text('t1'),
                     ),
-                    Showcase(
-                        key: k2, title: 'Two', description: 'd', child: const Text('t2')),
+                    Showcase(key: k2, title: 'Two', description: 'd', child: const Text('t2')),
                   ],
                 ),
               ),
@@ -2212,8 +2084,7 @@ void main() {
     expect(state.isShowcaseRunning, isFalse);
   });
 
-  testWidgets('targetTooltipGap pushes the tooltip further from the target',
-      (tester) async {
+  testWidgets('targetTooltipGap pushes the tooltip further from the target', (tester) async {
     // Returns the tooltip's top y for a given gap. The target sits at a fixed
     // position near the top, so the tooltip renders below it (arrow up) and its
     // top shifts down by exactly the gap.
@@ -2234,8 +2105,7 @@ void main() {
                       key: key,
                       description: 'Body',
                       targetTooltipGap: gap,
-                      child:
-                          const SizedBox(width: 40, height: 40, child: Text('t')),
+                      child: const SizedBox(width: 40, height: 40, child: Text('t')),
                     ),
                   ),
                 ),
@@ -2256,8 +2126,7 @@ void main() {
     expect(top40 - top0, closeTo(40, 1));
   });
 
-  testWidgets('toolTipMargin keeps the tooltip clear of the screen edge',
-      (tester) async {
+  testWidgets('toolTipMargin keeps the tooltip clear of the screen edge', (tester) async {
     // Target hugs the left edge, so the tooltip is clamped to toolTipMargin.left.
     // Returns the tooltip's left x for a given margin.
     Future<double> tooltipLeftForMargin(EdgeInsets margin) async {
@@ -2276,8 +2145,7 @@ void main() {
                     title: 'T',
                     description: 'Desc',
                     toolTipMargin: margin,
-                    child:
-                        const SizedBox(width: 30, height: 30, child: Text('t')),
+                    child: const SizedBox(width: 30, height: 30, child: Text('t')),
                   ),
                 ),
               ),
@@ -2297,9 +2165,7 @@ void main() {
     expect(left60 - left20, closeTo(40, 1));
   });
 
-  testWidgets(
-      'toolTipMargin keeps a Showcase.withWidget container clear of the screen edge',
-      (tester) async {
+  testWidgets('toolTipMargin keeps a Showcase.withWidget container clear of the screen edge', (tester) async {
     // A custom container on an edge-hugging target is clamped to toolTipMargin.left
     // (the old hardcoded behaviour would have pinned it at 16).
     const margin = EdgeInsets.all(50);
@@ -2318,13 +2184,8 @@ void main() {
                   height: 80,
                   width: 140,
                   toolTipMargin: margin,
-                  container: const SizedBox(
-                    width: 140,
-                    height: 80,
-                    child: Text('Box'),
-                  ),
-                  child:
-                      const SizedBox(width: 30, height: 30, child: Text('t')),
+                  container: const SizedBox(width: 140, height: 80, child: Text('Box')),
+                  child: const SizedBox(width: 30, height: 30, child: Text('t')),
                 ),
               ),
             ),
@@ -2339,15 +2200,11 @@ void main() {
     expect(tester.getTopLeft(find.text('Box')).dx, closeTo(50, 1));
   });
 
-  testWidgets('scrollAlignment controls where auto-scroll lands the target',
-      (tester) async {
+  testWidgets('scrollAlignment controls where auto-scroll lands the target', (tester) async {
     // A target sandwiched between two tall spacers in a scroll view. Auto-scroll
     // reveals it; the resting scroll offset depends on the alignment fraction.
     // Returns the scroll offset after the showcase scrolls the target into view.
-    Future<double> offsetForAlignment({
-      required double tourAlignment,
-      double? stepAlignment,
-    }) async {
+    Future<double> offsetForAlignment({required double tourAlignment, double? stepAlignment}) async {
       final key = GlobalKey();
       final controller = ScrollController();
       await tester.pumpWidget(
@@ -2371,8 +2228,7 @@ void main() {
                           key: key,
                           description: 'Target',
                           scrollAlignment: stepAlignment,
-                          child: const SizedBox(
-                              width: 100, height: 50, child: Text('t')),
+                          child: const SizedBox(width: 100, height: 50, child: Text('t')),
                         ),
                         const SizedBox(height: 600),
                       ],
@@ -2399,8 +2255,7 @@ void main() {
 
     // A per-step scrollAlignment overrides the tour-wide value: a trailing-edge
     // step inside a leading-edge tour lands like the trailing case.
-    final overridden =
-        await offsetForAlignment(tourAlignment: 0.0, stepAlignment: 1.0);
+    final overridden = await offsetForAlignment(tourAlignment: 0.0, stepAlignment: 1.0);
     expect(overridden, closeTo(trailing, 1));
     expect(overridden, lessThan(leading));
   });
@@ -2432,8 +2287,7 @@ void main() {
       expect(completed, [0]);
     });
 
-    testWidgets('listeners receive the index and key of the step',
-        (tester) async {
+    testWidgets('listeners receive the index and key of the step', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       final k3 = GlobalKey();
@@ -2441,8 +2295,7 @@ void main() {
 
       final events = <String>[];
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
-      state.addOnStartCallback(
-          (index, key) => events.add('start:$index:${key == k2 ? 'k2' : 'other'}'));
+      state.addOnStartCallback((index, key) => events.add('start:$index:${key == k2 ? 'k2' : 'other'}'));
 
       state.startShowCase([k1, k2, k3]);
       await tester.pump();
@@ -2486,8 +2339,7 @@ void main() {
       expect(completed, isEmpty);
     });
 
-    testWidgets('a listener that unregisters itself mid-dispatch is safe',
-        (tester) async {
+    testWidgets('a listener that unregisters itself mid-dispatch is safe', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       final k3 = GlobalKey();
@@ -2518,14 +2370,11 @@ void main() {
   });
 
   group('isTargetRendered', () {
-    testWidgets('is true for a laid-out target and false for an absent one',
-        (tester) async {
+    testWidgets('is true for a laid-out target and false for an absent one', (tester) async {
       final k1 = GlobalKey();
       final kAbsent = GlobalKey(); // never attached to the tree
       final k3 = GlobalKey();
-      await tester.pumpWidget(
-        buildMultiStepApp(k1, kAbsent, k3, includeSecondTarget: false),
-      );
+      await tester.pumpWidget(buildMultiStepApp(k1, kAbsent, k3, includeSecondTarget: false));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       expect(state.isTargetRendered(k1), isTrue);
@@ -2543,9 +2392,7 @@ void main() {
       expect(state.isTargetRendered(k2), isTrue);
 
       // Rebuild without the middle target.
-      await tester.pumpWidget(
-        buildMultiStepApp(k1, k2, k3, includeSecondTarget: false),
-      );
+      await tester.pumpWidget(buildMultiStepApp(k1, k2, k3, includeSecondTarget: false));
       expect(state.isTargetRendered(k2), isFalse);
     });
   });
@@ -2575,8 +2422,7 @@ void main() {
                       title: 'T',
                       description: 'd',
                       onTargetRectUpdate: onTargetRectUpdate,
-                      child: const SizedBox(
-                          width: 40, height: 40, child: Text('t')),
+                      child: const SizedBox(width: 40, height: 40, child: Text('t')),
                     ),
                   ),
                 ),
@@ -2594,9 +2440,7 @@ void main() {
       addTearDown(topPadding.dispose);
       final rects = <Rect>[];
 
-      await tester.pumpWidget(
-        buildRectApp(key, topPadding, onTargetRectUpdate: rects.add),
-      );
+      await tester.pumpWidget(buildRectApp(key, topPadding, onTargetRectUpdate: rects.add));
       // Nothing reported while the step is inactive.
       await tester.pump();
       expect(rects, isEmpty);
@@ -2628,9 +2472,7 @@ void main() {
       addTearDown(topPadding.dispose);
       final rects = <Rect>[];
 
-      await tester.pumpWidget(
-        buildRectApp(key, topPadding, onTargetRectUpdate: rects.add),
-      );
+      await tester.pumpWidget(buildRectApp(key, topPadding, onTargetRectUpdate: rects.add));
       ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
@@ -2643,8 +2485,7 @@ void main() {
       expect(rects, hasLength(1));
     });
 
-    testWidgets('an inactive step reports nothing until it becomes active',
-        (tester) async {
+    testWidgets('an inactive step reports nothing until it becomes active', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       final rects = <Rect>[];
@@ -2660,11 +2501,7 @@ void main() {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Showcase(
-                          key: k1,
-                          title: 'One',
-                          description: 'd',
-                          child: const Text('t1')),
+                      Showcase(key: k1, title: 'One', description: 'd', child: const Text('t1')),
                       Showcase(
                         key: k2,
                         title: 'Two',
@@ -2696,13 +2533,10 @@ void main() {
   });
 
   group('per-step barrierInteraction override', () {
-    testWidgets('a step can opt out of a tour that advances on barrier taps',
-        (tester) async {
+    testWidgets('a step can opt out of a tour that advances on barrier taps', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
-      await tester.pumpWidget(
-        buildBarrierApp(k1, k2, step1Barrier: BarrierInteraction.none),
-      );
+      await tester.pumpWidget(buildBarrierApp(k1, k2, step1Barrier: BarrierInteraction.none));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -2725,13 +2559,10 @@ void main() {
       expect(state.isShowcaseRunning, isFalse); // advanced past the last step
     });
 
-    testWidgets('a step can dismiss the tour inside a `.next` tour',
-        (tester) async {
+    testWidgets('a step can dismiss the tour inside a `.next` tour', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
-      await tester.pumpWidget(
-        buildBarrierApp(k1, k2, step1Barrier: BarrierInteraction.dismiss),
-      );
+      await tester.pumpWidget(buildBarrierApp(k1, k2, step1Barrier: BarrierInteraction.dismiss));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
       state.startShowCase([k1, k2]);
@@ -2746,17 +2577,11 @@ void main() {
       expect(state.isShowcaseRunning, isFalse);
     });
 
-    testWidgets('the override wins over legacy disableBarrierInteraction',
-        (tester) async {
+    testWidgets('the override wins over legacy disableBarrierInteraction', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       await tester.pumpWidget(
-        buildBarrierApp(
-          k1,
-          k2,
-          disableBarrierInteraction: true,
-          step1Barrier: BarrierInteraction.next,
-        ),
+        buildBarrierApp(k1, k2, disableBarrierInteraction: true, step1Barrier: BarrierInteraction.next),
       );
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
@@ -2771,18 +2596,12 @@ void main() {
       expect(state.currentIndex, 1);
     });
 
-    testWidgets('onBarrierClick still fires when a step overrides to none',
-        (tester) async {
+    testWidgets('onBarrierClick still fires when a step overrides to none', (tester) async {
       var clicks = 0;
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       await tester.pumpWidget(
-        buildBarrierApp(
-          k1,
-          k2,
-          step1Barrier: BarrierInteraction.none,
-          onBarrierClick: () => clicks++,
-        ),
+        buildBarrierApp(k1, k2, step1Barrier: BarrierInteraction.none, onBarrierClick: () => clicks++),
       );
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
@@ -2858,18 +2677,13 @@ void main() {
 
     testWidgets('the highlighted target shows a click cursor', (tester) async {
       final key = GlobalKey();
-      expect(
-        await cursorOver(tester, app: buildCursorApp(key), key: key),
-        SystemMouseCursors.click,
-      );
+      expect(await cursorOver(tester, app: buildCursorApp(key), key: key), SystemMouseCursors.click);
     });
 
-    testWidgets('enablePointerCursor:false leaves the target cursor alone',
-        (tester) async {
+    testWidgets('enablePointerCursor:false leaves the target cursor alone', (tester) async {
       final key = GlobalKey();
       expect(
-        await cursorOver(tester,
-            app: buildCursorApp(key, enablePointerCursor: false), key: key),
+        await cursorOver(tester, app: buildCursorApp(key, enablePointerCursor: false), key: key),
         SystemMouseCursors.basic,
       );
     });
@@ -2878,9 +2692,7 @@ void main() {
         'cursor', (tester) async {
       final key = GlobalKey();
       expect(
-        await cursorOver(tester,
-            app: buildCursorApp(key, disableDefaultTargetGestures: true),
-            key: key),
+        await cursorOver(tester, app: buildCursorApp(key, disableDefaultTargetGestures: true), key: key),
         SystemMouseCursors.basic,
       );
     });
@@ -2891,29 +2703,22 @@ void main() {
       expect(
         await cursorOver(
           tester,
-          app: buildCursorApp(
-            key,
-            enablePointerCursor: false,
-            targetMouseCursor: SystemMouseCursors.forbidden,
-          ),
+          app: buildCursorApp(key, enablePointerCursor: false, targetMouseCursor: SystemMouseCursors.forbidden),
           key: key,
         ),
         SystemMouseCursors.forbidden,
       );
     });
 
-    testWidgets('a tooltip that does nothing on tap gets no click cursor',
-        (tester) async {
+    testWidgets('a tooltip that does nothing on tap gets no click cursor', (tester) async {
       final key = GlobalKey();
       expect(
-        await cursorOver(tester,
-            app: buildCursorApp(key), key: key, hover: find.text('Body')),
+        await cursorOver(tester, app: buildCursorApp(key), key: key, hover: find.text('Body')),
         SystemMouseCursors.basic,
       );
     });
 
-    testWidgets('a tooltip with onToolTipClick shows a click cursor',
-        (tester) async {
+    testWidgets('a tooltip with onToolTipClick shows a click cursor', (tester) async {
       final key = GlobalKey();
       expect(
         await cursorOver(
@@ -2926,8 +2731,7 @@ void main() {
       );
     });
 
-    testWidgets('a per-step tooltipMouseCursor overrides the resolved one',
-        (tester) async {
+    testWidgets('a per-step tooltipMouseCursor overrides the resolved one', (tester) async {
       final key = GlobalKey();
       expect(
         await cursorOver(
@@ -2940,16 +2744,10 @@ void main() {
       );
     });
 
-    testWidgets('the built-in Skip button shows a click cursor',
-        (tester) async {
+    testWidgets('the built-in Skip button shows a click cursor', (tester) async {
       final key = GlobalKey();
       expect(
-        await cursorOver(
-          tester,
-          app: buildCursorApp(key, showSkip: true),
-          key: key,
-          hover: find.text('Skip'),
-        ),
+        await cursorOver(tester, app: buildCursorApp(key, showSkip: true), key: key, hover: find.text('Skip')),
         SystemMouseCursors.click,
       );
     });
@@ -2970,11 +2768,7 @@ void main() {
     }
 
     // Two targets far apart, so a glide between them is unmistakable.
-    Widget buildTransitionApp(
-      GlobalKey k1,
-      GlobalKey k2, {
-      bool enableStepTransition = true,
-    }) {
+    Widget buildTransitionApp(GlobalKey k1, GlobalKey k2, {bool enableStepTransition = true}) {
       return MaterialApp(
         home: ShowCaseWidget(
           disableMovingAnimation: true,
@@ -2993,8 +2787,7 @@ void main() {
                     child: Showcase(
                       key: k1,
                       description: 'One',
-                      child: const SizedBox(
-                          width: 50, height: 50, child: Text('t1')),
+                      child: const SizedBox(width: 50, height: 50, child: Text('t1')),
                     ),
                   ),
                   Positioned(
@@ -3003,8 +2796,7 @@ void main() {
                     child: Showcase(
                       key: k2,
                       description: 'Two',
-                      child: const SizedBox(
-                          width: 50, height: 50, child: Text('t2')),
+                      child: const SizedBox(width: 50, height: 50, child: Text('t2')),
                     ),
                   ),
                 ],
@@ -3015,8 +2807,7 @@ void main() {
       );
     }
 
-    testWidgets('the cut-out glides from the previous target to the next one',
-        (tester) async {
+    testWidgets('the cut-out glides from the previous target to the next one', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       await tester.pumpWidget(buildTransitionApp(k1, k2));
@@ -3044,8 +2835,7 @@ void main() {
       expectRect(cutOut(tester), r2);
     });
 
-    testWidgets('the first step of a tour appears instead of gliding',
-        (tester) async {
+    testWidgets('the first step of a tour appears instead of gliding', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       await tester.pumpWidget(buildTransitionApp(k1, k2));
@@ -3058,13 +2848,10 @@ void main() {
       expectRect(cutOut(tester), r1); // already at the target, not gliding
     });
 
-    testWidgets('transitions are off by default (the cut-out jumps)',
-        (tester) async {
+    testWidgets('transitions are off by default (the cut-out jumps)', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
-      await tester.pumpWidget(
-        buildTransitionApp(k1, k2, enableStepTransition: false),
-      );
+      await tester.pumpWidget(buildTransitionApp(k1, k2, enableStepTransition: false));
       final r2 = tester.getRect(find.byKey(k2));
 
       final state = ShowCaseWidget.of(tester.element(find.text('t1')));
@@ -3080,8 +2867,9 @@ void main() {
     });
 
     testWidgets('reduce-motion skips the glide', (tester) async {
-      tester.platformDispatcher.accessibilityFeaturesTestValue =
-          const FakeAccessibilityFeatures(disableAnimations: true);
+      tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+        disableAnimations: true,
+      );
       addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
 
       final k1 = GlobalKey();
@@ -3102,8 +2890,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('previousTargetRect reports the step the tour just left',
-        (tester) async {
+    testWidgets('previousTargetRect reports the step the tour just left', (tester) async {
       final k1 = GlobalKey();
       final k2 = GlobalKey();
       await tester.pumpWidget(buildTransitionApp(k1, k2));
@@ -3334,7 +3121,10 @@ void main() {
     testWidgets('globalActions show on a step that declares none of its own', (tester) async {
       final keys = List.generate(2, (_) => GlobalKey());
       await tester.pumpWidget(
-        tour(keys: keys, globalActions: (_) => const SizedBox(key: globalKeyed, height: 20)),
+        tour(
+          keys: keys,
+          globalActions: (_) => const SizedBox(key: globalKeyed, height: 20),
+        ),
       );
       final context = tester.element(find.byType(Scaffold));
       ShowCaseWidget.of(context).startShowCase(keys);
@@ -3389,13 +3179,13 @@ void main() {
 
       // The tooltip box is the ClipRRect the title lives in. Actions placed
       // outside are a sibling of it in the Stack, so they have no such ancestor.
-      Finder insideTheBox() => find.ancestor(
-        of: find.byKey(globalKeyed),
-        matching: find.byType(ClipRRect),
-      );
+      Finder insideTheBox() => find.ancestor(of: find.byKey(globalKeyed), matching: find.byType(ClipRRect));
 
       await tester.pumpWidget(
-        tour(keys: keys, globalActions: (_) => const SizedBox(key: globalKeyed, height: 20)),
+        tour(
+          keys: keys,
+          globalActions: (_) => const SizedBox(key: globalKeyed, height: 20),
+        ),
       );
       var context = tester.element(find.byType(Scaffold));
       ShowCaseWidget.of(context).startShowCase(keys);
@@ -3428,10 +3218,7 @@ void main() {
       ShowCaseWidget.of(context).startShowCase(keys);
       await tester.pumpAndSettle();
 
-      expect(
-        find.ancestor(of: find.byKey(globalKeyed), matching: find.byType(ClipRRect)),
-        findsWidgets,
-      );
+      expect(find.ancestor(of: find.byKey(globalKeyed), matching: find.byType(ClipRRect)), findsWidgets);
     });
   });
 }
@@ -3488,7 +3275,6 @@ class _SetStateLifecycleAppState extends State<_SetStateLifecycleApp> {
     );
   }
 }
-
 
 /// Rebuilds its subtree on demand, standing in for an ordinary ancestor
 /// `setState` in the app the showcase runs in.

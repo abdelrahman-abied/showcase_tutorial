@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 class SAvatarExampleChild extends StatelessWidget {
-  const SAvatarExampleChild({
-    super.key,
-  });
+  const SAvatarExampleChild({super.key});
 
   @override
   Widget build(BuildContext context) {

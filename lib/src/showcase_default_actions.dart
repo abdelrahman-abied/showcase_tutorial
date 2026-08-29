@@ -80,14 +80,12 @@ class ShowCaseDefaultActions extends StatelessWidget {
             previous.text ?? 'Previous',
             previous.callback ??
                 () {
-                  if (showcaseContext != null &&
-                      ShowCaseWidget.of(showcaseContext).ids != null) {
+                  if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
                     ShowCaseWidget.of(showcaseContext).previous();
                   }
                 },
           ),
-        if (previous.buttonVisible && stop.buttonVisible ||
-            previous.buttonVisible && next.buttonVisible)
+        if (previous.buttonVisible && stop.buttonVisible || previous.buttonVisible && next.buttonVisible)
           _getVerticalDivider(),
         if (stop.buttonVisible)
           _getButtonWidget(
@@ -96,8 +94,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
             stop.text ?? 'Stop',
             stop.callback ??
                 () {
-                  if (showcaseContext != null &&
-                      ShowCaseWidget.of(showcaseContext).ids != null) {
+                  if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
                     ShowCaseWidget.of(showcaseContext).dismiss();
                   }
                 },
@@ -110,12 +107,10 @@ class ShowCaseDefaultActions extends StatelessWidget {
             next.text ?? 'Next',
             next.callback ??
                 () {
-                  if (showcaseContext != null &&
-                      ShowCaseWidget.of(showcaseContext).ids != null) {
+                  if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
                     ShowCaseWidget.of(showcaseContext).completed(
-                        ShowCaseWidget.of(showcaseContext).ids![
-                            ShowCaseWidget.of(showcaseContext).activeWidgetId ??
-                                0]);
+                      ShowCaseWidget.of(showcaseContext).ids![ShowCaseWidget.of(showcaseContext).activeWidgetId ?? 0],
+                    );
                   }
                 },
           ),
@@ -124,29 +119,24 @@ class ShowCaseDefaultActions extends StatelessWidget {
   }
 
   Widget _getVerticalDivider() {
-    return VerticalDivider(
-      width: 1.0,
-      thickness: dividerThickness,
-      color: verticalDividerColor,
-    );
+    return VerticalDivider(width: 1.0, thickness: dividerThickness, color: verticalDividerColor);
   }
 
-  Widget _getButtonWidget(ActionButtonConfig actionConfig,
-      BuildContext? showcaseContext, String buttonText, VoidCallback onClick) {
+  Widget _getButtonWidget(
+    ActionButtonConfig actionConfig,
+    BuildContext? showcaseContext,
+    String buttonText,
+    VoidCallback onClick,
+  ) {
     return Expanded(
       child: Directionality(
         textDirection: actionConfig.textDirection,
         child: TextButton.icon(
           label: actionConfig.buttonTextVisible
-              ? Text(
-                  buttonText,
-                  style: TextStyle(color: actionConfig.textColor),
-                )
+              ? Text(buttonText, style: TextStyle(color: actionConfig.textColor))
               : const SizedBox.shrink(),
           icon: actionConfig.icon ?? const SizedBox.shrink(),
-          style: ButtonStyle(
-              backgroundColor: WidgetStateProperty.all<Color>(
-                  actionConfig.textButtonBgColor)),
+          style: ButtonStyle(backgroundColor: WidgetStateProperty.all<Color>(actionConfig.textButtonBgColor)),
           onPressed: onClick,
         ),
       ),
