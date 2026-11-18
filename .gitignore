@@ -64,3 +64,6 @@ pubspec.lock
 
 # Local-only maintainer notes (a committed copy lives on the docs/roadmap branch)
 ROADMAP.md
+
+# macOS Finder metadata
+.DS_Store
