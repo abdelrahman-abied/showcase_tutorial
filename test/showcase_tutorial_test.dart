@@ -2030,7 +2030,7 @@ void main() {
     bool showProgress = false,
     ShowcaseProgressStyle progressStyle = ShowcaseProgressStyle.dots,
     bool showSkip = false,
-    String skipButtonText = 'Skip',
+    String? skipButtonText,
   }) {
     return MaterialApp(
       home: ShowCaseWidget(
@@ -2039,6 +2039,7 @@ void main() {
         showProgress: showProgress,
         progressStyle: progressStyle,
         showSkip: showSkip,
+        // ignore: deprecated_member_use_from_same_package
         skipButtonText: skipButtonText,
         builder: Builder(
           builder: (context) => Scaffold(
@@ -2118,7 +2119,7 @@ void main() {
     expect(state.isShowcaseRunning, isFalse);
   });
 
-  testWidgets('skipButtonText customizes the skip label', (tester) async {
+  testWidgets('the deprecated skipButtonText still customizes the skip label', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
     final k3 = GlobalKey();
@@ -3692,6 +3693,422 @@ void main() {
 
       final context = tester.element(find.byType(Scaffold));
       expect(() => ShowCaseWidget.of(context).startShowCase(keys), throwsException);
+    });
+  });
+
+  group('built-in buttons: direction, one-line labels and translations', () {
+    const prevIcon = ValueKey('prev-icon');
+    const nextIcon = ValueKey('next-icon');
+    const arabic = ShowcaseLabels(next: 'التالي', previous: 'السابق', stop: 'إنهاء', skip: 'تخطي');
+
+    Widget app({
+      required GlobalKey stepKey,
+      TextDirection direction = TextDirection.ltr,
+      Widget? actions,
+      WidgetBuilder? globalActions,
+      ShowcaseLabels labels = const ShowcaseLabels(),
+      String? skipButtonText,
+      bool showSkip = false,
+      bool showProgress = false,
+      String? title = 'Title',
+      String description = 'A tooltip with buttons',
+      TooltipActionPosition actionsPosition = TooltipActionPosition.inside,
+      ActionsSettings? actionSettings,
+    }) {
+      return MaterialApp(
+        home: Directionality(
+          textDirection: direction,
+          child: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            labels: labels,
+            // ignore: deprecated_member_use_from_same_package
+            skipButtonText: skipButtonText,
+            showSkip: showSkip,
+            showProgress: showProgress,
+            progressStyle: ShowcaseProgressStyle.numeric,
+            globalActions: globalActions,
+            actionsPosition: actionsPosition,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: Showcase(
+                    key: stepKey,
+                    title: title,
+                    description: description,
+                    actions: actions,
+                    actionSettings: actionSettings,
+                    child: const SizedBox(width: 40, height: 20, child: Text('t')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Future<ShowCaseWidgetState> startTour(WidgetTester tester, GlobalKey key) async {
+      final state = ShowCaseWidget.of(tester.element(find.text('t')));
+      state.startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      return state;
+    }
+
+    const iconActions = ShowCaseDefaultActions(
+      previous: ActionButtonConfig(icon: Icon(Icons.arrow_back, key: prevIcon)),
+      next: ActionButtonConfig(icon: Icon(Icons.arrow_forward, key: nextIcon)),
+    );
+
+    double centerX(WidgetTester tester, Finder finder) => tester.getCenter(finder).dx;
+
+    testWidgets('in an RTL app the icon comes after the label, on its right', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, direction: TextDirection.rtl, actions: iconActions));
+      await startTour(tester, key);
+
+      expect(tester.takeException(), isNull);
+      expect(
+        centerX(tester, find.byKey(prevIcon)),
+        greaterThan(centerX(tester, find.text('Previous'))),
+        reason: 'the icon leads, and leading is the right side in RTL',
+      );
+      expect(centerX(tester, find.byKey(nextIcon)), greaterThan(centerX(tester, find.text('Next'))));
+      final button = find.ancestor(of: find.text('Previous'), matching: find.byType(TextButton));
+      expect(Directionality.of(tester.element(button)), TextDirection.rtl, reason: 'not forced to LTR');
+    });
+
+    testWidgets('in an RTL app the row mirrors: Previous on the right, Next on the left', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, direction: TextDirection.rtl, actions: iconActions));
+      await startTour(tester, key);
+
+      final previous = centerX(tester, find.text('Previous'));
+      final stop = centerX(tester, find.text('Stop'));
+      final next = centerX(tester, find.text('Next'));
+      expect(previous, greaterThan(stop));
+      expect(stop, greaterThan(next));
+    });
+
+    testWidgets('in an LTR app the icon stays on the left of the label', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, actions: iconActions));
+      await startTour(tester, key);
+
+      expect(centerX(tester, find.byKey(prevIcon)), lessThan(centerX(tester, find.text('Previous'))));
+      expect(centerX(tester, find.text('Previous')), lessThan(centerX(tester, find.text('Next'))));
+    });
+
+    testWidgets('an explicit textDirection still sets the order inside that button', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(
+            next: ActionButtonConfig(
+              icon: Icon(Icons.arrow_forward, key: nextIcon),
+              textDirection: TextDirection.rtl,
+            ),
+          ),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(
+        centerX(tester, find.byKey(nextIcon)),
+        greaterThan(centerX(tester, find.text('Next'))),
+        reason: 'RTL in an LTR app puts the arrow after the text',
+      );
+    });
+
+    testWidgets('in an RTL app the progress counter is on the right and Skip on the left', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, direction: TextDirection.rtl, showSkip: true, showProgress: true));
+      await startTour(tester, key);
+
+      expect(tester.takeException(), isNull);
+      expect(centerX(tester, find.text('1/1')), greaterThan(centerX(tester, find.text('Skip'))));
+    });
+
+    /// The scale a label is drawn at: its painted height over its laid-out one.
+    double drawnScale(WidgetTester tester, String label) =>
+        tester.getRect(find.text(label)).height / tester.renderObject<RenderParagraph>(find.text(label)).size.height;
+
+    void expectOneLineInsideItsButton(WidgetTester tester, String label) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
+      expect(
+        paragraph.size.height,
+        paragraph.getMinIntrinsicHeight(double.infinity),
+        reason: '"$label" is laid out as a single line',
+      );
+      final button = tester.getRect(find.ancestor(of: find.text(label), matching: find.byType(TextButton)));
+      final text = tester.getRect(find.text(label));
+      expect(button.left, lessThanOrEqualTo(text.left + 0.01), reason: '"$label" is drawn inside its button');
+      expect(button.right, greaterThanOrEqualTo(text.right - 0.01), reason: '"$label" is drawn inside its button');
+    }
+
+    // Short text would make a narrow tooltip; the tooltip widens to fit the
+    // buttons instead, so their labels are drawn at full size.
+    for (final (name, title, description, position, actions) in [
+      ('README sample', 'Menu', 'Open the menu', TooltipActionPosition.outside, const ShowCaseDefaultActions()),
+      (
+        'README sample with an icon',
+        'Menu',
+        'Open the menu',
+        TooltipActionPosition.outside,
+        const ShowCaseDefaultActions(previous: ActionButtonConfig(icon: Icon(Icons.arrow_back))),
+      ),
+      ('one-word description', null, 'Tip', TooltipActionPosition.outside, const ShowCaseDefaultActions()),
+      ('one-word description, inside', null, 'Tip', TooltipActionPosition.inside, const ShowCaseDefaultActions()),
+    ]) {
+      testWidgets('the tooltip is wide enough for the button labels at full size ($name)', (tester) async {
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          app(stepKey: key, title: title, description: description, actionsPosition: position, actions: actions),
+        );
+        await startTour(tester, key);
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+
+        for (final label in ['Previous', 'Stop', 'Next']) {
+          expectOneLineInsideItsButton(tester, label);
+          expect(drawnScale(tester, label), moreOrLessEquals(1.0), reason: '"$label" is drawn at full size');
+          final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
+          expect(paragraph.didExceedMaxLines, isFalse, reason: '"$label" is not ellipsized');
+        }
+      });
+    }
+
+    // On a phone the tooltip cannot always grow enough: the test font's
+    // square glyphs make "Previous" 112px, about twice a real font's width.
+    for (final (name, actions) in [
+      ('text only', const ShowCaseDefaultActions()),
+      ('with an icon', const ShowCaseDefaultActions(previous: ActionButtonConfig(icon: Icon(Icons.arrow_back)))),
+    ]) {
+      testWidgets('on a phone the README sample labels stay readable ($name)', (tester) async {
+        tester.view
+          ..physicalSize = const Size(390, 844)
+          ..devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          app(
+            stepKey: key,
+            title: 'Menu',
+            description: 'Open the menu',
+            actionsPosition: TooltipActionPosition.outside,
+            actions: actions,
+          ),
+        );
+        await startTour(tester, key);
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+
+        for (final label in ['Previous', 'Stop', 'Next']) {
+          expectOneLineInsideItsButton(tester, label);
+          expect(drawnScale(tester, label), greaterThanOrEqualTo(0.7 - 1e-9), reason: '"$label" stays readable');
+        }
+      });
+    }
+
+    testWidgets('a label too long for its button stays on one line and is shrunk a little', (tester) async {
+      final key = GlobalKey();
+      // A declared width fixes the buttons' room: about 109px each, which
+      // leaves 85px for "Previous" (112px in the test font).
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(),
+          actionSettings: const ActionsSettings(containerWidth: 330),
+        ),
+      );
+      await startTour(tester, key);
+      expect(tester.takeException(), isNull);
+
+      expectOneLineInsideItsButton(tester, 'Previous');
+      final scale = drawnScale(tester, 'Previous');
+      expect(scale, lessThan(1.0), reason: 'too wide for its button, so it was scaled');
+      expect(scale, greaterThanOrEqualTo(0.7), reason: 'but no smaller than 70%');
+      expect(tester.renderObject<RenderParagraph>(find.text('Previous')).didExceedMaxLines, isFalse);
+      expect(drawnScale(tester, 'Stop'), moreOrLessEquals(1.0), reason: 'labels that fit are not scaled');
+    });
+
+    for (final (name, actions) in [
+      ('text only', const ShowCaseDefaultActions()),
+      ('with an icon', const ShowCaseDefaultActions(previous: ActionButtonConfig(icon: Icon(Icons.arrow_back)))),
+    ]) {
+      testWidgets('past 70% a label is ellipsized, not shrunk until it cannot be read ($name)', (tester) async {
+        final key = GlobalKey();
+        // About 66px per button: "Previous" would need a scale of 0.38.
+        await tester.pumpWidget(
+          app(stepKey: key, actions: actions, actionSettings: const ActionsSettings(containerWidth: 200)),
+        );
+        await startTour(tester, key);
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+
+        for (final label in ['Previous', 'Stop', 'Next']) {
+          expectOneLineInsideItsButton(tester, label);
+          expect(drawnScale(tester, label), greaterThanOrEqualTo(0.7 - 1e-9), reason: '"$label" stays readable');
+        }
+        expect(drawnScale(tester, 'Previous'), moreOrLessEquals(0.7));
+        expect(
+          tester.renderObject<RenderParagraph>(find.text('Previous')).didExceedMaxLines,
+          isTrue,
+          reason: 'what does not fit at 70% is ellipsized',
+        );
+      });
+    }
+
+    testWidgets('baseline alignment lines up a scaled label with the others', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+          ),
+          actionSettings: const ActionsSettings(containerWidth: 330),
+        ),
+      );
+      await startTour(tester, key);
+      expect(tester.takeException(), isNull);
+      expect(drawnScale(tester, 'Previous'), lessThan(0.9), reason: 'the case under test: Previous is scaled');
+
+      double drawnBaseline(String label) {
+        final painter = TextPainter(
+          text: tester.renderObject<RenderParagraph>(find.text(label)).text,
+          textDirection: TextDirection.ltr,
+        )..layout();
+        addTearDown(painter.dispose);
+        return tester.getRect(find.text(label)).top +
+            painter.computeDistanceToActualBaseline(TextBaseline.alphabetic) * drawnScale(tester, label);
+      }
+
+      expect(drawnBaseline('Previous'), moreOrLessEquals(drawnBaseline('Stop'), epsilon: 0.01));
+      expect(drawnBaseline('Next'), moreOrLessEquals(drawnBaseline('Stop'), epsilon: 0.01));
+    });
+
+    testWidgets('an icon-only button keeps its full tap area and is announced by its label', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          labels: arabic,
+          actions: const ShowCaseDefaultActions(
+            previous: ActionButtonConfig(icon: Icon(Icons.arrow_back, key: prevIcon), buttonTextVisible: false),
+            next: ActionButtonConfig(icon: Icon(Icons.arrow_forward, key: nextIcon), buttonTextVisible: false),
+          ),
+        ),
+      );
+      final state = await startTour(tester, key);
+      expect(tester.takeException(), isNull);
+
+      expect(find.text('السابق'), findsNothing, reason: 'the text is hidden');
+      expect(find.bySemanticsLabel('السابق'), findsOneWidget);
+      expect(find.bySemanticsLabel('التالي'), findsOneWidget);
+
+      final nextButton = find.ancestor(of: find.byKey(nextIcon), matching: find.byType(TextButton));
+      final stopButton = find.ancestor(of: find.text('إنهاء'), matching: find.byType(TextButton));
+      expect(tester.getSize(nextButton), tester.getSize(stopButton), reason: 'as large as a button with text');
+      expect(tester.getSize(nextButton).height, greaterThanOrEqualTo(40));
+
+      await tester.tap(nextButton);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(state.isShowcaseRunning, isFalse, reason: 'the icon-only Next button still works');
+      semantics.dispose();
+    });
+
+    testWidgets('labels translate every built-in button and the Skip label', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          direction: TextDirection.rtl,
+          labels: arabic,
+          showSkip: true,
+          actions: const ShowCaseDefaultActions(),
+        ),
+      );
+      await startTour(tester, key);
+
+      for (final label in ['التالي', 'السابق', 'إنهاء', 'تخطي']) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+      for (final english in ['Next', 'Previous', 'Stop', 'Skip']) {
+        expect(find.text(english), findsNothing, reason: english);
+      }
+    });
+
+    testWidgets("a button's own text wins over the labels", (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          labels: arabic,
+          actions: const ShowCaseDefaultActions(next: ActionButtonConfig(text: 'Go')),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(find.text('Go'), findsOneWidget);
+      expect(find.text('التالي'), findsNothing);
+      expect(find.text('السابق'), findsOneWidget, reason: 'the other buttons still use the labels');
+    });
+
+    testWidgets('labels reach buttons built by globalActions', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, labels: arabic, globalActions: (_) => const ShowCaseDefaultActions()));
+      await startTour(tester, key);
+
+      expect(find.text('التالي'), findsOneWidget);
+      expect(find.text('Next'), findsNothing);
+    });
+
+    testWidgets('the deprecated skipButtonText still wins over labels.skip', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, labels: arabic, skipButtonText: 'Skip tour', showSkip: true));
+      final state = await startTour(tester, key);
+
+      expect(find.text('Skip tour'), findsOneWidget);
+      expect(find.text('تخطي'), findsNothing);
+      expect(state.labels.skip, 'Skip tour');
+      expect(state.labels.next, 'التالي', reason: 'only the Skip label is replaced');
+    });
+
+    testWidgets('changing labels mid-tour updates const buttons', (tester) async {
+      final key = GlobalKey();
+      var labels = const ShowcaseLabels();
+      late StateSetter setLabels;
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            setLabels = setState;
+            return app(stepKey: key, labels: labels, showSkip: true, actions: const ShowCaseDefaultActions());
+          },
+        ),
+      );
+      await startTour(tester, key);
+      expect(find.text('Next'), findsOneWidget);
+
+      setLabels(() => labels = arabic);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('التالي'), findsOneWidget);
+      expect(find.text('تخطي'), findsOneWidget);
+      expect(find.text('Next'), findsNothing);
+    });
+
+    test('ShowcaseLabels has English defaults, value equality and copyWith', () {
+      const labels = ShowcaseLabels();
+      expect([labels.next, labels.previous, labels.stop, labels.skip], ['Next', 'Previous', 'Stop', 'Skip']);
+      expect(labels, const ShowcaseLabels(next: 'Next'));
+      expect(labels.hashCode, const ShowcaseLabels().hashCode);
+      expect(labels.copyWith(skip: 'تخطي'), const ShowcaseLabels(skip: 'تخطي'));
+      expect(labels.copyWith(), labels);
+      expect(labels == arabic, isFalse);
     });
   });
 

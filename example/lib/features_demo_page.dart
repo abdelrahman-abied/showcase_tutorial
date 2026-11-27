@@ -79,11 +79,17 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
         // Previous/Next declared once for the whole tour instead of on every
         // Showcase. The "C" step sets its own `actions:`, which wins, and the
         // first step is listed below because "Previous" has nowhere to go.
-        globalActions: (context) => ShowCaseDefaultActions(
-          previous: const ActionButtonConfig(text: 'Back'),
-          stop: const ActionButtonConfig(text: 'Skip'),
-          next: const ActionButtonConfig(text: 'Next'),
-        ),
+        globalActions: (context) => const ShowCaseDefaultActions(),
+        // The buttons' text, set once for the whole tour. The RTL switch shows
+        // it translated to Arabic; the "C" step's own `text:` still wins.
+        labels: _rtl
+            ? const ShowcaseLabels(
+                next: 'التالي',
+                previous: 'السابق',
+                stop: 'إنهاء',
+                skip: 'تخطي',
+              )
+            : const ShowcaseLabels(previous: 'Back', stop: 'Skip'),
         hideActionsForShowcase: [_topLeft],
         // Outside the tooltip box (the default) or flowing inside it.
         actionsPosition: _actionsInside

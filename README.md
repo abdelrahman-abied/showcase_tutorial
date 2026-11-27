@@ -43,6 +43,8 @@ Animated step transitions — the default instant cut (left) vs `enableStepTrans
 - **Global styling** with `ShowcaseStyle` — set any colour once, not per step.
 - Built-in **action buttons** (Next / Previous / Stop) with customizable text,
   icons, and layout.
+- **Translate the tour once** — give every button its text in one place with
+  `ShowcaseLabels`.
 - Built-in **progress indicator** (dots or a `1/6` counter) and a **Skip** button
   in the default tooltip.
 - **Floating action widget** — a screen-anchored control (e.g. a fixed Skip /
@@ -88,6 +90,7 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 - [Custom tooltip](#custom-tooltip-with-showcasewithwidget)
 - [Action buttons](#action-buttons-next--previous--stop)
 - [Progress indicator & Skip button](#progress-indicator--skip-button)
+- [Translating the tour](#translating-the-tour)
 - [Floating action widget](#floating-action-widget)
 - [Exact-shape highlight](#exact-shape-highlight)
 - [Pulsing highlight ring](#pulsing-highlight-ring)
@@ -272,6 +275,7 @@ Showcase(
     next: ActionButtonConfig(
       text: 'Next',
       icon: const Icon(Icons.arrow_forward, size: 16),
+      // In an LTR app, puts the arrow after the text. Leave it out to follow the app.
       textDirection: TextDirection.rtl,
     ),
     previous: const ActionButtonConfig(text: 'Back'),
@@ -281,6 +285,22 @@ Showcase(
   child: const Icon(Icons.menu),
 );
 ```
+
+Each button puts its icon first. By default it follows your app's text
+direction, so the icon is on the left in an English app and on the right in an
+Arabic or Hebrew one, and the whole row mirrors too (Previous on the right).
+Set `textDirection` on one button to choose its order yourself. The value is
+the actual order, not relative to your app: `TextDirection.rtl` puts the icon
+on the right, after the text, in an English app, but in an Arabic app it is the
+same as leaving it out. There, `TextDirection.ltr` puts the arrow after the
+text.
+
+The tooltip is made wide enough for the buttons' labels. If a label still does
+not fit its button, for example a long translation on a narrow phone, it stays
+on one line instead of breaking in the middle of a word: it gets smaller, down
+to 70% of its size, and past that it ends with "…". The button itself keeps its
+size, so it is just as easy to tap. With `buttonTextVisible: false` the button shows
+only its icon, and screen readers still read its label.
 
 The buttons [follow your theme](#colours-and-your-apps-theme). To colour them
 yourself, set `ActionButtonConfig.textColor` on a button, or
@@ -348,7 +368,8 @@ ShowCaseWidget(
   // dots (default) or a "1/6" counter:
   progressStyle: ShowcaseProgressStyle.numeric,
   showSkip: true,               // a "Skip" button that ends the whole tour
-  skipButtonText: 'Skip tour',  // optional, defaults to 'Skip'
+  // optional, the button says 'Skip' by default:
+  labels: const ShowcaseLabels(skip: 'Skip tour'),
   builder: Builder(builder: (context) => const HomePage()),
 );
 ```
@@ -359,6 +380,43 @@ The indicator uses the tooltip's text color and reflects `currentIndex` /
 default) or `ShowcaseProgressStyle.numeric` (a compact `1/6` counter, handy for
 long tours). This affects the **default** tooltip only; a custom `container`
 tooltip is left untouched.
+
+## Translating the tour
+
+The built-in buttons say Next, Previous, Stop and Skip. To show them in your
+app's language, pass `labels` to `ShowCaseWidget` once. Every button in the
+tour uses them: the ones in `Showcase.actions`, the ones from `globalActions`,
+and the Skip button.
+
+```dart
+ShowCaseWidget(
+  labels: const ShowcaseLabels(
+    next: 'التالي',
+    previous: 'السابق',
+    stop: 'إنهاء',
+    skip: 'تخطي',
+  ),
+  showSkip: true,
+  globalActions: (context) => const ShowCaseDefaultActions(),
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+Any label you leave out stays in English. If you use Flutter's localizations,
+build the labels from them, e.g. `ShowcaseLabels(next: l10n.next, ...)`.
+When the app switches language, the buttons on screen change straight away.
+
+A button's own `ActionButtonConfig.text` wins over `labels`, so one step can
+still say something else, e.g. `next: ActionButtonConfig(text: 'Finish')` on
+the last step.
+
+In an Arabic or Hebrew app the buttons and the Skip / progress row also follow
+the right-to-left direction, with no extra setting (see
+[Right-to-left](#right-to-left-rtl)).
+
+`skipButtonText` still works, and when you set it, it wins over
+`labels.skip`. It is deprecated and will be removed in 3.0.0; use
+`labels: ShowcaseLabels(skip: ...)` instead.
 
 ## Floating action widget
 
@@ -1106,6 +1164,11 @@ The tooltip inherits the ambient text direction, so RTL text (e.g. Arabic) is
 measured and laid out correctly when your app is RTL — no extra configuration
 needed.
 
+The built-in buttons follow it too: Previous is on the right and Next on the
+left, each button's icon sits to the right of its label, and the progress
+indicator and Skip button swap sides. To translate the buttons' text, see
+[Translating the tour](#translating-the-tour).
+
 ## Enable or disable globally
 
 ```dart
@@ -1188,6 +1251,7 @@ ShowCaseWidget(
 | `currentIndex`                               | Zero-based index of the active step, or `null` when no tour is running.  |
 | `totalSteps`                                 | Number of steps in the running tour (0 when none).                       |
 | `isShowcaseRunning`                          | Whether a tour is currently active.                                      |
+| `labels`                                     | The `ShowcaseLabels` the built-in buttons show.                          |
 | `isTargetRendered(GlobalKey key)`            | Whether that step's target is mounted **and** laid out on screen.        |
 | `previousTargetRect`                         | Global bounds of the step the tour just left (`null` outside a transition). |
 | `addOnStartCallback(cb)` / `removeOnStartCallback(cb)` | Register/unregister a step-start listener at runtime.          |
@@ -1229,10 +1293,35 @@ ShowCaseWidget(
 | showProgress              | bool                       | false                          | Show the built-in step indicator in the default tooltip.                         |
 | progressStyle             | ShowcaseProgressStyle      | `ShowcaseProgressStyle.dots`   | Indicator style: dots or a `1/6` numeric counter.                                |
 | showSkip                  | bool                       | false                          | Show a "Skip" button in the default tooltip that ends the tour.                  |
-| skipButtonText            | String                     | 'Skip'                         | Label for the skip button.                                                       |
+| labels                    | ShowcaseLabels             | `const ShowcaseLabels()`       | Text of the built-in Next / Previous / Stop / Skip buttons (see [Translating the tour](#translating-the-tour)). |
+| skipButtonText            | String?                    |                                | **Deprecated**, removed in 3.0.0: use `labels: ShowcaseLabels(skip: ...)`. When set, wins over `labels.skip`. |
 | showcaseId                | String?                    |                                | Identifier passed to `onShouldStartShowcase`.                                    |
 | onShouldStartShowcase     | `FutureOr<bool> Function(String?)?` |                         | Guard run before a tour starts; return `false` to skip it.                       |
 | onResolveNextStep         | GlobalKey? Function(int, GlobalKey)? |                     | Decide the next step at runtime: return a step key to branch, or `null`.         |
+
+### `ShowcaseLabels` properties
+
+| Name     | Type   | Default      | Description                                              |
+| -------- | ------ | ------------ | -------------------------------------------------------- |
+| next     | String | `'Next'`     | Text of the Next button.                                 |
+| previous | String | `'Previous'` | Text of the Previous button.                             |
+| stop     | String | `'Stop'`     | Text of the Stop button, which ends the tour.            |
+| skip     | String | `'Skip'`     | Text of the Skip button shown by `showSkip`.             |
+
+`copyWith` returns a copy with some labels replaced.
+
+### `ActionButtonConfig` properties
+
+| Name              | Type           | Default                     | Description                                                                       |
+| ----------------- | -------------- | --------------------------- | --------------------------------------------------------------------------------- |
+| text              | String?        | `ShowCaseWidget.labels`     | Text of the button; wins over the tour's `labels`.                                |
+| icon              | Widget?        |                             | Icon or image shown before the text.                                              |
+| textColor         | Color?         | `ShowcaseStyle` → app theme | Color of the text.                                                                |
+| textButtonBgColor | Color          | `Colors.transparent`        | Background color of the button.                                                   |
+| callback          | VoidCallback?  |                             | Called on tap instead of the default action.                                      |
+| buttonVisible     | bool           | true                        | Show the button.                                                                  |
+| buttonTextVisible | bool           | true                        | Show the text; when `false` only the icon shows and screen readers read the text. |
+| textDirection     | TextDirection? | the app's direction         | Order of icon and text inside the button.                                         |
 
 ### `Showcase` and `Showcase.withWidget` properties
 
