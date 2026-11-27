@@ -49,9 +49,22 @@ class ShowcaseStyle {
   final Color? textColor;
 
   /// Text style for the default tooltip title.
+  ///
+  /// When unset, the title uses `titleLarge` from the nearest `material_ui`
+  /// `Theme`, coloured with [textColor]. When set, it replaces that style and
+  /// [textColor] is not applied.
+  ///
+  /// Apps still on the legacy `package:flutter/material.dart` `MaterialApp`
+  /// can pass their theme's `textTheme.titleLarge` here: the tooltip cannot
+  /// read the legacy theme itself.
   final TextStyle? titleTextStyle;
 
   /// Text style for the default tooltip description.
+  ///
+  /// When unset, the description uses `titleSmall` from the nearest
+  /// `material_ui` `Theme`, coloured with [textColor]. When set, it replaces
+  /// that style and [textColor] is not applied. See [titleTextStyle] for apps
+  /// still on the legacy `MaterialApp`.
   final TextStyle? descTextStyle;
 
   /// Border radius of the default tooltip.

@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.16.0
+
+Skip or wait for missing steps one by one, and theming help for apps still on
+the old `MaterialApp`. Nothing to change in your code.
+
+* **New: `ShowCaseWidget.onShouldSkipUnmountedStep`.** `autoSkipUnmountedSteps`
+  applies to the whole tour, so a tour couldn't both wait for a step on a page
+  the user opens later and skip a widget that's only built sometimes. The new
+  callback is asked about each step whose widget isn't on screen: return
+  `true` to skip it or `false` to wait for it. When set, it replaces
+  `autoSkipUnmountedSteps`. `goTo`, `goToKey` and `onResolveNextStep` jumps
+  ignore it, as they ignore the flag.
+* **Docs: theming the tooltip in apps on the old `MaterialApp`.** Since 1.15.2
+  the tooltip's default title and description text uses `material_ui`'s theme,
+  which can't see a theme set on the old `package:flutter/material.dart`
+  `MaterialApp`. The README now shows how to pass your text styles once through
+  `ShowcaseStyle` until you migrate, and `ShowcaseStyle.titleTextStyle` /
+  `descTextStyle` document what they fall back to.
+
 ## 1.15.4
 
 A fix for tours across screens, a demo of them, and automated releases.

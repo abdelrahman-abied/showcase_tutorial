@@ -119,7 +119,7 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^1.15.4
+     showcase_tutorial: ^1.16.0
    ```
 
    Or from the command line:
@@ -136,10 +136,37 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 
 > **Requirements:** Flutter 3.47 or newer (Dart 3.13). The package is built on
 > [`material_ui`](https://pub.dev/packages/material_ui), Flutter's standalone
-> Material library. If your app still imports `package:flutter/material.dart`,
-> migrate with `dart fix --apply --code=migrate_design_widgets`. Otherwise the
-> tooltip's default title and description text uses the default Material theme
-> instead of yours. On an older Flutter, pub resolves to 1.15.1.
+> Material library. On an older Flutter, pub resolves to 1.15.1.
+
+**If your app still uses `MaterialApp` from `package:flutter/material.dart`:**
+the tour works, but the tooltip can't see your app's theme. `material_ui` keeps
+its own `Theme`, separate from the old one, and the old one exposes nothing the
+package can read without importing the deprecated library. So the default
+title and description text uses the default Material fonts instead of yours.
+
+The best fix is to migrate: `dart fix --apply --code=migrate_design_widgets`.
+Until then, pass your text styles once through `ShowcaseStyle`, from somewhere
+under your `MaterialApp` (for example `home` or `builder`):
+
+```dart
+// Theme here is the one from package:flutter/material.dart.
+final textTheme = Theme.of(context).textTheme;
+
+ShowCaseWidget(
+  style: ShowcaseStyle(
+    titleTextStyle: textTheme.titleLarge?.copyWith(color: Colors.black),
+    descTextStyle: textTheme.titleSmall?.copyWith(color: Colors.black),
+  ),
+  builder: ...,
+);
+```
+
+These styles replace the default title and description styles, so `textColor`
+no longer colours that text (it still colours the progress indicator and the
+Skip label). Set the colour in the style itself: the tooltip is white by
+default, and a dark theme's text is usually white too. Once your app uses `material_ui`'s
+`MaterialApp`, you can delete these two lines: the tooltip then follows your
+theme by itself.
 
 ## Getting started
 
@@ -662,8 +689,9 @@ ShowCaseWidget(
 The resolver is honored by **every** forward path — the Next button, a tap on the
 target or tooltip, the barrier, the keyboard, auto-play, and `next()`. The
 returned step may be ahead of or behind the current one, and a branch is treated
-as an explicit jump (like `goTo`), so `autoSkipUnmountedSteps` is not applied to
-the target. `previous()`, `goTo()`, and `goToKey()` ignore the resolver.
+as an explicit jump (like `goTo`), so `autoSkipUnmountedSteps` and
+`onShouldSkipUnmountedStep` are not applied to the target. `previous()`,
+`goTo()`, and `goToKey()` ignore the resolver.
 
 ## Tours across screens
 
@@ -684,7 +712,9 @@ Then pass keys from any page to `startShowCase`:
 - **A step on a page that isn't open yet** waits. Nothing is drawn, and the
   step appears once the user opens its page and the page has finished
   animating in. Leave `autoSkipUnmountedSteps` off for such tours: it would
-  skip that step instead.
+  skip that step instead. If the tour also has steps that should be skipped
+  when their widget isn't built, use `onShouldSkipUnmountedStep` to choose per
+  step (see [Skip off-screen steps](#skip-off-screen-steps)).
 - **A step whose page gets covered** by another screen, a dialog or a bottom
   sheet hides until its page is back on top. It stays the tour's current step,
   its `onDismiss` and `onShow` fire as it hides and returns, and auto-play
@@ -976,6 +1006,31 @@ ShowCaseWidget(
 );
 ```
 
+`autoSkipUnmountedSteps` applies to every step. To skip some missing steps and
+wait for others, pass `onShouldSkipUnmountedStep` instead. It's called with the
+step's index and key whenever the tour reaches a step whose widget isn't in the
+tree: return `true` to skip it, or `false` to stay on it until the widget
+appears (for example, a step on a page the user hasn't opened yet):
+
+```dart
+ShowCaseWidget(
+  onShouldSkipUnmountedStep: (index, key) {
+    // The details page is opened later in the tour: wait for it.
+    if (key == detailsKey) return false;
+    // Anything else that isn't on screen (e.g. a promo banner that is
+    // sometimes hidden) is skipped.
+    return true;
+  },
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+When `onShouldSkipUnmountedStep` is set, it decides for every step and
+`autoSkipUnmountedSteps` is ignored. It's used when the tour starts, moves
+forward and moves back with `previous()`. `goTo()`, `goToKey()` and a step
+returned by `onResolveNextStep` are explicit jumps: they always go to the step
+you asked for, whether its widget is on screen or not.
+
 ## Right-to-left (RTL)
 
 The tooltip inherits the ambient text direction, so RTL text (e.g. Arabic) is
@@ -1095,6 +1150,7 @@ ShowCaseWidget(
 | onDismiss                  | `void Function(GlobalKey?)?` |                              | Called when the tour is closed early; receives the step it was dismissed at.     |
 | enableShowcase            | bool                       | true                           | Enable or disable showcasing globally.                                           |
 | autoSkipUnmountedSteps    | bool                       | false                          | Skip steps whose target widget is not currently mounted.                         |
+| onShouldSkipUnmountedStep | `bool Function(int, GlobalKey)?` |                          | Per step: return `true` to skip an unmounted step, `false` to wait for it.       |
 | enableKeyboardNavigation  | bool                       | true                           | Drive the active step with a hardware keyboard (Esc / arrows / Enter).           |
 | enablePointerCursor       | bool                       | true                           | Show a click cursor on the clickable parts of the tour (web/desktop).            |
 | enableStepTransition      | bool                       | false                          | Glide the highlight from the previous target to the next one.                    |
