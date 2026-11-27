@@ -1353,6 +1353,363 @@ void main() {
     expect(find.text('Three'), findsOneWidget);
   });
 
+  group('startShowCase(startAt:)', () {
+    // Builds a tour with one step per key. Steps whose index is in [absent] are
+    // left out of the tree, so their targets are not mounted.
+    Widget buildResumeApp(
+      List<GlobalKey> keys, {
+      Set<int> absent = const {},
+      bool autoSkipUnmountedSteps = false,
+      bool Function(int, GlobalKey)? onShouldSkipUnmountedStep,
+      FutureOr<bool> Function(String?)? onShouldStartShowcase,
+      ShowcaseStepCallback? onStart,
+      VoidCallback? onFinish,
+      bool enableStepTransition = false,
+    }) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          autoSkipUnmountedSteps: autoSkipUnmountedSteps,
+          onShouldSkipUnmountedStep: onShouldSkipUnmountedStep,
+          onShouldStartShowcase: onShouldStartShowcase,
+          onStart: onStart,
+          onFinish: onFinish,
+          showProgress: true,
+          progressStyle: ShowcaseProgressStyle.numeric,
+          enableStepTransition: enableStepTransition,
+          builder: Scaffold(
+            body: Column(
+              children: [
+                const Text('anchor'),
+                for (var i = 0; i < keys.length; i++)
+                  if (!absent.contains(i))
+                    Showcase(key: keys[i], title: 'Step $i', description: 'd', child: Text('t$i')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    List<GlobalKey> fourKeys() => List.generate(4, (i) => GlobalKey(debugLabel: 'step$i'));
+
+    ShowCaseWidgetState stateOf(WidgetTester tester) => ShowCaseWidget.of(tester.element(find.text('anchor')));
+
+    Future<void> pumpStep(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    testWidgets('opens on the given step and reports its real index', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      await tester.pumpWidget(buildResumeApp(keys, onStart: (index, key) => started.add(index)));
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 2);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isTrue);
+      expect(state.currentIndex, 2);
+      expect(state.totalSteps, 4);
+      expect(started, [2]); // onStart reports the step shown, not step 0
+      expect(find.text('Step 2'), findsOneWidget);
+      expect(find.text('Step 0'), findsNothing);
+      expect(find.text('3/4'), findsOneWidget); // progress counts from the real step
+    });
+
+    testWidgets('next, previous and finish behave as in a tour started at 0', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      var finished = 0;
+      await tester.pumpWidget(
+        buildResumeApp(keys, onStart: (index, key) => started.add(index), onFinish: () => finished++),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 2);
+      await pumpStep(tester);
+
+      // Earlier steps are still part of the tour.
+      state.previous();
+      await pumpStep(tester);
+      expect(state.currentIndex, 1);
+      expect(find.text('Step 1'), findsOneWidget);
+      expect(find.text('2/4'), findsOneWidget);
+
+      state.next();
+      await pumpStep(tester);
+      expect(state.currentIndex, 2);
+
+      state.next();
+      await pumpStep(tester);
+      expect(state.currentIndex, 3);
+      expect(finished, 0);
+
+      state.next(); // past the last step
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(state.isShowcaseRunning, isFalse);
+      expect(finished, 1);
+      expect(started, [2, 1, 2, 3]);
+      expect(find.text('Step 3'), findsNothing);
+    });
+
+    testWidgets('autoSkipUnmountedSteps skips forward from startAt', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      await tester.pumpWidget(
+        buildResumeApp(keys, absent: {1}, autoSkipUnmountedSteps: true, onStart: (index, key) => started.add(index)),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 1);
+      await pumpStep(tester);
+
+      expect(state.currentIndex, 2); // step 1 is not mounted, so the tour opens on 2
+      expect(started, [2]);
+      expect(find.text('Step 2'), findsOneWidget);
+    });
+
+    testWidgets('onShouldSkipUnmountedStep is asked from startAt forward', (tester) async {
+      final keys = fourKeys();
+      final asked = <int>[];
+      await tester.pumpWidget(
+        buildResumeApp(
+          keys,
+          absent: {0, 1, 2},
+          onShouldSkipUnmountedStep: (index, key) {
+            asked.add(index);
+            return true;
+          },
+        ),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 1);
+      await pumpStep(tester);
+
+      expect(asked, [1, 2]); // step 0 is before startAt, so it is never asked about
+      expect(state.currentIndex, 3);
+      expect(find.text('Step 3'), findsOneWidget);
+    });
+
+    testWidgets('finishes when every step from startAt on is skipped', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      var finished = 0;
+      await tester.pumpWidget(
+        buildResumeApp(
+          keys,
+          absent: {2, 3},
+          autoSkipUnmountedSteps: true,
+          onStart: (index, key) => started.add(index),
+          onFinish: () => finished++,
+        ),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 2);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isFalse);
+      expect(finished, 1);
+      expect(started, isEmpty);
+      expect(find.text('Step 0'), findsNothing); // does not fall back to earlier steps
+    });
+
+    testWidgets('without auto skip the tour waits on an unmounted start step', (tester) async {
+      final keys = fourKeys();
+      await tester.pumpWidget(buildResumeApp(keys, absent: {1}));
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 1);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isTrue);
+      expect(state.currentIndex, 1);
+      expect(find.text('Step 2'), findsNothing);
+    });
+
+    testWidgets('a guard that refuses blocks a resumed tour, and force bypasses it', (tester) async {
+      final keys = fourKeys();
+      var asked = 0;
+      await tester.pumpWidget(
+        buildResumeApp(
+          keys,
+          onShouldStartShowcase: (id) async {
+            asked++;
+            return false;
+          },
+        ),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 2);
+      await pumpStep(tester);
+      expect(asked, 1);
+      expect(state.isShowcaseRunning, isFalse);
+      expect(find.text('Step 2'), findsNothing);
+
+      state.startShowCase(keys, startAt: 2, force: true);
+      await pumpStep(tester);
+      expect(asked, 1); // force skips the guard
+      expect(state.currentIndex, 2);
+      expect(find.text('Step 2'), findsOneWidget);
+    });
+
+    testWidgets('a guard that allows the start opens on the startAt step', (tester) async {
+      final keys = fourKeys();
+      await tester.pumpWidget(buildResumeApp(keys, onShouldStartShowcase: (id) async => true));
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 3);
+      await tester.pump(); // kick off the guard future
+      await pumpStep(tester); // resolve it and show the step
+
+      expect(state.currentIndex, 3);
+      expect(find.text('Step 3'), findsOneWidget);
+    });
+
+    testWidgets('a startAt past the end opens the last step instead of finishing', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      var finished = 0;
+      await tester.pumpWidget(
+        buildResumeApp(keys, onStart: (index, key) => started.add(index), onFinish: () => finished++),
+      );
+
+      // A saved index from a longer, older version of the tour.
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 7);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isTrue);
+      expect(state.currentIndex, 3);
+      expect(started, [3]);
+      expect(finished, 0);
+      expect(find.text('Step 3'), findsOneWidget);
+      expect(find.text('4/4'), findsOneWidget);
+    });
+
+    testWidgets('a negative startAt opens the first step', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      await tester.pumpWidget(buildResumeApp(keys, onStart: (index, key) => started.add(index)));
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: -1);
+      await pumpStep(tester);
+
+      expect(state.currentIndex, 0);
+      expect(started, [0]);
+      expect(find.text('Step 0'), findsOneWidget);
+    });
+
+    testWidgets('a clamped startAt still goes through the guard', (tester) async {
+      final keys = fourKeys();
+      var asked = 0;
+      await tester.pumpWidget(
+        buildResumeApp(
+          keys,
+          onShouldStartShowcase: (id) {
+            asked++;
+            return true;
+          },
+        ),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 4);
+      await tester.pump(); // kick off the guard future
+      await pumpStep(tester);
+
+      expect(asked, 1);
+      expect(state.currentIndex, 3);
+    });
+
+    testWidgets('startAt 0 on an empty tour still finishes it straight away', (tester) async {
+      var finished = 0;
+      await tester.pumpWidget(buildResumeApp(const [], onFinish: () => finished++));
+
+      final state = stateOf(tester);
+      state.startShowCase(const []);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isFalse);
+      expect(finished, 1);
+    });
+
+    testWidgets('an empty tour finishes straight away whatever startAt is', (tester) async {
+      var finished = 0;
+      await tester.pumpWidget(buildResumeApp(const [], onFinish: () => finished++));
+
+      final state = stateOf(tester);
+      state.startShowCase(const [], startAt: 5);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isFalse);
+      expect(finished, 1);
+    });
+
+    testWidgets('opens directly on the step, without gliding from the previous one', (tester) async {
+      final keys = fourKeys();
+      await tester.pumpWidget(buildResumeApp(keys, enableStepTransition: true));
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 1);
+      await pumpStep(tester);
+      expect(state.previousTargetRect, isNull);
+
+      state.next();
+      await pumpStep(tester);
+      expect(state.previousTargetRect, isNotNull); // a step change glides
+
+      // Restarting a running tour mid-way opens on the step, like a new start.
+      state.startShowCase(keys, startAt: 3);
+      await tester.pump();
+      expect(state.currentIndex, 3);
+      expect(state.previousTargetRect, isNull);
+    });
+  });
+
+  group('ShowCaseWidget.builder', () {
+    testWidgets('accepts a plain widget whose own context reaches the controller', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: _PlainHome(stepKey: key),
+          ),
+        ),
+      );
+
+      // _PlainHome calls ShowCaseWidget.of(context) from its own build and from
+      // a button callback, with no Builder in between.
+      expect(find.text('steps: 0'), findsOneWidget);
+      await tester.tap(find.text('start'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(ShowCaseWidget.of(tester.element(find.text('start'))).currentIndex, 0);
+      expect(find.text('Plain'), findsOneWidget);
+    });
+
+    testWidgets('a Builder still works', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(buildApp(key));
+
+      ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('Title A'), findsOneWidget);
+    });
+  });
+
   testWidgets('tooltipPosition.right places the tooltip to the right of target', (tester) async {
     final key = GlobalKey();
     await tester.pumpWidget(
@@ -1687,6 +2044,8 @@ void main() {
         disableMovingAnimation: true,
         disableScaleAnimation: true,
         barrierInteraction: barrierInteraction,
+        // Covers the deprecated flag on purpose until it is removed in 3.0.0.
+        // ignore: deprecated_member_use_from_same_package
         disableBarrierInteraction: disableBarrierInteraction,
         enableKeyboardNavigation: enableKeyboardNavigation,
         onBarrierClick: onBarrierClick,
@@ -4983,4 +5342,26 @@ class _CounterState extends State<_Counter> {
 
   @override
   Widget build(BuildContext context) => Text('$value');
+}
+
+/// A screen passed straight to [ShowCaseWidget.builder], with no [Builder]
+/// around it. It reaches the controller through its own context.
+class _PlainHome extends StatelessWidget {
+  const _PlainHome({required this.stepKey});
+
+  final GlobalKey stepKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final show = ShowCaseWidget.of(context);
+    return Scaffold(
+      body: Column(
+        children: [
+          Text('steps: ${show.totalSteps}'),
+          Showcase(key: stepKey, title: 'Plain', description: 'd', child: const Text('target')),
+          TextButton(onPressed: () => ShowCaseWidget.of(context).startShowCase([stepKey]), child: const Text('start')),
+        ],
+      ),
+    );
+  }
 }
