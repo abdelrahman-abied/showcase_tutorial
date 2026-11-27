@@ -27,8 +27,12 @@ import 'package:flutter/widgets.dart';
 ///
 /// Set this once on `ShowCaseWidget.style` instead of repeating the same
 /// styling on every `Showcase`. An individual `Showcase` always wins: each
-/// value here is only used when the `Showcase` does not provide its own, and
-/// falls back to the built-in default when neither is set.
+/// value here is only used when the `Showcase` does not provide its own.
+///
+/// Every colour of a tour can be set here. A colour left unset everywhere
+/// follows the app's `material_ui` theme, so the tour matches the app in light
+/// and dark mode without any styling. (An app without a `material_ui` theme
+/// gets fixed colours instead: a white tooltip with black text.)
 ///
 /// ```dart
 /// ShowCaseWidget(
@@ -41,12 +45,46 @@ import 'package:flutter/widgets.dart';
 /// );
 /// ```
 class ShowcaseStyle {
-  /// Background color of the default tooltip. Falls back to [Colors.white].
+  /// Background color of the default tooltip. Falls back to the theme's
+  /// `colorScheme.surfaceContainerHigh`, the surface a dialog has.
   final Color? tooltipBackgroundColor;
 
   /// Text color for the default tooltip title and description when no explicit
-  /// text style is provided. Falls back to [Colors.black].
+  /// text style is provided, and for the progress indicator and Skip label.
+  ///
+  /// Falls back to the theme's `colorScheme.onSurface`. If you set
+  /// [tooltipBackgroundColor] but not this, it is white or black, whichever is
+  /// readable on your background.
   final Color? textColor;
+
+  /// Color of the dimmed background drawn behind each step. Its own opacity is
+  /// ignored: `Showcase.overlayOpacity` sets how see-through it is.
+  ///
+  /// Falls back to the theme's `colorScheme.scrim` (black unless the theme
+  /// changes it).
+  final Color? overlayColor;
+
+  /// Color of the labels of the default action buttons
+  /// ([ShowCaseDefaultActions]). A button's own [ActionButtonConfig.textColor]
+  /// wins.
+  ///
+  /// Falls back to the theme's `colorScheme.primary` on the default tooltip,
+  /// and to white or black, whichever is readable, on a background you chose.
+  final Color? actionTextColor;
+
+  /// Color of the divider between the default action buttons.
+  /// [ShowCaseDefaultActions.verticalDividerColor] wins.
+  ///
+  /// Falls back to the theme's `colorScheme.outlineVariant` on the default
+  /// tooltip.
+  final Color? actionDividerColor;
+
+  /// Color of the spinner shown while the tour scrolls to a step's target.
+  /// Not used by a step with its own `Showcase.scrollLoadingWidget`.
+  ///
+  /// Falls back to white or black, whichever shows against the dimmed
+  /// background.
+  final Color? loadingIndicatorColor;
 
   /// Text style for the default tooltip title.
   ///
@@ -71,7 +109,8 @@ class ShowcaseStyle {
   final BorderRadius? tooltipBorderRadius;
 
   /// Color of the pulsing highlight ring drawn when a `Showcase` enables
-  /// `Showcase.enablePulseAnimation`. Falls back to [Colors.white].
+  /// `Showcase.enablePulseAnimation`. Falls back to white or black, whichever
+  /// shows against the dimmed background.
   final Color? pulseColor;
 
   /// Color of the default tooltip's arrow. Falls back to the tooltip
@@ -99,6 +138,10 @@ class ShowcaseStyle {
   const ShowcaseStyle({
     this.tooltipBackgroundColor,
     this.textColor,
+    this.overlayColor,
+    this.actionTextColor,
+    this.actionDividerColor,
+    this.loadingIndicatorColor,
     this.titleTextStyle,
     this.descTextStyle,
     this.tooltipBorderRadius,

@@ -1,5 +1,61 @@
 # Changelog
 
+## Unreleased
+
+The tour now takes its colours from your app's theme, so it matches your app in
+light and dark mode with nothing to set. **This changes how the default
+tooltip looks**; see below for how to keep the old look.
+
+* **Changed: colours you don't set follow your theme.** They used to be fixed,
+  whatever the app looked like. With a `material_ui` theme in the app:
+
+  | Part of the tour | Before | Now (from `ThemeData.colorScheme`) |
+  | --- | --- | --- |
+  | Tooltip background | white | `surfaceContainerHigh`, the surface a dialog has |
+  | Title, description, progress, Skip | black | `onSurface` |
+  | Action button labels | light blue `0xff48cae4` | `primary` |
+  | Divider between action buttons | pale blue `0xffcaf0f8` | `outlineVariant` |
+  | Dimmed background | black | `scrim` (black unless your theme changes it) |
+
+  A colour you set still wins, per step or in `ShowcaseStyle`. A step showing
+  while the app switches between light and dark is recoloured at once.
+* **Readable by default on your own colours.** If you set a tooltip background
+  but no text colour, the text is white or black, whichever can be read on it
+  (it used to be black). Action buttons on a background you chose, or directly
+  on the dimmed background, are picked the same way, and so are the pulse ring
+  and the scroll spinner against the dimmed background.
+* **New: every colour can be set once in `ShowcaseStyle`.** Added
+  `overlayColor`, `actionTextColor`, `actionDividerColor` and
+  `loadingIndicatorColor`, next to the existing `tooltipBackgroundColor`,
+  `textColor`, `arrowColor`, `pulseColor` and `highlightBorderColor`.
+* **Changed: `ActionsSettings.containerColor` defaults to the tooltip's
+  colour** instead of white, so the box behind buttons placed outside the
+  tooltip matches it. Pass `Colors.transparent` for no box colour.
+* **To keep the old look**, set it once:
+
+  ```dart
+  ShowCaseWidget(
+    style: const ShowcaseStyle(
+      tooltipBackgroundColor: Colors.white,
+      textColor: Colors.black,
+      actionTextColor: Color(0xff48cae4),
+      actionDividerColor: Color(0xffcaf0f8),
+    ),
+    builder: ...,
+  );
+  ```
+
+* **Apps without a `material_ui` theme are unchanged.** An app still on
+  `MaterialApp` from `package:flutter/material.dart` has a theme this package
+  can't read, so it keeps the fixed colours above.
+* **Types:** four properties became nullable so that "not set" can mean "follow
+  the theme": `Showcase.overlayColor`, `Showcase.scrollLoadingWidget`,
+  `ActionButtonConfig.textColor` and
+  `ShowCaseDefaultActions.verticalDividerColor`. Passing a value works as
+  before; only code that reads them back as non-null needs a `?`.
+* The example app's theme now uses a colour scheme seeded from its brand
+  colour, to show the tour following it.
+
 ## 1.16.0
 
 Skip or wait for missing steps one by one, and theming help for apps still on

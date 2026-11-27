@@ -771,10 +771,12 @@ void main() {
       final body = styleOf(tester, 'Theme body');
       expect(title?.fontFamily, 'ModernTitle');
       expect(title?.fontSize, 27);
-      expect(title?.color, Colors.black);
       expect(body?.fontFamily, 'ModernBody');
       expect(body?.fontSize, 11);
-      expect(body?.color, Colors.black);
+      // The colour follows the theme too (see 'colours follow the app theme').
+      final onSurface = Theme.of(tester.element(find.text('target'))).colorScheme.onSurface;
+      expect(title?.color, onSurface);
+      expect(body?.color, onSurface);
     });
 
     testWidgets('a material_ui theme wins over a legacy Theme nested below it', (tester) async {
@@ -798,6 +800,363 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(styleOf(tester, 'Theme title')?.fontFamily, 'ModernTitle');
+    });
+  });
+
+  group('colours follow the app theme', () {
+    // Anything the developer leaves unset comes from the app's material_ui
+    // theme; anything they set, per step or in ShowcaseStyle, wins.
+    final light = ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal));
+    final dark = ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark),
+    );
+
+    Widget app({
+      ThemeData? theme,
+      ShowcaseStyle style = const ShowcaseStyle(),
+      required GlobalKey stepKey,
+      Color? tooltipBackgroundColor,
+      Color? textColor,
+      Color? overlayColor,
+      Widget? actions,
+      ActionsSettings? actionSettings,
+      TooltipActionPosition actionsPosition = TooltipActionPosition.outside,
+      bool enablePulseAnimation = false,
+      bool showProgress = false,
+    }) {
+      return MaterialApp(
+        theme: theme,
+        home: ShowCaseWidget(
+          style: style,
+          showProgress: showProgress,
+          showSkip: showProgress,
+          progressStyle: ShowcaseProgressStyle.numeric,
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Showcase(
+                  key: stepKey,
+                  title: 'Title',
+                  description: 'Body',
+                  tooltipBackgroundColor: tooltipBackgroundColor,
+                  textColor: textColor,
+                  overlayColor: overlayColor,
+                  actions: actions,
+                  actionSettings: actionSettings,
+                  actionsPosition: actionsPosition,
+                  enablePulseAnimation: enablePulseAnimation,
+                  child: const Text('target'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Future<void> startTour(WidgetTester tester, GlobalKey key) async {
+      ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tester.takeException(), isNull);
+    }
+
+    Color? textColorOf(WidgetTester tester, String text) => tester.widget<Text>(find.text(text)).style?.color;
+
+    // The tooltip box is the nearest coloured Container around the title.
+    Color tooltipColor(WidgetTester tester) {
+      return tester
+          .widgetList<Container>(find.ancestor(of: find.text('Title'), matching: find.byType(Container)))
+          .firstWhere((container) => container.color != null)
+          .color!;
+    }
+
+    // The dimmed background is the only ColoredBox at the default 75% opacity.
+    Color scrimColor(WidgetTester tester) {
+      final scrim = tester.widget<ColoredBox>(
+        find.byWidgetPredicate((w) => w is ColoredBox && (w.color.a - 0.75).abs() < 0.001),
+      );
+      return scrim.color.withValues(alpha: 1);
+    }
+
+    // The box drawn behind actions placed outside the tooltip.
+    Color? actionsBoxColor(WidgetTester tester) {
+      return tester
+          .widget<Container>(
+            find.ancestor(of: find.byType(ShowCaseDefaultActions), matching: find.byType(Container)).first,
+          )
+          .color;
+    }
+
+    Color pulseColor(WidgetTester tester) {
+      final pulse = tester.widget(find.byWidgetPredicate((w) => w.runtimeType.toString() == '_PulsingOverlay'));
+      // ignore: avoid_dynamic_calls
+      return (pulse as dynamic).color as Color;
+    }
+
+    testWidgets('a light theme colours the tooltip, text, scrim and buttons', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: light,
+          stepKey: key,
+          showProgress: true,
+          actions: const ShowCaseDefaultActions(),
+          actionsPosition: TooltipActionPosition.inside,
+        ),
+      );
+      await startTour(tester, key);
+
+      final scheme = light.colorScheme;
+      expect(tooltipColor(tester), scheme.surfaceContainerHigh);
+      expect(textColorOf(tester, 'Title'), scheme.onSurface);
+      expect(textColorOf(tester, 'Body'), scheme.onSurface);
+      expect(textColorOf(tester, '1/1'), scheme.onSurface, reason: 'the progress counter');
+      expect(textColorOf(tester, 'Skip'), scheme.onSurface.withValues(alpha: 0.7));
+      expect(scrimColor(tester), scheme.scrim);
+      expect(textColorOf(tester, 'Next'), scheme.primary);
+      expect(textColorOf(tester, 'Previous'), scheme.primary);
+      expect(tester.widget<VerticalDivider>(find.byType(VerticalDivider).first).color, scheme.outlineVariant);
+    });
+
+    testWidgets('a dark theme gives a dark tooltip with light text', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(theme: dark, stepKey: key));
+      await startTour(tester, key);
+
+      final scheme = dark.colorScheme;
+      expect(tooltipColor(tester), scheme.surfaceContainerHigh);
+      expect(ThemeData.estimateBrightnessForColor(tooltipColor(tester)), Brightness.dark);
+      expect(textColorOf(tester, 'Title'), scheme.onSurface);
+      expect(ThemeData.estimateBrightnessForColor(textColorOf(tester, 'Title')!), Brightness.light);
+    });
+
+    testWidgets('switching the app between light and dark recolours a showing step', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(theme: light, stepKey: key));
+      await startTour(tester, key);
+      expect(tooltipColor(tester), light.colorScheme.surfaceContainerHigh);
+
+      await tester.pumpWidget(app(theme: dark, stepKey: key));
+      // MaterialApp animates between themes.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(tooltipColor(tester), dark.colorScheme.surfaceContainerHigh);
+      expect(textColorOf(tester, 'Title'), dark.colorScheme.onSurface);
+    });
+
+    testWidgets('colours set on the step win over the theme', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: dark,
+          stepKey: key,
+          tooltipBackgroundColor: const Color(0xFF0077B6),
+          textColor: const Color(0xFFFFEE00),
+          overlayColor: const Color(0xFF112233),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(tooltipColor(tester), const Color(0xFF0077B6));
+      expect(textColorOf(tester, 'Title'), const Color(0xFFFFEE00));
+      expect(scrimColor(tester), const Color(0xFF112233));
+    });
+
+    testWidgets('ShowcaseStyle sets every colour once, and a button colour wins over it', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: dark,
+          stepKey: key,
+          enablePulseAnimation: true,
+          style: const ShowcaseStyle(
+            tooltipBackgroundColor: Color(0xFF101010),
+            textColor: Color(0xFFEEEEEE),
+            overlayColor: Color(0xFF223344),
+            actionTextColor: Color(0xFFFF8800),
+            actionDividerColor: Color(0xFF00FF88),
+            pulseColor: Color(0xFFAA00AA),
+          ),
+          actions: const ShowCaseDefaultActions(next: ActionButtonConfig(textColor: Color(0xFF0000FF))),
+          actionsPosition: TooltipActionPosition.inside,
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(tooltipColor(tester), const Color(0xFF101010));
+      expect(textColorOf(tester, 'Title'), const Color(0xFFEEEEEE));
+      expect(scrimColor(tester), const Color(0xFF223344));
+      expect(pulseColor(tester), const Color(0xFFAA00AA));
+      expect(textColorOf(tester, 'Previous'), const Color(0xFFFF8800));
+      expect(textColorOf(tester, 'Next'), const Color(0xFF0000FF), reason: "the button's own colour wins");
+      expect(tester.widget<VerticalDivider>(find.byType(VerticalDivider).first).color, const Color(0xFF00FF88));
+    });
+
+    testWidgets('a background set without a text colour gets readable text and buttons', (tester) async {
+      // An app that only ever set a white tooltip must not get the dark
+      // theme's light text on it.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: dark,
+          stepKey: key,
+          tooltipBackgroundColor: Colors.white,
+          actions: const ShowCaseDefaultActions(),
+          actionsPosition: TooltipActionPosition.inside,
+        ),
+      );
+      await startTour(tester, key);
+      expect(textColorOf(tester, 'Title'), Colors.black);
+      expect(textColorOf(tester, 'Next'), Colors.black);
+
+      // And a dark background in a light app gets white.
+      final key2 = GlobalKey();
+      await tester.pumpWidget(app(theme: light, stepKey: key2, tooltipBackgroundColor: const Color(0xFF001122)));
+      await startTour(tester, key2);
+      expect(textColorOf(tester, 'Title'), Colors.white);
+    });
+
+    testWidgets('actions outside the tooltip: the box matches the tooltip, or the buttons contrast with the scrim', (
+      tester,
+    ) async {
+      // With ActionsSettings there is a box, and it takes the tooltip's colour.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: light,
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(),
+          actionSettings: const ActionsSettings(),
+        ),
+      );
+      await startTour(tester, key);
+      expect(actionsBoxColor(tester), light.colorScheme.surfaceContainerHigh);
+      expect(textColorOf(tester, 'Next'), light.colorScheme.primary);
+
+      // A colour set on the box wins, and the buttons stay readable on it.
+      final key2 = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: light,
+          stepKey: key2,
+          actions: const ShowCaseDefaultActions(),
+          actionSettings: const ActionsSettings(containerColor: Color(0xFF001122)),
+        ),
+      );
+      await startTour(tester, key2);
+      expect(actionsBoxColor(tester), const Color(0xFF001122));
+      expect(textColorOf(tester, 'Next'), Colors.white);
+
+      // Without ActionsSettings there is no box: the buttons sit on the
+      // dimmed background and take the colour that shows against it.
+      final key3 = GlobalKey();
+      await tester.pumpWidget(app(theme: light, stepKey: key3, actions: const ShowCaseDefaultActions()));
+      await startTour(tester, key3);
+      expect(actionsBoxColor(tester), isNull);
+      expect(textColorOf(tester, 'Next'), Colors.white);
+    });
+
+    testWidgets('the pulse ring shows against the dimmed background', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(theme: light, stepKey: key, enablePulseAnimation: true));
+      await startTour(tester, key);
+      expect(pulseColor(tester), Colors.white, reason: 'the default scrim is black');
+
+      final key2 = GlobalKey();
+      await tester.pumpWidget(app(theme: light, stepKey: key2, enablePulseAnimation: true, overlayColor: Colors.white));
+      await startTour(tester, key2);
+      expect(pulseColor(tester), Colors.black);
+    });
+
+    testWidgets('an app without a material_ui theme keeps the fixed colours', (tester) async {
+      // An app on the legacy MaterialApp: its theme can't be read, so the tour
+      // must not pick up material_ui's unrelated default theme instead.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        legacy.MaterialApp(
+          theme: legacy.ThemeData.dark(),
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Center(
+                child: Showcase(
+                  key: key,
+                  title: 'Title',
+                  description: 'Body',
+                  actions: const ShowCaseDefaultActions(),
+                  actionSettings: const ActionsSettings(),
+                  child: const Text('target'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(tooltipColor(tester), Colors.white);
+      expect(textColorOf(tester, 'Title'), Colors.black);
+      expect(scrimColor(tester), Colors.black);
+      expect(actionsBoxColor(tester), Colors.white);
+      expect(textColorOf(tester, 'Next'), const Color(0xff48cae4));
+      expect(tester.widget<VerticalDivider>(find.byType(VerticalDivider).first).color, const Color(0xffcaf0f8));
+    });
+
+    testWidgets('the scroll spinner takes ShowcaseStyle.loadingIndicatorColor, else contrasts with the scrim', (
+      tester,
+    ) async {
+      Future<Color?> spinnerColor(ShowcaseStyle style) async {
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: light,
+            home: ShowCaseWidget(
+              style: style,
+              enableAutoScroll: true,
+              scrollDuration: const Duration(milliseconds: 300),
+              disableMovingAnimation: true,
+              disableScaleAnimation: true,
+              builder: Builder(
+                builder: (context) => Scaffold(
+                  body: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 1200),
+                        Showcase(key: key, description: 'Far down', child: const Text('t')),
+                        const SizedBox(height: 1200),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+        // The scroll starts after the first frame; the spinner shows from the
+        // frame after that until the scroll ends.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump(const Duration(milliseconds: 50));
+        final spinner = tester.widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator));
+        final color = spinner.valueColor?.value;
+        await tester.pumpAndSettle();
+        ShowCaseWidget.of(tester.element(find.text('t'))).dismiss();
+        await tester.pump(const Duration(seconds: 1));
+        // Start the next run from an unscrolled page.
+        await tester.pumpWidget(const SizedBox());
+        return color;
+      }
+
+      expect(await spinnerColor(const ShowcaseStyle()), Colors.white);
+      expect(
+        await spinnerColor(const ShowcaseStyle(loadingIndicatorColor: Color(0xFF00AAFF))),
+        const Color(0xFF00AAFF),
+      );
     });
   });
 

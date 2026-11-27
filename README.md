@@ -38,7 +38,9 @@ Animated step transitions — the default instant cut (left) vs `enableStepTrans
 - **Tooltip & highlight styling** — custom arrow color/size, a colored border
   around the target, custom scrim color and opacity.
 - **Highlight multiple widgets in one step** (e.g. a multi-select control).
-- **Global tooltip styling** with `ShowcaseStyle` — set it once, not per step.
+- **Matches your app** — the tooltip, text, buttons and dimmed background take
+  their colours from your theme, in light and dark mode, with nothing to set.
+- **Global styling** with `ShowcaseStyle` — set any colour once, not per step.
 - Built-in **action buttons** (Next / Previous / Stop) with customizable text,
   icons, and layout.
 - Built-in **progress indicator** (dots or a `1/6` counter) and a **Skip** button
@@ -92,6 +94,7 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 - [Animated step transitions](#animated-step-transitions)
 - [Tooltip & highlight styling](#tooltip--highlight-styling)
 - [Highlight multiple widgets in one step](#highlight-multiple-widgets-in-one-step)
+- [Colours and your app's theme](#colours-and-your-apps-theme)
 - [Global styling with `ShowcaseStyle`](#global-styling-with-showcasestyle)
 - [Run the tour only once](#run-the-tour-only-once)
 - [Auto play](#auto-play)
@@ -142,7 +145,10 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 the tour works, but the tooltip can't see your app's theme. `material_ui` keeps
 its own `Theme`, separate from the old one, and the old one exposes nothing the
 package can read without importing the deprecated library. So the default
-title and description text uses the default Material fonts instead of yours.
+title and description text uses the default Material fonts instead of yours,
+and the tour uses fixed colours (a white tooltip with black text) instead of
+[following your theme](#colours-and-your-apps-theme). Set the colours you want
+through `ShowcaseStyle` too.
 
 The best fix is to migrate: `dart fix --apply --code=migrate_design_widgets`.
 Until then, pass your text styles once through `ShowcaseStyle`, from somewhere
@@ -163,10 +169,10 @@ ShowCaseWidget(
 
 These styles replace the default title and description styles, so `textColor`
 no longer colours that text (it still colours the progress indicator and the
-Skip label). Set the colour in the style itself: the tooltip is white by
-default, and a dark theme's text is usually white too. Once your app uses `material_ui`'s
-`MaterialApp`, you can delete these two lines: the tooltip then follows your
-theme by itself.
+Skip label). Set the colour in the style itself: without a `material_ui`
+theme the tooltip is white, and a dark theme's text is usually white too. Once
+your app uses `material_ui`'s `MaterialApp`, you can delete these two lines:
+the tooltip then follows your theme by itself.
 
 ## Getting started
 
@@ -271,13 +277,16 @@ Showcase(
     previous: const ActionButtonConfig(text: 'Back'),
     stop: const ActionButtonConfig(text: 'Skip'),
   ),
-  actionSettings: const ActionsSettings(
-    containerColor: Colors.white,
-    containerHeight: 40,
-  ),
+  actionSettings: const ActionsSettings(containerHeight: 40),
   child: const Icon(Icons.menu),
 );
 ```
+
+The buttons [follow your theme](#colours-and-your-apps-theme). To colour them
+yourself, set `ActionButtonConfig.textColor` on a button, or
+`ShowcaseStyle.actionTextColor` for the whole tour. With `ActionsSettings`,
+buttons outside the tooltip get a box in the tooltip's colour
+(`containerColor` changes it); without it they sit on the dimmed background.
 
 ### Set the buttons once for the whole tour
 
@@ -520,8 +529,9 @@ The border follows the highlight's shape (`targetShapeBorder` /
 Set any of these once for the whole tour via `ShowcaseStyle`, e.g.
 `ShowCaseWidget(style: ShowcaseStyle(arrowColor: ..., highlightBorderColor: ...))`.
 
-> The per-step overlay (scrim) color is controlled by `Showcase.overlayColor`
-> and `overlayOpacity`.
+> The dimmed background's color is `Showcase.overlayColor` (or
+> `ShowcaseStyle.overlayColor` for the whole tour), and `overlayOpacity` sets
+> how see-through it is.
 
 ## Highlight multiple widgets in one step
 
@@ -553,12 +563,57 @@ MultiView(key: extraTwo, child: FloatingActionButton(onPressed: () {}));
 > the step starts so their keys resolve. A widget that is missing is simply
 > skipped — the remaining ones are still highlighted.
 
+## Colours and your app's theme
+
+A tour matches your app without any styling. Every colour you don't set comes
+from your app's theme (`ThemeData.colorScheme`), so the tour follows your
+brand colours and switches with light and dark mode:
+
+| Part of the tour                      | Colour it takes from your theme                  |
+| ------------------------------------- | ------------------------------------------------ |
+| Tooltip background (and its arrow)    | `surfaceContainerHigh`, the surface a dialog has |
+| Title, description, progress, Skip    | `onSurface`                                      |
+| Action button labels                  | `primary`                                        |
+| Divider between action buttons        | `outlineVariant`                                 |
+| Dimmed background                     | `scrim` (black unless your theme changes it)     |
+| Pulse ring, scroll spinner            | white or black, whichever shows on the dimmed background |
+
+A colour you set always wins, and the tour keeps your choice readable:
+
+- Set a tooltip background without a text colour, and the text is white or
+  black, whichever can be read on it.
+- Action buttons on a background you chose, or directly on the dimmed
+  background, are white or black the same way.
+
+To set colours yourself, use the step's own properties or, once for the whole
+tour, [`ShowcaseStyle`](#global-styling-with-showcasestyle).
+
+> **Upgrading from 1.16 or earlier?** The tooltip used to be white with black
+> text, and the action buttons light blue, whatever your theme. To keep that
+> look, set it once:
+>
+> ```dart
+> ShowCaseWidget(
+>   style: const ShowcaseStyle(
+>     tooltipBackgroundColor: Colors.white,
+>     textColor: Colors.black,
+>     actionTextColor: Color(0xff48cae4),
+>     actionDividerColor: Color(0xffcaf0f8),
+>   ),
+>   builder: ...,
+> );
+> ```
+
+The colours come from `material_ui`'s theme. An app without one (for example,
+one still on `MaterialApp` from `package:flutter/material.dart`) keeps the
+fixed colours above.
+
 ## Global styling with `ShowcaseStyle`
 
-Instead of repeating the same tooltip styling on every `Showcase`, set it once
-on the `ShowCaseWidget` with `ShowcaseStyle`. Each `Showcase` still overrides
-any value it provides; anything left unset falls back to the style, then to the
-built-in default.
+Instead of repeating the same styling on every `Showcase`, set it once on the
+`ShowCaseWidget` with `ShowcaseStyle`. Each `Showcase` still overrides any
+value it provides; anything left unset falls back to the style, then to
+[your app's theme](#colours-and-your-apps-theme).
 
 ```dart
 ShowCaseWidget(
@@ -571,7 +626,21 @@ ShowCaseWidget(
 );
 ```
 
-Resolution order for each value: **`Showcase` → `ShowcaseStyle` → built-in default**.
+Every colour of a tour can be set here:
+
+| `ShowcaseStyle` property | What it colours                                        |
+| ------------------------ | ------------------------------------------------------ |
+| `tooltipBackgroundColor` | The default tooltip.                                   |
+| `textColor`              | Title, description, progress indicator and Skip label. |
+| `arrowColor`             | The tooltip's arrow (defaults to the tooltip's colour).|
+| `actionTextColor`        | Labels of the default action buttons.                  |
+| `actionDividerColor`     | The divider between the default action buttons.        |
+| `overlayColor`           | The dimmed background.                                 |
+| `pulseColor`             | The pulsing highlight ring.                            |
+| `highlightBorderColor`   | The border around the target (none by default).        |
+| `loadingIndicatorColor`  | The spinner shown while the tour scrolls to a target.  |
+
+Resolution order for each value: **`Showcase` → `ShowcaseStyle` → your app's theme**.
 
 ## Run the tour only once
 
@@ -1181,8 +1250,8 @@ ShowCaseWidget(
 | descTextStyle                | TextStyle?             | `ShowcaseStyle`                                    | Text style of the description.                                                              |     ✅     |                       |
 | titleAlignment               | TextAlign              | `TextAlign.start`                                  | Alignment of the title.                                                                     |     ✅     |                       |
 | descriptionAlignment         | TextAlign              | `TextAlign.start`                                  | Alignment of the description.                                                               |     ✅     |                       |
-| tooltipBackgroundColor       | Color?                 | `ShowcaseStyle` → `Colors.white`                   | Background color of the default tooltip.                                                    |     ✅     |                       |
-| textColor                    | Color?                 | `ShowcaseStyle` → `Colors.black`                   | Text color of the default tooltip.                                                          |     ✅     |                       |
+| tooltipBackgroundColor       | Color?                 | `ShowcaseStyle` → app theme                        | Background color of the default tooltip.                                                    |     ✅     |                       |
+| textColor                    | Color?                 | `ShowcaseStyle` → app theme                        | Text color of the default tooltip.                                                          |     ✅     |                       |
 | tooltipBorderRadius          | BorderRadius?          | `ShowcaseStyle` → `BorderRadius.circular(8)`       | Border radius of the default tooltip.                                                       |     ✅     |                       |
 | tooltipPadding               | EdgeInsets             | `EdgeInsets.symmetric(vertical: 8, horizontal: 8)` | Padding inside the tooltip.                                                                 |     ✅     |                       |
 | titlePadding                 | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the title.                                                                   |     ✅     |                       |
@@ -1202,7 +1271,7 @@ ShowCaseWidget(
 | highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
 | targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlight.                                                             |     ✅     |          ✅           |
 | enablePulseAnimation         | bool                   | false                                              | Draw an animated ring that pulses outward around the highlight.                             |     ✅     |          ✅           |
-| pulseColor                   | Color?                 | `ShowcaseStyle` → `Colors.white`                   | Color of the pulsing ring.                                                                  |     ✅     |          ✅           |
+| pulseColor                   | Color?                 | `ShowcaseStyle` → white or black                   | Color of the pulsing ring.                                                                  |     ✅     |          ✅           |
 | pulseDuration                | Duration               | `Duration(milliseconds: 1500)`                     | Length of one full pulse cycle (smaller is faster).                                         |     ✅     |          ✅           |
 | highlightBorderColor         | Color?                 |                                                    | Color of a border drawn around the highlight (off when null).                               |     ✅     |          ✅           |
 | highlightBorderWidth         | double?                | `2`                                                | Width of the highlight border.                                                              |     ✅     |          ✅           |
@@ -1210,7 +1279,7 @@ ShowCaseWidget(
 | arrowWidth                   | double?                | `18`                                               | Width (base) of the default tooltip arrow.                                                  |     ✅     |                       |
 | arrowHeight                  | double?                | `9`                                                | Height (depth) of the default tooltip arrow.                                                |     ✅     |                       |
 | targetPadding                | EdgeInsets             | `EdgeInsets.zero`                                  | Padding around the highlight.                                                               |     ✅     |          ✅           |
-| overlayColor                 | Color                  | `Colors.black45`                                   | Color of the overlay scrim.                                                                 |     ✅     |          ✅           |
+| overlayColor                 | Color?                 | `ShowcaseStyle` → app theme                        | Color of the overlay scrim.                                                                 |     ✅     |          ✅           |
 | overlayOpacity               | double                 | 0.75                                               | Opacity of the overlay scrim.                                                               |     ✅     |          ✅           |
 | blurValue                    | double?                | `ShowCaseWidget.blurValue`                         | Gaussian blur on the overlay.                                                               |     ✅     |          ✅           |
 | disableDefaultTargetGestures | bool                   | false                                              | Disable the default gestures on the target.                                                 |     ✅     |          ✅           |
@@ -1231,7 +1300,7 @@ ShowCaseWidget(
 | scaleAnimationDuration       | Duration               | `Duration(milliseconds: 300)`                      | Duration of the scale animation.                                                            |     ✅     |                       |
 | scaleAnimationCurve          | Curve                  | `Curves.easeIn`                                    | Curve of the scale animation.                                                               |     ✅     |                       |
 | scaleAnimationAlignment      | Alignment?             |                                                    | Origin of the scale animation.                                                              |     ✅     |                       |
-| scrollLoadingWidget          | Widget                 | `CircularProgressIndicator(...)`                   | Loading widget shown while auto-scrolling to the target.                                    |     ✅     |          ✅           |
+| scrollLoadingWidget          | Widget?                | a `CircularProgressIndicator`                      | Loading widget shown while auto-scrolling to the target.                                    |     ✅     |          ✅           |
 
 ## Example
 

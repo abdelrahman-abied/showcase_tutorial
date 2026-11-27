@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../showcase_tutorial.dart';
+import 'utilities/_showcase_colors.dart';
 import 'utilities/_showcase_context_provider.dart';
 
 /// Default action buttons widget for a [Showcase] tooltip.
@@ -33,7 +34,11 @@ class ShowCaseDefaultActions extends StatelessWidget {
   final double? dividerThickness;
 
   /// Color of the vertical divider drawn between buttons.
-  final Color verticalDividerColor;
+  ///
+  /// When `null` (the default) it is [ShowcaseStyle.actionDividerColor], or
+  /// else follows the app's theme (`colorScheme.outlineVariant` on the
+  /// default tooltip).
+  final Color? verticalDividerColor;
 
   /// Configuration for the Next button.
   final ActionButtonConfig next;
@@ -57,13 +62,18 @@ class ShowCaseDefaultActions extends StatelessWidget {
     this.verticalDirection = VerticalDirection.down,
     this.textBaseline,
     this.dividerThickness = 1.0,
-    this.verticalDividerColor = const Color(0xffcaf0f8),
+    this.verticalDividerColor,
   });
 
   /// Builds the [Row] of Previous, Stop and Next buttons for the tooltip.
   @override
   Widget build(BuildContext context) {
     final showcaseContext = ShowcaseContextProvider.of(context)?.context;
+    // Provided by the tooltip the buttons are in. Used outside one, the
+    // buttons keep the colours they had before they followed the theme.
+    final defaults = ShowcaseActionColors.maybeOf(context);
+    final foreground = defaults?.foreground ?? ShowcaseColors.fallback.accent;
+    final divider = verticalDividerColor ?? defaults?.divider ?? ShowcaseColors.fallback.outline;
 
     return Row(
       mainAxisSize: mainAxisSize,
@@ -76,7 +86,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
         if (previous.buttonVisible)
           _getButtonWidget(
             previous,
-            showcaseContext,
+            foreground,
             previous.text ?? 'Previous',
             previous.callback ??
                 () {
@@ -86,11 +96,11 @@ class ShowCaseDefaultActions extends StatelessWidget {
                 },
           ),
         if (previous.buttonVisible && stop.buttonVisible || previous.buttonVisible && next.buttonVisible)
-          _getVerticalDivider(),
+          _getVerticalDivider(divider),
         if (stop.buttonVisible)
           _getButtonWidget(
             stop,
-            showcaseContext,
+            foreground,
             stop.text ?? 'Stop',
             stop.callback ??
                 () {
@@ -99,11 +109,11 @@ class ShowCaseDefaultActions extends StatelessWidget {
                   }
                 },
           ),
-        if (stop.buttonVisible && next.buttonVisible) _getVerticalDivider(),
+        if (stop.buttonVisible && next.buttonVisible) _getVerticalDivider(divider),
         if (next.buttonVisible)
           _getButtonWidget(
             next,
-            showcaseContext,
+            foreground,
             next.text ?? 'Next',
             next.callback ??
                 () {
@@ -118,13 +128,13 @@ class ShowCaseDefaultActions extends StatelessWidget {
     );
   }
 
-  Widget _getVerticalDivider() {
-    return VerticalDivider(width: 1.0, thickness: dividerThickness, color: verticalDividerColor);
+  Widget _getVerticalDivider(Color color) {
+    return VerticalDivider(width: 1.0, thickness: dividerThickness, color: color);
   }
 
   Widget _getButtonWidget(
     ActionButtonConfig actionConfig,
-    BuildContext? showcaseContext,
+    Color defaultTextColor,
     String buttonText,
     VoidCallback onClick,
   ) {
@@ -133,7 +143,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
         textDirection: actionConfig.textDirection,
         child: TextButton.icon(
           label: actionConfig.buttonTextVisible
-              ? Text(buttonText, style: TextStyle(color: actionConfig.textColor))
+              ? Text(buttonText, style: TextStyle(color: actionConfig.textColor ?? defaultTextColor))
               : const SizedBox.shrink(),
           icon: actionConfig.icon ?? const SizedBox.shrink(),
           style: ButtonStyle(backgroundColor: WidgetStateProperty.all<Color>(actionConfig.textButtonBgColor)),
@@ -154,7 +164,11 @@ class ActionButtonConfig {
   final Widget? icon;
 
   /// Color of button text.
-  final Color textColor;
+  ///
+  /// When `null` (the default) it is [ShowcaseStyle.actionTextColor], or else
+  /// follows the app's theme: `colorScheme.primary` on the default tooltip,
+  /// and white or black, whichever is readable, on a background you chose.
+  final Color? textColor;
 
   /// Color of button background.
   final Color textButtonBgColor;
@@ -177,7 +191,7 @@ class ActionButtonConfig {
   const ActionButtonConfig({
     this.text,
     this.icon,
-    this.textColor = const Color(0xff48cae4),
+    this.textColor,
     this.textButtonBgColor = Colors.transparent,
     this.callback,
     this.buttonVisible = true,

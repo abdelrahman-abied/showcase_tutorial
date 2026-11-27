@@ -28,6 +28,7 @@ import 'package:material_ui/material_ui.dart';
 import '../showcase_tutorial.dart';
 import 'get_position.dart';
 import 'measure_size.dart';
+import 'utilities/_showcase_colors.dart';
 
 class ToolTipWidget extends StatefulWidget {
   final GetPosition? position;
@@ -41,7 +42,23 @@ class ToolTipWidget extends StatefulWidget {
   final TextStyle? descTextStyle;
   final Widget? container;
   final Color? tooltipBackgroundColor;
+
+  /// Whether [tooltipBackgroundColor] is the theme's own tooltip colour, as
+  /// opposed to one the developer chose.
+  final bool isThemeBackground;
   final Color? textColor;
+
+  /// The colours for anything the developer left unset.
+  final ShowcaseColors colors;
+
+  /// The dimmed background, which action buttons without a container sit on.
+  final Color scrimColor;
+
+  /// Tour-wide colour of the action button labels, if the developer set one.
+  final Color? actionTextColor;
+
+  /// Tour-wide colour of the divider between action buttons, if set.
+  final Color? actionDividerColor;
   final bool showArrow;
 
   /// Color of the arrow. Falls back to [tooltipBackgroundColor] when null.
@@ -125,7 +142,12 @@ class ToolTipWidget extends StatefulWidget {
     required this.descTextStyle,
     required this.container,
     required this.tooltipBackgroundColor,
+    this.isThemeBackground = false,
     required this.textColor,
+    this.colors = ShowcaseColors.fallback,
+    this.scrimColor = Colors.black45,
+    this.actionTextColor,
+    this.actionDividerColor,
     required this.showArrow,
     this.arrowColor,
     this.arrowWidth = 18.0,
@@ -278,13 +300,57 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
   /// the actions are positioned outside it (or absent).
   Widget? _buildInsideActions() {
     if (!_hasInsideActions) return null;
+    // With no container colour the buttons sit on the tooltip itself.
+    final containerColor = widget.actionSettings?.containerColor;
     return Padding(
       padding: widget.actionSettings?.containerPadding ?? const EdgeInsets.only(top: 8),
       child: SizedBox(
         height: widget.actionSettings?.containerHeight,
         width: widget.actionSettings?.containerWidth,
-        child: ColoredBox(color: widget.actionSettings?.containerColor ?? Colors.transparent, child: widget.actions),
+        child: ColoredBox(
+          color: containerColor ?? Colors.transparent,
+          child: _withActionColors(
+            widget.actions!,
+            background: containerColor ?? widget.tooltipBackgroundColor!,
+            isThemeBackground: containerColor == null && widget.isThemeBackground,
+          ),
+        ),
       ),
+    );
+  }
+
+  /// The colour of the box drawn behind actions placed outside the tooltip.
+  ///
+  /// Without [ActionsSettings] there is no box and the buttons sit on the
+  /// dimmed background (`null`). With settings, the box takes
+  /// [ActionsSettings.containerColor], or the tooltip's colour when that is
+  /// unset, so the two match.
+  Color? get _outsideActionsColor {
+    final settings = widget.actionSettings;
+    if (settings == null) return null;
+    return settings.containerColor ?? widget.tooltipBackgroundColor;
+  }
+
+  /// Wraps the outside [ToolTipWidget.actions] with their default colours.
+  Widget _outsideActions() {
+    final boxColor = _outsideActionsColor;
+    return _withActionColors(
+      widget.actions!,
+      background: boxColor ?? widget.scrimColor,
+      isThemeBackground: boxColor != null && widget.actionSettings?.containerColor == null && widget.isThemeBackground,
+    );
+  }
+
+  /// Gives the action buttons in [actions] the default colours for the
+  /// [background] they are drawn on. A colour set on a button itself, or
+  /// tour-wide in [ShowcaseStyle], still wins.
+  Widget _withActionColors(Widget actions, {required Color background, required bool isThemeBackground}) {
+    return ShowcaseActionColors(
+      foreground:
+          widget.actionTextColor ?? widget.colors.actionForegroundOn(background, isThemeBackground: isThemeBackground),
+      divider:
+          widget.actionDividerColor ?? widget.colors.actionDividerOn(background, isThemeBackground: isThemeBackground),
+      child: actions,
     );
   }
 
@@ -818,7 +884,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
               bottom: widget.actionButtonsPosition?.bottom,
               height: min((tooltipHeight - arrowHeight), 40),
               width: tooltipWidth,
-              child: Container(color: widget.actionSettings?.containerColor, child: widget.actions),
+              child: Container(color: _outsideActionsColor, child: _outsideActions()),
             ),
         ],
       );
@@ -863,10 +929,10 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
             child: Padding(
               padding: widget.actionSettings?.containerPadding ?? EdgeInsets.zero,
               child: Container(
-                color: widget.actionSettings?.containerColor,
+                color: _outsideActionsColor,
                 height: widget.actionSettings?.containerHeight,
                 width: widget.actionSettings?.containerWidth,
-                child: widget.actions!,
+                child: _outsideActions(),
               ),
             ),
           ),

@@ -17,7 +17,10 @@ class ActionsSettings {
 
   /// Background color of the action buttons container.
   ///
-  /// Defaults to [Colors.white].
+  /// When `null` (the default), a container outside the tooltip takes the
+  /// tooltip's background color so the two match, and buttons inside the
+  /// tooltip have no background of their own. Pass [Colors.transparent] for
+  /// no background outside the tooltip either.
   final Color? containerColor;
 
   /// Padding around the action buttons inside the container.
@@ -29,7 +32,7 @@ class ActionsSettings {
   const ActionsSettings({
     this.containerWidth = 350,
     this.containerHeight = 40,
-    this.containerColor = Colors.white,
+    this.containerColor,
     this.containerPadding = const EdgeInsets.only(top: 0.0),
   });
 }
