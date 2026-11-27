@@ -457,8 +457,8 @@ class Showcase extends StatefulWidget {
   /// is inert ([BarrierInteraction.none]) because the user must interact with
   /// the target.
   ///
-  /// Takes precedence over the tour-wide setting, including the legacy
-  /// [ShowCaseWidget.disableBarrierInteraction] flag. Does not suppress
+  /// Takes precedence over the tour-wide setting, including the deprecated
+  /// `ShowCaseWidget.disableBarrierInteraction` flag. Does not suppress
   /// [ShowCaseWidget.onBarrierClick], which still fires on every barrier tap.
   /// Defaults to `null`, which uses the tour-wide behaviour.
   final BarrierInteraction? barrierInteraction;

@@ -58,8 +58,8 @@ Animated step transitions — the default instant cut (left) vs `enableStepTrans
 - **Introspection** — register/unregister step listeners at runtime, track the
   highlighted target's bounds with `onTargetRectUpdate`, and check whether a
   step's target is on screen with `isTargetRendered`.
-- **Run the tour only once** for onboarding, and **auto-skip** steps whose target
-  isn't on screen.
+- **Run the tour only once** for onboarding, **resume it** where the user left
+  off, and **auto-skip** steps whose target isn't on screen.
 - **Accessibility** built in — keyboard navigation (Esc / arrows / Enter) and
   screen-reader announcements.
 - **Web / desktop polish** — a click cursor on the parts of the tour that react
@@ -97,6 +97,7 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 - [Colours and your app's theme](#colours-and-your-apps-theme)
 - [Global styling with `ShowcaseStyle`](#global-styling-with-showcasestyle)
 - [Run the tour only once](#run-the-tour-only-once)
+- [Resume where the user left off](#resume-where-the-user-left-off)
 - [Auto play](#auto-play)
 - [Programmatic control & progress](#programmatic-control--progress)
 - [Conditional / branching tours](#conditional--branching-tours)
@@ -182,7 +183,24 @@ A tour is three small steps: wrap the screen, wrap each target, then start.
 
 ```dart
 ShowCaseWidget(
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
+);
+```
+
+`builder` takes any widget. Widgets inside it, like `HomePage`, can call
+`ShowCaseWidget.of(context)` from their own `build`. If you build the screen
+inline and need `ShowCaseWidget.of(context)` right there, wrap it in a
+`Builder` so that `context` is below the `ShowCaseWidget`. Code that already
+passes a `Builder` keeps working.
+
+```dart
+ShowCaseWidget(
+  builder: Builder(
+    builder: (context) => ElevatedButton(
+      onPressed: () => ShowCaseWidget.of(context).startShowCase([_one, _two]),
+      child: const Text('Start tour'),
+    ),
+  ),
 );
 ```
 
@@ -299,7 +317,7 @@ ShowCaseWidget(
   globalActionSettings: const ActionsSettings(containerHeight: 40),
   // Steps that should not offer the buttons, e.g. a final "you're done" step.
   hideActionsForShowcase: [_last],
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -318,7 +336,7 @@ they flow below the description and the tooltip grows to contain them:
 ShowCaseWidget(
   globalActions: (context) => const ShowCaseDefaultActions(),
   actionsPosition: TooltipActionPosition.inside,
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -349,7 +367,7 @@ ShowCaseWidget(
   progressStyle: ShowcaseProgressStyle.numeric,
   showSkip: true,               // a "Skip" button that ends the whole tour
   skipButtonText: 'Skip tour',  // optional, defaults to 'Skip'
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -382,7 +400,7 @@ ShowCaseWidget(
       ),
     ),
   ),
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -480,7 +498,7 @@ ShowCaseWidget(
   enableStepTransition: true,
   stepTransitionDuration: const Duration(milliseconds: 300), // default
   stepTransitionCurve: Curves.easeInOut,                     // default
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -622,7 +640,7 @@ ShowCaseWidget(
     textColor: Colors.white,
     tooltipBorderRadius: BorderRadius.all(Radius.circular(12)),
   ),
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -656,7 +674,7 @@ ShowCaseWidget(
   onShouldStartShowcase: (id) async =>
       !(prefs.getBool(id!) ?? false),       // skip if already seen
   onFinish: () => prefs.setBool('home_v1', true),
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -668,6 +686,51 @@ returns `false`. The guard may be synchronous or asynchronous. To force a replay
 ShowCaseWidget.of(context).startShowCase([_one, _two], force: true);
 ```
 
+## Resume where the user left off
+
+If the user leaves the app in the middle of a tour, you can open the tour on
+the same step next time with `startAt`. Save the step index when each step
+starts, clear it when the tour ends, and pass it back to `startShowCase`. As
+with "only once", the package stores nothing: use any storage you like.
+
+```dart
+ShowCaseWidget(
+  // Remember the step the user is on.
+  onStart: (index, key) => prefs.setInt('home_tour_step', index ?? 0),
+  // The tour ended (finished or closed early): start from the top next time.
+  onFinish: () => prefs.remove('home_tour_step'),
+  onDismiss: (key) => prefs.remove('home_tour_step'),
+  builder: const HomePage(),
+);
+
+// Later, for example when HomePage opens:
+ShowCaseWidget.of(context).startShowCase(
+  [_one, _two, _three],
+  startAt: prefs.getInt('home_tour_step') ?? 0,
+);
+```
+
+A screen deeper in the tree can save the index with
+`ShowCaseWidget.of(context).addOnStartCallback(...)` instead of `onStart`.
+
+How a resumed tour behaves:
+
+- It opens directly on step `startAt`, with no glide from another target, and
+  `previous()` can still go back to the earlier steps.
+- `currentIndex`, the progress indicator and `onStart` report the real step: in
+  a five-step tour started at `2`, `currentIndex` is `2`, the numeric progress
+  counter shows `3/5` and `onStart` gets `2`.
+- `onShouldStartShowcase` still decides whether the tour starts, and
+  `force: true` still skips it.
+- `autoSkipUnmountedSteps` and `onShouldSkipUnmountedStep` work from `startAt`
+  forward, the same as from the first step. If every step from there on is
+  skipped, the tour finishes.
+- `startAt` must be a valid index. In debug builds an index outside
+  `0..keys.length - 1` fails an assert. In release builds it is clamped: below
+  `0` opens the first step, past the end opens the last step. A saved index
+  can go out of range when an app update removes steps, so the user stays in
+  the tour instead of it being marked finished.
+
 ## Auto play
 
 Advance through all steps automatically:
@@ -677,7 +740,7 @@ ShowCaseWidget(
   autoPlay: true,
   autoPlayDelay: const Duration(seconds: 3),
   enableAutoPlayLock: true, // block taps while auto-playing
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -725,7 +788,7 @@ ShowCaseWidget(
   // Fired only when the tour is closed early (barrier-dismiss, Esc, skip,
   // or dismiss()); `key` is the step the user left off on, or null.
   onDismiss: (key) => debugPrint('tour dismissed at $key'),
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -751,7 +814,7 @@ ShowCaseWidget(
     if (currentKey == cartKey && userHasItems) return checkoutKey;
     return null; // otherwise advance normally
   },
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -770,7 +833,7 @@ with `MaterialApp.builder`, so the steps on every page share it:
 ```dart
 MaterialApp(
   builder: (context, child) => ShowCaseWidget(
-    builder: Builder(builder: (context) => child!),
+    builder: child!,
   ),
   home: const HomePage(),
 );
@@ -903,12 +966,12 @@ ShowCaseWidget(
   barrierInteraction: BarrierInteraction.dismiss, // tap background → end tour
   // BarrierInteraction.next    → advance (default)
   // BarrierInteraction.none    → ignore background taps
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
-> Shortcut: `disableBarrierInteraction: true` is equivalent to
-> `BarrierInteraction.none`.
+> `disableBarrierInteraction: true` is deprecated and will be removed in 3.0.0.
+> Use `barrierInteraction: BarrierInteraction.none` instead, which does the same.
 
 To run your own code on a background tap — a hint nudge, a sound, analytics — add
 `onBarrierClick`. It fires on every barrier tap **in addition to** the configured
@@ -918,7 +981,7 @@ To run your own code on a background tap — a hint nudge, a sound, analytics �
 ShowCaseWidget(
   barrierInteraction: BarrierInteraction.none, // tap doesn't advance/dismiss…
   onBarrierClick: () => debugPrint('user tapped outside the highlight'), // …but you still hear about it
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -935,8 +998,8 @@ Showcase(
 );
 ```
 
-The per-step value wins over the tour-wide `barrierInteraction` (and over
-`disableBarrierInteraction`). `onBarrierClick` still fires either way.
+The per-step value wins over the tour-wide `barrierInteraction`.
+`onBarrierClick` still fires either way.
 
 ## Accessibility & keyboard navigation
 
@@ -947,7 +1010,7 @@ box (both default to on):
 ShowCaseWidget(
   enableKeyboardNavigation: true,   // default
   enableAutoAnnouncements: true,    // default
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -988,7 +1051,7 @@ It's on by default and costs nothing on mobile. Turn it off tour-wide:
 ```dart
 ShowCaseWidget(
   enablePointerCursor: false, // keep the plain arrow everywhere
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -1071,7 +1134,7 @@ are skipped automatically instead of showing an empty overlay:
 ```dart
 ShowCaseWidget(
   autoSkipUnmountedSteps: true,
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -1090,7 +1153,7 @@ ShowCaseWidget(
     // sometimes hidden) is skipped.
     return true;
   },
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -1111,7 +1174,7 @@ needed.
 ```dart
 ShowCaseWidget(
   enableShowcase: false, // every Showcase just renders its child, no overlay
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -1141,7 +1204,7 @@ tour-wide on `ShowCaseWidget` (default `0.5`) and override it per step with
 ShowCaseWidget(
   enableAutoScroll: true,
   scrollAlignment: 0.1, // rest targets near the top of the viewport
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 
 // ...and per step:
@@ -1169,7 +1232,7 @@ ShowCaseWidget(
       });
     }
   },
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -1179,7 +1242,7 @@ ShowCaseWidget(
 
 | Member                                       | Description                                                              |
 | -------------------------------------------- | ------------------------------------------------------------------------ |
-| `startShowCase(List<GlobalKey> keys, {bool force})` | Start the tour in key order. `force: true` bypasses `onShouldStartShowcase`. |
+| `startShowCase(List<GlobalKey> keys, {bool force, int startAt})` | Start the tour in key order. `force: true` bypasses `onShouldStartShowcase`; `startAt` opens it on that zero-based step (default `0`). |
 | `next()`                                     | Advance to the next step.                                                |
 | `previous()`                                 | Go back one step.                                                        |
 | `goTo(int index)`                            | Jump to a step by its zero-based index.                                  |
@@ -1197,7 +1260,7 @@ ShowCaseWidget(
 
 | Name                      | Type                       | Default                        | Description                                                                      |
 | ------------------------- | -------------------------- | ------------------------------ | -------------------------------------------------------------------------------- |
-| builder                   | Builder                    | required                       | Builds the subtree that contains the `Showcase` widgets.                         |
+| builder                   | Widget                     | required                       | The subtree that contains the `Showcase` widgets (a `Builder` also works).       |
 | style                     | ShowcaseStyle              | `const ShowcaseStyle()`        | Default tooltip styling for every `Showcase` in the tree.                        |
 | blurValue                 | double                     | 0                              | Gaussian blur applied to the overlay.                                            |
 | autoPlay                  | bool                       | false                          | Automatically advance to the next step.                                          |
@@ -1207,14 +1270,14 @@ ShowCaseWidget(
 | scrollDuration            | Duration                   | `Duration(milliseconds: 300)`  | Duration of the auto-scroll animation.                                           |
 | scrollAlignment           | double                     | `0.5`                          | Where an auto-scrolled target rests (0 = leading, 0.5 = center, 1 = trailing).   |
 | barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`      | What a background tap does: `next` (advance), `dismiss` (end tour), `none`.      |
-| disableBarrierInteraction | bool                       | false                          | Shortcut; `true` makes the barrier inert (same as `BarrierInteraction.none`).    |
+| disableBarrierInteraction | bool                       | false                          | **Deprecated** (removed in 3.0.0): use `barrierInteraction: BarrierInteraction.none`. |
 | onBarrierClick            | VoidCallback?              |                                | Called on every barrier tap (even when `barrierInteraction` is `none`).          |
 | globalFloatingActionWidget | WidgetBuilder?            |                                | Screen-anchored widget shown above the overlay on every step (you position it).  |
 | hideFloatingActionWidgetForShowcase | `List<GlobalKey>` | `const []`                    | Steps on which the global floating widget is hidden.                             |
 | disableScaleAnimation     | bool                       | false                          | Disable the tooltip scale transition for all steps.                              |
 | disableMovingAnimation    | bool                       | false                          | Disable the bouncing/moving transition for all steps.                            |
-| onStart                   | Function(int?, GlobalKey)? |                                | Called on the start of each step.                                                |
-| onComplete                | Function(int?, GlobalKey)? |                                | Called on the completion of each step.                                           |
+| onStart                   | ShowcaseStepCallback?      |                                | Called on the start of each step with `(int? index, GlobalKey key)`.             |
+| onComplete                | ShowcaseStepCallback?      |                                | Called on the completion of each step with `(int? index, GlobalKey key)`.        |
 | onFinish                  | VoidCallback?              |                                | Called when all steps are completed (normal finish).                             |
 | onDismiss                  | `void Function(GlobalKey?)?` |                              | Called when the tour is closed early; receives the step it was dismissed at.     |
 | enableShowcase            | bool                       | true                           | Enable or disable showcasing globally.                                           |
