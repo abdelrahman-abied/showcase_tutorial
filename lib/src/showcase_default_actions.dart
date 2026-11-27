@@ -155,13 +155,14 @@ class ShowCaseDefaultActions extends StatelessWidget {
     VoidCallback onClick,
   ) {
     final icon = actionConfig.icon;
+    final foreground = actionConfig.textColor ?? defaultTextColor;
     final label = actionConfig.buttonTextVisible
         ? Text(
             buttonText,
             maxLines: 1,
             softWrap: false,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: actionConfig.textColor ?? defaultTextColor),
+            style: TextStyle(color: foreground),
           )
         : null;
     // The icon leads, so it follows the text direction: left of the label in
@@ -177,7 +178,13 @@ class ShowCaseDefaultActions extends StatelessWidget {
       ],
     );
     final button = TextButton(
-      style: ButtonStyle(backgroundColor: WidgetStateProperty.all<Color>(actionConfig.textButtonBgColor)),
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.all<Color>(actionConfig.textButtonBgColor),
+        // The icon takes the label's colour, so both stay readable on
+        // whatever the buttons are drawn on. An icon with its own colour
+        // keeps it.
+        foregroundColor: WidgetStatePropertyAll(foreground),
+      ),
       onPressed: onClick,
       // A label that does not fit (e.g. a long translation on a narrow
       // screen) stays on one line and is scaled down with its icon, instead
@@ -320,7 +327,8 @@ class ActionButtonConfig {
   /// button icon or image
   final Widget? icon;
 
-  /// Color of button text.
+  /// Color of the button's text, and of its [icon] unless the icon sets its
+  /// own color.
   ///
   /// When `null` (the default) it is [ShowcaseStyle.actionTextColor], or else
   /// follows the app's theme: `colorScheme.primary` on the default tooltip,

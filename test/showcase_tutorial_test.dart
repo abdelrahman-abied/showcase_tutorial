@@ -1059,6 +1059,33 @@ void main() {
       expect(textColorOf(tester, 'Next'), Colors.white);
     });
 
+    testWidgets('a button icon takes the label colour, unless it sets its own', (tester) async {
+      // Outside the tooltip with no box, the buttons sit on the dimmed
+      // background: the label turns white there, and the icon must too.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: light,
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(
+            next: ActionButtonConfig(icon: Icon(Icons.arrow_forward)),
+            previous: ActionButtonConfig(icon: Icon(Icons.arrow_back, color: Color(0xFFFF0000))),
+          ),
+        ),
+      );
+      await startTour(tester, key);
+
+      final nextIcon = tester.widget<RichText>(
+        find.descendant(of: find.byIcon(Icons.arrow_forward), matching: find.byType(RichText)),
+      );
+      expect(textColorOf(tester, 'Next'), Colors.white);
+      expect(nextIcon.text.style?.color, Colors.white);
+      final backIcon = tester.widget<RichText>(
+        find.descendant(of: find.byIcon(Icons.arrow_back), matching: find.byType(RichText)),
+      );
+      expect(backIcon.text.style?.color, const Color(0xFFFF0000));
+    });
+
     testWidgets('the pulse ring shows against the dimmed background', (tester) async {
       final key = GlobalKey();
       await tester.pumpWidget(app(theme: light, stepKey: key, enablePulseAnimation: true));
