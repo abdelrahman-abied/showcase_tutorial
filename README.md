@@ -662,8 +662,8 @@ ShowCaseWidget(
 The resolver is honored by **every** forward path — the Next button, a tap on the
 target or tooltip, the barrier, the keyboard, auto-play, and `next()`. The
 returned step may be ahead of or behind the current one, and a branch is treated
-as an explicit jump (like `goTo`), so `autoSkipUnmountedSteps` is not applied to
-the target. `previous()`, `goTo()`, and `goToKey()` ignore the resolver.
+as an explicit jump (like `goTo`), so `autoSkipUnmountedSteps` and
+`onShouldSkipUnmountedStep` are not applied to the target. `previous()`, `goTo()`, and `goToKey()` ignore the resolver.
 
 ## Tours across screens
 
@@ -684,7 +684,9 @@ Then pass keys from any page to `startShowCase`:
 - **A step on a page that isn't open yet** waits. Nothing is drawn, and the
   step appears once the user opens its page and the page has finished
   animating in. Leave `autoSkipUnmountedSteps` off for such tours: it would
-  skip that step instead.
+  skip that step instead. If the tour also has steps that should be skipped
+  when their widget isn't built, use `onShouldSkipUnmountedStep` to choose per
+  step (see [Skip off-screen steps](#skip-off-screen-steps)).
 - **A step whose page gets covered** by another screen, a dialog or a bottom
   sheet hides until its page is back on top. It stays the tour's current step,
   its `onDismiss` and `onShow` fire as it hides and returns, and auto-play
@@ -976,6 +978,31 @@ ShowCaseWidget(
 );
 ```
 
+`autoSkipUnmountedSteps` applies to every step. To skip some missing steps and
+wait for others, pass `onShouldSkipUnmountedStep` instead. It's called with the
+step's index and key whenever the tour reaches a step whose widget isn't in the
+tree: return `true` to skip it, or `false` to stay on it until the widget
+appears (for example, a step on a page the user hasn't opened yet):
+
+```dart
+ShowCaseWidget(
+  onShouldSkipUnmountedStep: (index, key) {
+    // The details page is opened later in the tour: wait for it.
+    if (key == detailsKey) return false;
+    // Anything else that isn't on screen (e.g. a promo banner that is
+    // sometimes hidden) is skipped.
+    return true;
+  },
+  builder: Builder(builder: (context) => const HomePage()),
+);
+```
+
+When `onShouldSkipUnmountedStep` is set, it decides for every step and
+`autoSkipUnmountedSteps` is ignored. It's used when the tour starts, moves
+forward and moves back with `previous()`. `goTo()`, `goToKey()` and a step
+returned by `onResolveNextStep` are explicit jumps: they always go to the step
+you asked for, whether its widget is on screen or not.
+
 ## Right-to-left (RTL)
 
 The tooltip inherits the ambient text direction, so RTL text (e.g. Arabic) is
@@ -1095,6 +1122,7 @@ ShowCaseWidget(
 | onDismiss                  | `void Function(GlobalKey?)?` |                              | Called when the tour is closed early; receives the step it was dismissed at.     |
 | enableShowcase            | bool                       | true                           | Enable or disable showcasing globally.                                           |
 | autoSkipUnmountedSteps    | bool                       | false                          | Skip steps whose target widget is not currently mounted.                         |
+| onShouldSkipUnmountedStep | `bool Function(int, GlobalKey)?` |                          | Per step: return `true` to skip an unmounted step, `false` to wait for it.       |
 | enableKeyboardNavigation  | bool                       | true                           | Drive the active step with a hardware keyboard (Esc / arrows / Enter).           |
 | enablePointerCursor       | bool                       | true                           | Show a click cursor on the clickable parts of the tour (web/desktop).            |
 | enableStepTransition      | bool                       | false                          | Glide the highlight from the previous target to the next one.                    |
