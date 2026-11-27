@@ -718,7 +718,15 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     final activeStep = ShowCaseWidget.activeTargetWidget(context, aspect: widget.key);
     // A disabled tour has no active step, so switching it off runs this step
     // through the same teardown as the tour moving on.
-    final isActiveNow = _enableShowcase && activeStep == widget.key;
+    //
+    // The same goes for a step whose page is covered by another route (a
+    // pushed screen, a dialog, a bottom sheet). Routes below the top one stay
+    // mounted, so without this check the step's overlay would keep painting
+    // over the new page. The step stays the tour's current one and shows again
+    // when its page is back on top. `isCurrentOf` only notifies on that change,
+    // and returns null outside a Navigator, which counts as visible.
+    final isRouteCurrent = ModalRoute.isCurrentOf(context) ?? true;
+    final isActiveNow = _enableShowcase && activeStep == widget.key && isRouteCurrent;
     final wasActive = _showShowCase;
 
     setState(() {
@@ -743,6 +751,11 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
       _releaseSnapshots();
       _transitionFrom = null;
       _transitionController?.stop();
+      // An auto-play timer left running would advance the tour from a step
+      // that is no longer showing: behind a covering page, or later, early
+      // into a revisit of this step.
+      timer?.cancel();
+      timer = null;
       _notifyLifecycle(widget.onDismiss);
     }
 

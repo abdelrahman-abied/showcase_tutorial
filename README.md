@@ -97,6 +97,7 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 - [Auto play](#auto-play)
 - [Programmatic control & progress](#programmatic-control--progress)
 - [Conditional / branching tours](#conditional--branching-tours)
+- [Tours across screens](#tours-across-screens)
 - [Target interactions](#target-interactions)
 - [Step lifecycle callbacks](#step-lifecycle-callbacks)
 - [Background (barrier) tap behavior](#background-barrier-tap-behavior)
@@ -118,7 +119,7 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^1.15.2
+     showcase_tutorial: ^1.15.3
    ```
 
    Or from the command line:
@@ -663,6 +664,47 @@ target or tooltip, the barrier, the keyboard, auto-play, and `next()`. The
 returned step may be ahead of or behind the current one, and a branch is treated
 as an explicit jump (like `goTo`), so `autoSkipUnmountedSteps` is not applied to
 the target. `previous()`, `goTo()`, and `goToKey()` ignore the resolver.
+
+## Tours across screens
+
+One tour can cover several pages. Put `ShowCaseWidget` above the `Navigator`
+with `MaterialApp.builder`, so the steps on every page share it:
+
+```dart
+MaterialApp(
+  builder: (context, child) => ShowCaseWidget(
+    builder: Builder(builder: (context) => child!),
+  ),
+  home: const HomePage(),
+);
+```
+
+Then pass keys from any page to `startShowCase`:
+
+- **A step on a page that isn't open yet** waits. Nothing is drawn, and the
+  step appears as soon as the user opens its page. Leave
+  `autoSkipUnmountedSteps` off for such tours: it would skip that step instead.
+- **A step whose page gets covered** by another screen, a dialog or a bottom
+  sheet hides until its page is back on top. It stays the tour's current step,
+  its `onDismiss` and `onShow` fire as it hides and returns, and auto-play
+  pauses while it's hidden.
+
+To take the user to the next page from a step, advance the tour and navigate
+in `onTargetClick`. Use `disposeOnTap: false`; `true` ends the whole tour
+before calling it:
+
+```dart
+Showcase(
+  key: _settingsButton,
+  description: 'Open your settings',
+  disposeOnTap: false,
+  onTargetClick: () {
+    ShowCaseWidget.of(context).next(); // the next step is on SettingsPage
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsPage()));
+  },
+  child: const Icon(Icons.settings),
+);
+```
 
 ## Target interactions
 
