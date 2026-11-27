@@ -69,19 +69,18 @@ Animated step transitions — the default instant cut (left) vs `enableStepTrans
 - **Target interaction callbacks**: tap, double-tap, long-press.
 - **Enable/disable** the whole tour with a single flag.
 
-## What's new in 1.14.0
-
-Everything below is additive and backward-compatible — each new option defaults
-to the previous behavior, so upgrading changes nothing until you opt in.
+## What's new in 2.0.0
 
 | Feature | What you get |
 | ------- | ------------ |
-| [Animated step transitions](#animated-step-transitions) | `enableStepTransition` glides the highlight from one target to the next instead of cutting, with `stepTransitionDuration` / `stepTransitionCurve`. |
-| [Pointer cursor](#pointer-cursor-web--desktop) | A click cursor on the parts of the tour that react to a click (web/desktop), with `enablePointerCursor` and per-step `targetMouseCursor` / `tooltipMouseCursor`. |
-| [Runtime step listeners](#listening-from-anywhere-in-the-tree) | `addOnStartCallback` / `addOnCompleteCallback` (and their `remove…` pairs) let a widget deep in the tree observe the tour and unregister when it goes away. |
-| [Target bounds](#following-the-highlighted-target) | `Showcase.onTargetRectUpdate` reports the highlight's global `Rect` as it moves, for anchoring your own UI to it. |
-| [Layout checks](#api-reference) | `isTargetRendered(key)` tells you whether a step's target is mounted **and** laid out; `previousTargetRect` exposes the step the tour just left. |
-| [Per-step barrier](#background-barrier-tap-behavior) | `Showcase.barrierInteraction` overrides the tour-wide background-tap behavior for a single step. |
+| [Colours from your theme](#colours-and-your-apps-theme) | The tooltip, text, buttons and dimmed background follow your app's colour scheme, in light and dark mode, with nothing to set. Every colour can still be set, once, in `ShowcaseStyle`. |
+| [Translating the tour](#translating-the-tour) | `ShowCaseWidget.labels` sets the text of the built-in Next / Previous / Stop / Skip buttons in one place. |
+| [Right-to-left buttons](#right-to-left-rtl) | The built-in buttons follow your app's direction, and their labels never break mid-word. |
+| [Resume where the user left off](#resume-where-the-user-left-off) | `startShowCase(keys, startAt: savedIndex)` opens the tour on a saved step. |
+
+2.0.0 changes how the tour looks and has a few small API changes. The
+[changelog](https://pub.dev/packages/showcase_tutorial/changelog) lists them,
+with the four lines that bring back the 1.x look.
 
 ## Table of contents
 
@@ -126,7 +125,7 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^1.16.0
+     showcase_tutorial: ^2.0.0
    ```
 
    Or from the command line:
