@@ -3384,6 +3384,197 @@ void main() {
       expect(find.ancestor(of: find.byKey(globalKeyed), matching: find.byType(ClipRRect)), findsWidgets);
     });
   });
+
+  group('tours across screens', () {
+    // ShowCaseWidget sits above the Navigator (MaterialApp.builder), so one
+    // tour can reach steps on every page.
+    late GlobalKey<NavigatorState> navigator;
+    late GlobalKey homeStep;
+    late GlobalKey homeStep2;
+    late GlobalKey detailsStep;
+    late BuildContext homeContext;
+    late int homeShown;
+    late int homeLeft;
+
+    setUp(() {
+      navigator = GlobalKey<NavigatorState>();
+      homeStep = GlobalKey();
+      homeStep2 = GlobalKey();
+      detailsStep = GlobalKey();
+      homeShown = 0;
+      homeLeft = 0;
+    });
+
+    Widget app({bool autoPlay = false}) {
+      return MaterialApp(
+        navigatorKey: navigator,
+        builder: (context, child) => ShowCaseWidget(
+          autoPlay: autoPlay,
+          autoPlayDelay: const Duration(seconds: 1),
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(builder: (_) => child!),
+        ),
+        home: Builder(
+          builder: (context) {
+            homeContext = context;
+            return Scaffold(
+              body: Column(
+                children: [
+                  Showcase(
+                    key: homeStep,
+                    title: 'Home step',
+                    description: 'd',
+                    onShow: () => homeShown++,
+                    onDismiss: () => homeLeft++,
+                    child: const Text('home target'),
+                  ),
+                  Showcase(key: homeStep2, title: 'Second home step', description: 'd', child: const Text('second')),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    Route<void> detailsRoute() => MaterialPageRoute<void>(
+      builder: (_) => Scaffold(
+        body: Center(
+          child: Showcase(key: detailsStep, title: 'Details step', description: 'd', child: const Text('details')),
+        ),
+      ),
+    );
+
+    ShowCaseWidgetState controller() => ShowCaseWidget.of(homeContext);
+
+    testWidgets('a step on a page that is not open yet shows once the page is pushed', (tester) async {
+      await tester.pumpWidget(app());
+      controller().startShowCase([homeStep, detailsStep]);
+      await tester.pumpAndSettle();
+      expect(find.text('Home step'), findsOneWidget);
+
+      // The tour waits on the step whose page is not open: nothing shows.
+      controller().next();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 1);
+      expect(find.text('Home step'), findsNothing);
+      expect(find.text('Details step'), findsNothing);
+
+      navigator.currentState!.push(detailsRoute());
+      await tester.pumpAndSettle();
+      expect(find.text('Details step'), findsOneWidget);
+    });
+
+    testWidgets('the README recipe: a target tap advances the tour and opens the next page', (tester) async {
+      final menuStep = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          builder: (context, child) => ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(builder: (_) => child!),
+          ),
+          home: Builder(
+            builder: (context) {
+              homeContext = context;
+              return Scaffold(
+                body: Center(
+                  child: Showcase(
+                    key: menuStep,
+                    title: 'Open settings',
+                    description: 'd',
+                    disposeOnTap: false,
+                    onTargetClick: () {
+                      ShowCaseWidget.of(context).next();
+                      Navigator.of(context).push(detailsRoute());
+                    },
+                    child: const Text('settings button'),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      controller().startShowCase([menuStep, detailsStep]);
+      await tester.pumpAndSettle();
+      expect(find.text('Open settings'), findsOneWidget);
+
+      // The target sits under the overlay's cut-out; tap it there.
+      await tester.tapAt(tester.getCenter(find.text('settings button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Open settings'), findsNothing);
+      expect(find.text('Details step'), findsOneWidget);
+      expect(controller().currentIndex, 1);
+    });
+
+    testWidgets('an active step hides while another page covers it, and comes back on pop', (tester) async {
+      await tester.pumpWidget(app());
+      controller().startShowCase([homeStep, detailsStep]);
+      await tester.pumpAndSettle();
+      expect(find.text('Home step'), findsOneWidget);
+      expect(homeShown, 1);
+
+      // The home page stays mounted under the new one, but its step must not
+      // paint, or take taps, over it.
+      navigator.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('other page'))));
+      await tester.pumpAndSettle();
+      expect(find.text('Home step'), findsNothing);
+      expect(find.text('other page').hitTestable(), findsOneWidget);
+      expect(controller().currentIndex, 0, reason: 'covering the step does not move the tour');
+      expect(homeLeft, 1);
+
+      navigator.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('Home step'), findsOneWidget);
+      expect(homeShown, 2);
+      expect(controller().currentIndex, 0);
+    });
+
+    testWidgets('a dialog over the page hides the step until it closes', (tester) async {
+      await tester.pumpWidget(app());
+      controller().startShowCase([homeStep]);
+      await tester.pumpAndSettle();
+      expect(find.text('Home step'), findsOneWidget);
+
+      showDialog<void>(
+        context: homeContext,
+        builder: (_) => const AlertDialog(content: Text('a dialog')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Home step'), findsNothing);
+      expect(find.text('a dialog').hitTestable(), findsOneWidget);
+
+      navigator.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('Home step'), findsOneWidget);
+    });
+
+    testWidgets('auto-play does not advance the tour behind a covering page', (tester) async {
+      await tester.pumpWidget(app(autoPlay: true));
+      controller().startShowCase([homeStep, homeStep2]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('Home step'), findsOneWidget);
+
+      navigator.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('other page'))));
+      await tester.pumpAndSettle();
+      // Well past the 1s auto-play delay.
+      await tester.pump(const Duration(seconds: 3));
+      expect(controller().currentIndex, 0);
+
+      // Back on the page, the step shows again and auto-play resumes from it.
+      navigator.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('Home step'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 1);
+      expect(find.text('Second home step'), findsOneWidget);
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

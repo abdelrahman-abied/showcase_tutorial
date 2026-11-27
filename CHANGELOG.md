@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.15.3
+
+A fix for tours that span several screens, and a guide for building them.
+Nothing to change in your code.
+
+* **Fixed:** opening another page, a dialog or a bottom sheet while a step was
+  showing left that step's dimmed background and tooltip on top of the new
+  page, still catching taps. The step now hides while its page is covered and
+  comes back when its page is on top again. It stays the tour's current step;
+  its `onDismiss` fires as it hides and `onShow` as it returns.
+* **Fixed:** with `autoPlay`, a hidden step's timer kept running and advanced
+  the tour behind the page covering it. Auto-play now pauses while a step is
+  hidden. A timer left over from a step the tour had moved past could also skip
+  that step early when the user went back to it; it's cancelled now.
+* **New guide: [Tours across screens](README.md#tours-across-screens).** Put
+  `ShowCaseWidget` in `MaterialApp.builder` and one tour reaches steps on every
+  page: a step on a page that isn't open yet waits until the user gets there.
+
 ## 1.15.2
 
 Moves to Flutter's new standalone Material library. No API changes.
