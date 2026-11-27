@@ -225,8 +225,49 @@ class ShowCaseWidget extends StatefulWidget {
   /// showing an empty / mis-positioned overlay.
   ///
   /// Useful when some showcased widgets are rendered conditionally. Defaults
-  /// to `false`.
+  /// to `false`, which makes the tour wait on such a step until its target
+  /// mounts (see "Tours across screens" in the README).
+  ///
+  /// To skip some unmounted steps and wait for others, use
+  /// [onShouldSkipUnmountedStep], which takes precedence over this flag.
   final bool autoSkipUnmountedSteps;
+
+  /// Decides, step by step, whether a step whose target widget is not mounted
+  /// is skipped (`true`) or waited for (`false`).
+  ///
+  /// Use it when a tour needs both behaviours: for example a tour that waits
+  /// for a step on a page the user opens later, but skips a step whose widget
+  /// is only built in some app states.
+  ///
+  /// ```dart
+  /// ShowCaseWidget(
+  ///   // Wait for the details page, skip anything else that isn't on screen.
+  ///   onShouldSkipUnmountedStep: (index, key) => key != detailsKey,
+  ///   builder: Builder(builder: (context) => const HomePage()),
+  /// )
+  /// ```
+  ///
+  /// It is called with the step's `index` in the running tour and its target
+  /// `key`, and only for steps whose target is not mounted at that moment;
+  /// mounted steps are always shown. It is consulted wherever
+  /// [autoSkipUnmountedSteps] would be: when the tour starts (for the first
+  /// step and any unmounted steps after it), when it moves forward (the Next
+  /// button, a tap on the target or tooltip, the barrier, the keyboard,
+  /// auto-play, [ShowCaseWidgetState.next] and [ShowCaseWidgetState.completed])
+  /// and when it moves back with [ShowCaseWidgetState.previous]. It runs while
+  /// the tour is changing step, so keep it a quick, synchronous check that
+  /// does not call `setState`.
+  ///
+  /// When provided, its answer replaces [autoSkipUnmountedSteps] for every
+  /// step; the flag only applies while this is `null`. Explicit jumps are not
+  /// affected by either: [ShowCaseWidgetState.goTo],
+  /// [ShowCaseWidgetState.goToKey] and a step returned by [onResolveNextStep]
+  /// always land on the requested step, mounted or not. Steps after a skipped
+  /// one are checked in turn, and if every remaining step is skipped the tour
+  /// finishes (or, going back, stays where it is).
+  ///
+  /// Defaults to `null`, which leaves [autoSkipUnmountedSteps] in charge.
+  final bool Function(int index, GlobalKey key)? onShouldSkipUnmountedStep;
 
   /// When `true`, the active step can be controlled with a hardware keyboard:
   ///
@@ -321,8 +362,9 @@ class ShowCaseWidget extends StatefulWidget {
   /// The returned step may be ahead of or behind the current one, so a tour can
   /// skip steps or revisit an earlier one based on app state (e.g. "if the user
   /// already has items, jump to the checkout step"). A branch is treated as an
-  /// explicit jump, like [ShowCaseWidgetState.goTo], so
-  /// [autoSkipUnmountedSteps] is not applied to the target.
+  /// explicit jump, like [ShowCaseWidgetState.goTo], so neither
+  /// [autoSkipUnmountedSteps] nor [onShouldSkipUnmountedStep] is applied to the
+  /// target.
   ///
   /// Not consulted by [ShowCaseWidgetState.previous],
   /// [ShowCaseWidgetState.goTo], or [ShowCaseWidgetState.goToKey], which are
@@ -365,6 +407,7 @@ class ShowCaseWidget extends StatefulWidget {
     this.showcaseId,
     this.onShouldStartShowcase,
     this.autoSkipUnmountedSteps = false,
+    this.onShouldSkipUnmountedStep,
     this.enableKeyboardNavigation = true,
     this.enableStepTransition = false,
     this.stepTransitionDuration = const Duration(milliseconds: 300),
@@ -555,7 +598,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   ///
   /// Useful before calling [goToKey] (or [startShowCase]) on a step whose target
   /// is rendered conditionally, e.g. an item inside a lazily built list. See also
-  /// [ShowCaseWidget.autoSkipUnmountedSteps], which skips such steps
+  /// [ShowCaseWidget.autoSkipUnmountedSteps] and
+  /// [ShowCaseWidget.onShouldSkipUnmountedStep], which skip such steps
   /// automatically while navigating.
   bool isTargetRendered(GlobalKey key) => _measureTarget(key) != null;
 
@@ -650,17 +694,28 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     });
   }
 
-  /// When [ShowCaseWidget.autoSkipUnmountedSteps] is enabled, advances [index]
-  /// in [direction] (`1` forward / `-1` back) past steps whose target widget is
-  /// not currently mounted, returning the first mounted index (or an
-  /// out-of-range index when none remain). Returns [index] unchanged when the
-  /// option is disabled.
+  /// Advances [index] in [direction] (`1` forward / `-1` back) past steps whose
+  /// target widget is not currently mounted and that [_shouldSkipUnmounted]
+  /// says to skip, returning the first step to show (or an out-of-range index
+  /// when none remain). A step that is unmounted but not skipped is returned,
+  /// so the tour waits on it until its target mounts.
   int _nextMountedIndex(int index, int direction) {
-    if (!widget.autoSkipUnmountedSteps || ids == null) return index;
-    while (index >= 0 && index < ids!.length && ids![index].currentContext == null) {
+    final steps = ids;
+    if (steps == null) return index;
+    if (widget.onShouldSkipUnmountedStep == null && !widget.autoSkipUnmountedSteps) return index;
+    while (index >= 0 && index < steps.length && steps[index].currentContext == null) {
+      if (!_shouldSkipUnmounted(index, steps[index])) break;
       index += direction;
     }
     return index;
+  }
+
+  /// Whether the unmounted step at [index] is skipped: the answer of
+  /// [ShowCaseWidget.onShouldSkipUnmountedStep] when set, otherwise
+  /// [ShowCaseWidget.autoSkipUnmountedSteps].
+  bool _shouldSkipUnmounted(int index, GlobalKey key) {
+    final decide = widget.onShouldSkipUnmountedStep;
+    return decide == null ? widget.autoSkipUnmountedSteps : decide(index, key);
   }
 
   /// Resolves the index to advance to when moving forward from [fromIndex].
@@ -669,7 +724,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// tours: when it returns a [GlobalKey] that is part of the running tour, that
   /// step's index is used as an explicit jump (no [_nextMountedIndex] applied,
   /// mirroring [goTo]). Otherwise the default next index — [fromIndex] + 1,
-  /// adjusted for [ShowCaseWidget.autoSkipUnmountedSteps] — is returned.
+  /// adjusted for [ShowCaseWidget.onShouldSkipUnmountedStep] /
+  /// [ShowCaseWidget.autoSkipUnmountedSteps] — is returned.
   int _forwardTargetIndex(int fromIndex) {
     final resolver = widget.onResolveNextStep;
     if (resolver != null && ids != null) {

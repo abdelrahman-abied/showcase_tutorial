@@ -3714,6 +3714,253 @@ void main() {
       expect(find.text('Second home step'), findsOneWidget);
     });
   });
+
+  group('per-step unmounted skip (onShouldSkipUnmountedStep)', () {
+    // A tour across two pages that also has a step whose widget is never
+    // built (a hidden banner). The details step must be waited for, the banner
+    // step skipped.
+    late GlobalKey<NavigatorState> navigator;
+    late GlobalKey homeStep;
+    late GlobalKey homeStep2;
+    late GlobalKey bannerStep; // never attached to the tree
+    late GlobalKey detailsStep;
+    late BuildContext homeContext;
+    late List<GlobalKey> asked;
+    late bool finished;
+
+    setUp(() {
+      navigator = GlobalKey<NavigatorState>();
+      homeStep = GlobalKey();
+      homeStep2 = GlobalKey();
+      bannerStep = GlobalKey();
+      detailsStep = GlobalKey();
+      asked = [];
+      finished = false;
+    });
+
+    // Waits for the details page and skips any other unmounted step.
+    bool waitForDetails(int index, GlobalKey key) {
+      asked.add(key);
+      return key != detailsStep;
+    }
+
+    Widget app({
+      bool Function(int index, GlobalKey key)? onShouldSkipUnmountedStep,
+      bool autoSkipUnmountedSteps = false,
+      GlobalKey? Function(int currentIndex, GlobalKey currentKey)? onResolveNextStep,
+    }) {
+      return MaterialApp(
+        navigatorKey: navigator,
+        builder: (context, child) => ShowCaseWidget(
+          onShouldSkipUnmountedStep: onShouldSkipUnmountedStep,
+          autoSkipUnmountedSteps: autoSkipUnmountedSteps,
+          onResolveNextStep: onResolveNextStep,
+          onFinish: () => finished = true,
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(builder: (_) => child!),
+        ),
+        home: Builder(
+          builder: (context) {
+            homeContext = context;
+            return Scaffold(
+              body: Column(
+                children: [
+                  Showcase(key: homeStep, title: 'Home step', description: 'd', child: const Text('home')),
+                  Showcase(key: homeStep2, title: 'Second home step', description: 'd', child: const Text('home 2')),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+
+    Route<void> detailsRoute() => MaterialPageRoute<void>(
+      builder: (_) => Scaffold(
+        body: Center(
+          child: Showcase(key: detailsStep, title: 'Details step', description: 'd', child: const Text('details')),
+        ),
+      ),
+    );
+
+    ShowCaseWidgetState controller() => ShowCaseWidget.of(homeContext);
+
+    testWidgets('a mixed tour skips a step that never mounts and waits for a page pushed later', (tester) async {
+      await tester.pumpWidget(app(onShouldSkipUnmountedStep: waitForDetails));
+      controller().startShowCase([homeStep, bannerStep, detailsStep, homeStep2]);
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 0);
+      expect(find.text('Home step'), findsOneWidget);
+      expect(asked, isEmpty, reason: 'a mounted step is never asked about');
+
+      // Next skips the banner and stops on the details step, which waits.
+      controller().next();
+      await tester.pumpAndSettle();
+      expect(asked, [bannerStep, detailsStep]);
+      expect(controller().currentIndex, 2);
+      expect(find.text('Home step'), findsNothing);
+      expect(find.text('Details step'), findsNothing);
+
+      navigator.currentState!.push(detailsRoute());
+      await tester.pumpAndSettle();
+      expect(find.text('Details step'), findsOneWidget);
+
+      // Back on home, the last step shows and finishing it ends the tour.
+      controller().next();
+      navigator.currentState!.pop();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 3);
+      expect(find.text('Second home step'), findsOneWidget);
+
+      controller().next();
+      await tester.pumpAndSettle();
+      expect(finished, isTrue);
+      expect(controller().isShowcaseRunning, isFalse);
+    });
+
+    testWidgets('previous() skips a skipped step and lands on a waited-for one', (tester) async {
+      await tester.pumpWidget(app(onShouldSkipUnmountedStep: waitForDetails));
+      controller().startShowCase([detailsStep, homeStep, bannerStep, homeStep2]);
+      await tester.pumpAndSettle();
+      // The first step waits for its page.
+      expect(controller().currentIndex, 0);
+
+      controller().goTo(3);
+      await tester.pumpAndSettle();
+      expect(find.text('Second home step'), findsOneWidget);
+
+      // Going back skips the banner...
+      controller().previous();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 1);
+      expect(find.text('Home step'), findsOneWidget);
+
+      // ...but stops on the details step, whose page isn't open yet.
+      controller().previous();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 0);
+      expect(find.text('Home step'), findsNothing);
+
+      navigator.currentState!.push(detailsRoute());
+      await tester.pumpAndSettle();
+      expect(find.text('Details step'), findsOneWidget);
+    });
+
+    testWidgets('previous() stays put when every earlier step is skipped', (tester) async {
+      await tester.pumpWidget(app(onShouldSkipUnmountedStep: (_, _) => true));
+      controller().startShowCase([homeStep, bannerStep, homeStep2]);
+      await tester.pumpAndSettle();
+      controller().next();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 2);
+
+      controller().previous();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 0);
+
+      // Nothing before the first step: previous() does nothing.
+      controller().previous();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 0);
+      expect(find.text('Home step'), findsOneWidget);
+    });
+
+    testWidgets('starting on an unmounted first step skips it or waits, per step', (tester) async {
+      await tester.pumpWidget(app(onShouldSkipUnmountedStep: waitForDetails));
+
+      // Skipped: the tour opens on the next step.
+      controller().startShowCase([bannerStep, homeStep]);
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 1);
+      expect(find.text('Home step'), findsOneWidget);
+
+      // Waited for: the tour sits on it until its page opens.
+      controller().startShowCase([detailsStep, homeStep]);
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 0);
+      expect(find.text('Home step'), findsNothing);
+
+      navigator.currentState!.push(detailsRoute());
+      await tester.pumpAndSettle();
+      expect(find.text('Details step'), findsOneWidget);
+    });
+
+    testWidgets('a tour whose steps are all skipped finishes at once', (tester) async {
+      await tester.pumpWidget(app(onShouldSkipUnmountedStep: waitForDetails));
+      controller().startShowCase([bannerStep]);
+      await tester.pumpAndSettle();
+      expect(finished, isTrue);
+      expect(controller().isShowcaseRunning, isFalse);
+    });
+
+    testWidgets('the predicate overrides autoSkipUnmountedSteps in both directions', (tester) async {
+      // autoSkipUnmountedSteps would skip the details step; the predicate waits.
+      await tester.pumpWidget(app(autoSkipUnmountedSteps: true, onShouldSkipUnmountedStep: waitForDetails));
+      controller().startShowCase([homeStep, detailsStep]);
+      await tester.pumpAndSettle();
+      controller().next();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 1);
+      expect(finished, isFalse);
+
+      // With the flag off, the predicate still skips.
+      await tester.pumpWidget(app(onShouldSkipUnmountedStep: (_, _) => true));
+      controller().startShowCase([homeStep, bannerStep, homeStep2]);
+      await tester.pumpAndSettle();
+      controller().next();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 2);
+    });
+
+    testWidgets('without the predicate, autoSkipUnmountedSteps still applies to every step', (tester) async {
+      await tester.pumpWidget(app(autoSkipUnmountedSteps: true));
+      controller().startShowCase([bannerStep, homeStep, detailsStep, homeStep2]);
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 1);
+
+      // The details step is skipped too: the flag can't tell it apart.
+      controller().next();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 3);
+
+      // And with neither set, the tour waits on every unmounted step.
+      await tester.pumpWidget(app());
+      controller().startShowCase([bannerStep, homeStep]);
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 0);
+      expect(find.text('Home step'), findsNothing);
+    });
+
+    testWidgets('explicit jumps ignore the predicate', (tester) async {
+      await tester.pumpWidget(
+        app(
+          onShouldSkipUnmountedStep: waitForDetails,
+          onResolveNextStep: (index, key) => key == homeStep ? bannerStep : null,
+        ),
+      );
+      controller().startShowCase([homeStep, bannerStep, homeStep2]);
+      await tester.pumpAndSettle();
+
+      // onResolveNextStep jumps onto the banner even though it would be skipped.
+      controller().next();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 1);
+
+      controller().goTo(0);
+      await tester.pumpAndSettle();
+      controller().goToKey(bannerStep);
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 1);
+      expect(asked, isEmpty);
+
+      // Moving on from the banner is a normal step forward again.
+      controller().next();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 2);
+      expect(find.text('Second home step'), findsOneWidget);
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this
