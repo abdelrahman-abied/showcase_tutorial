@@ -26,7 +26,6 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../showcase_tutorial.dart';
-import 'utilities/_start_index.dart';
 
 /// Signature of [ShowCaseWidget.onStart] and [ShowCaseWidget.onComplete], and
 /// of the step listeners registered dynamically on the controller with
@@ -56,9 +55,14 @@ class ShowCaseWidget extends StatefulWidget {
   /// ```dart
   /// ShowCaseWidget(
   ///   builder: Builder(
-  ///     builder: (context) => TextButton(
-  ///       onPressed: () => ShowCaseWidget.of(context).startShowCase([one]),
-  ///       child: const Text('Start tour'),
+  ///     builder: (context) => Column(
+  ///       children: [
+  ///         Showcase(key: one, description: 'Menu', child: const Icon(Icons.menu)),
+  ///         TextButton(
+  ///           onPressed: () => ShowCaseWidget.of(context).startShowCase([one]),
+  ///           child: const Text('Start tour'),
+  ///         ),
+  ///       ],
   ///     ),
   ///   ),
   /// )
@@ -542,7 +546,6 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     'Use barrierInteraction instead. '
     'disableBarrierInteraction will be removed in 3.0.0.',
   )
-  // ignore: deprecated_member_use_from_same_package
   bool get disableBarrierInteraction => widget.disableBarrierInteraction;
 
   /// Resolved barrier behaviour. The deprecated
@@ -727,13 +730,14 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   ///   [ShowCaseWidget.enableStepTransition] there is no glide from another
   ///   target — and [previous] can still go back to the earlier steps.
   ///
-  /// [startAt] must be a valid index into [widgetIds] (or `0` for an empty
-  /// list). Debug builds assert this. Release builds clamp it into range: a
-  /// negative value opens the first step and a value past the end opens the
-  /// last step. A saved index that no longer fits usually means the tour got
-  /// shorter in an app update; clamping keeps that user in the tour instead
-  /// of finishing it for them, which would fire [ShowCaseWidget.onFinish] and
-  /// could mark a tour they never saw as done.
+  /// An out-of-range [startAt] is clamped, in every build mode: a negative
+  /// value opens the first step and a value past the end opens the last step.
+  /// A saved index that no longer fits usually means the tour got shorter in
+  /// an app update, so it is treated as data, not a programming error.
+  /// Clamping keeps that user in the tour instead of finishing it for them,
+  /// which would fire [ShowCaseWidget.onFinish] and could mark a tour they
+  /// never saw as done. An empty [widgetIds] list finishes the tour straight
+  /// away, whatever [startAt] is.
   void startShowCase(List<GlobalKey> widgetIds, {bool force = false, int startAt = 0}) {
     if (!enableShowcase) {
       throw Exception(
@@ -741,12 +745,6 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
         "`enableShowcase` parameter to false from ShowCaseWidget",
       );
     }
-    assert(
-      startAt == 0 || (startAt > 0 && startAt < widgetIds.length),
-      'startShowCase(startAt: $startAt) is out of range for a tour of '
-      '${widgetIds.length} steps. Pass a zero-based step index from 0 to '
-      '${widgetIds.length - 1}. Release builds clamp it into that range.',
-    );
     if (!mounted) return;
 
     final guard = widget.onShouldStartShowcase;
@@ -767,9 +765,10 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
       // even when this call restarts a running tour.
       _previousTargetRect = null;
       ids = widgetIds;
-      // Release builds clamp an out-of-range startAt (see startShowCase). An
-      // empty tour stays at 0, which finishes it below as before.
-      activeWidgetId = _nextMountedIndex(clampStartIndex(startAt, widgetIds.length), 1);
+      // A stale startAt is clamped into range (see startShowCase). An empty
+      // tour stays at 0, which finishes it below as before.
+      final start = widgetIds.isEmpty ? 0 : startAt.clamp(0, widgetIds.length - 1);
+      activeWidgetId = _nextMountedIndex(start, 1);
       if (activeWidgetId! >= ids!.length) {
         _cleanupAfterSteps();
         widget.onFinish?.call();

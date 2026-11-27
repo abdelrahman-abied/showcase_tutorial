@@ -196,9 +196,18 @@ passes a `Builder` keeps working.
 ```dart
 ShowCaseWidget(
   builder: Builder(
-    builder: (context) => ElevatedButton(
-      onPressed: () => ShowCaseWidget.of(context).startShowCase([_one, _two]),
-      child: const Text('Start tour'),
+    builder: (context) => Column(
+      children: [
+        Showcase(
+          key: _one,
+          description: 'Tap here to open the menu',
+          child: const Icon(Icons.menu),
+        ),
+        ElevatedButton(
+          onPressed: () => ShowCaseWidget.of(context).startShowCase([_one]),
+          child: const Text('Start tour'),
+        ),
+      ],
     ),
   ),
 );
@@ -725,11 +734,11 @@ How a resumed tour behaves:
 - `autoSkipUnmountedSteps` and `onShouldSkipUnmountedStep` work from `startAt`
   forward, the same as from the first step. If every step from there on is
   skipped, the tour finishes.
-- `startAt` must be a valid index. In debug builds an index outside
-  `0..keys.length - 1` fails an assert. In release builds it is clamped: below
-  `0` opens the first step, past the end opens the last step. A saved index
-  can go out of range when an app update removes steps, so the user stays in
-  the tour instead of it being marked finished.
+- A `startAt` outside `0..keys.length - 1` is clamped, in debug and release
+  builds alike: below `0` opens the first step, past the end opens the last
+  step. A saved index can go out of range when an app update removes steps, so
+  you can pass it in without checking it, and the user stays in the tour
+  instead of it being marked finished.
 
 ## Auto play
 

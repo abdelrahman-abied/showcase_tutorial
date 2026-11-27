@@ -13,7 +13,6 @@ import 'package:showcase_tutorial/showcase_tutorial.dart';
 import 'package:showcase_tutorial/src/get_position.dart';
 import 'package:showcase_tutorial/src/measure_size.dart';
 import 'package:showcase_tutorial/src/shape_clipper.dart';
-import 'package:showcase_tutorial/src/utilities/_start_index.dart';
 
 void main() {
   // Builds a single-step showcase and returns the GlobalKey of the target.
@@ -1573,7 +1572,42 @@ void main() {
       expect(find.text('Step 3'), findsOneWidget);
     });
 
-    testWidgets('an out-of-range startAt asserts before the guard runs', (tester) async {
+    testWidgets('a startAt past the end opens the last step instead of finishing', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      var finished = 0;
+      await tester.pumpWidget(
+        buildResumeApp(keys, onStart: (index, key) => started.add(index), onFinish: () => finished++),
+      );
+
+      // A saved index from a longer, older version of the tour.
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 7);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isTrue);
+      expect(state.currentIndex, 3);
+      expect(started, [3]);
+      expect(finished, 0);
+      expect(find.text('Step 3'), findsOneWidget);
+      expect(find.text('4/4'), findsOneWidget);
+    });
+
+    testWidgets('a negative startAt opens the first step', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      await tester.pumpWidget(buildResumeApp(keys, onStart: (index, key) => started.add(index)));
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: -1);
+      await pumpStep(tester);
+
+      expect(state.currentIndex, 0);
+      expect(started, [0]);
+      expect(find.text('Step 0'), findsOneWidget);
+    });
+
+    testWidgets('a clamped startAt still goes through the guard', (tester) async {
       final keys = fourKeys();
       var asked = 0;
       await tester.pumpWidget(
@@ -1587,16 +1621,12 @@ void main() {
       );
 
       final state = stateOf(tester);
-      expect(
-        () => state.startShowCase(keys, startAt: 4),
-        throwsA(isA<AssertionError>().having((e) => '${e.message}', 'message', contains('startAt: 4'))),
-      );
-      expect(() => state.startShowCase(keys, startAt: -1), throwsAssertionError);
-      expect(() => state.startShowCase(keys, startAt: 4, force: true), throwsAssertionError);
+      state.startShowCase(keys, startAt: 4);
+      await tester.pump(); // kick off the guard future
       await pumpStep(tester);
 
-      expect(asked, 0);
-      expect(state.isShowcaseRunning, isFalse);
+      expect(asked, 1);
+      expect(state.currentIndex, 3);
     });
 
     testWidgets('startAt 0 on an empty tour still finishes it straight away', (tester) async {
@@ -1611,12 +1641,16 @@ void main() {
       expect(finished, 1);
     });
 
-    test('release builds clamp a stale startAt into range', () {
-      expect(clampStartIndex(2, 4), 2);
-      expect(clampStartIndex(-1, 4), 0); // negative: first step
-      expect(clampStartIndex(7, 4), 3); // past the end: last step, not "finished"
-      expect(clampStartIndex(0, 0), 0); // empty tour: caller finishes it
-      expect(clampStartIndex(5, 0), 0);
+    testWidgets('an empty tour finishes straight away whatever startAt is', (tester) async {
+      var finished = 0;
+      await tester.pumpWidget(buildResumeApp(const [], onFinish: () => finished++));
+
+      final state = stateOf(tester);
+      state.startShowCase(const [], startAt: 5);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isFalse);
+      expect(finished, 1);
     });
 
     testWidgets('opens directly on the step, without gliding from the previous one', (tester) async {
