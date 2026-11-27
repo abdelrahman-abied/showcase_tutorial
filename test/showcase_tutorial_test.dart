@@ -593,6 +593,223 @@ void main() {
 
       expect(builds, greaterThan(before));
     });
+
+    // A tour with the tooltip's scale and moving animations left on, as apps
+    // run it.
+    Widget animatedStep(GlobalKey key, {TooltipPosition? tooltipPosition}) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Showcase(
+                  key: key,
+                  title: 'Animated',
+                  description: 'd',
+                  tooltipPosition: tooltipPosition,
+                  child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    for (final tooltipPosition in [null, TooltipPosition.right]) {
+      testWidgets('the tooltip animations rebuild no widgets (${tooltipPosition?.name ?? 'vertical'})', (tester) async {
+        final key = GlobalKey();
+        await tester.pumpWidget(animatedStep(key, tooltipPosition: tooltipPosition));
+        ShowCaseWidget.of(tester.element(find.byType(Scaffold))).startShowCase([key]);
+        // The overlay is inserted, then the tooltip takes focus.
+        for (var i = 0; i < 3; i++) {
+          await tester.pump();
+        }
+
+        // Both animations used to be AnimatedWidgets, rebuilt on every tick:
+        // ~20 rebuilds while the tooltip scaled in, then one per frame for as
+        // long as the step stayed open. They are applied at paint time now.
+        final rects = <Rect>[];
+        final scaling = await rebuildsDuring(() async {
+          for (var i = 0; i < 10; i++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            rects.add(tester.getRect(find.text('Animated')));
+          }
+        });
+        expect(scaling, isEmpty);
+        // ...and the tooltip still grows in.
+        expect(rects.last.width, greaterThan(rects.first.width));
+
+        await tester.pump(const Duration(seconds: 1));
+        final bobbing = <double>[];
+        final open = await rebuildsDuring(() async {
+          for (var i = 0; i < 30; i++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            final rect = tester.getRect(find.text('Animated'));
+            bobbing.add(tooltipPosition == null ? rect.top : rect.left);
+          }
+        });
+        expect(open, isEmpty);
+        // ...and it still bobs.
+        expect(bobbing.toSet().length, greaterThan(1));
+      });
+    }
+
+    testWidgets('the pulse ring repaints without rebuilding', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: Showcase(
+                    key: key,
+                    title: 'Pulse',
+                    description: 'd',
+                    enablePulseAnimation: true,
+                    child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      ShowCaseWidget.of(tester.element(find.byType(Scaffold))).startShowCase([key]);
+      for (var i = 0; i < 3; i++) {
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final ring = tester.allRenderObjects.whereType<RenderCustomPaint>().singleWhere(
+        (r) => r.painter.runtimeType.toString() == '_PulsingRingPainter',
+      );
+      // ignore: avoid_dynamic_calls
+      double progress() => ((ring.painter as dynamic).progress as Animation<double>).value;
+      final seen = <double>{};
+      final counts = await rebuildsDuring(() async {
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          seen.add(progress());
+        }
+      });
+      // It used to be an AnimatedBuilder, rebuilt on every frame. The same
+      // painter now repaints from the controller.
+      expect(counts, isEmpty);
+      expect(seen, hasLength(10));
+      expect(
+        tester.allRenderObjects.whereType<RenderCustomPaint>().where((r) => identical(r.painter, ring.painter)),
+        hasLength(1),
+      );
+    });
+
+    testWidgets('moving between steps keeps focus in the overlay', (tester) async {
+      final keys = List.generate(3, (_) => GlobalKey());
+      await tester.pumpWidget(manySteps(keys));
+      final context = tester.element(find.byType(Scaffold));
+      final state = ShowCaseWidget.of(context);
+      state.startShowCase(keys);
+      await tester.pumpAndSettle();
+      final focused = FocusManager.instance.primaryFocus;
+
+      var focusChanges = 0;
+      void onFocusChange() => focusChanges++;
+      FocusManager.instance.addListener(onFocusChange);
+      addTearDown(() => FocusManager.instance.removeListener(onFocusChange));
+
+      // Every step used to own its focus node. The step being left gave focus
+      // back to the page as its overlay went, and the step being entered took
+      // it again: two focus changes, ~20 focus widgets rebuilt on the way.
+      final counts = await rebuildsDuring(() async {
+        state.next();
+        await tester.pumpAndSettle();
+      });
+      expect(focusChanges, 0);
+      expect(FocusManager.instance.primaryFocus, same(focused));
+      // Only the entering overlay's own Focus is built, nothing above it.
+      expect(Map.fromEntries(counts.entries.where((e) => e.key.contains('Focus'))), {
+        'Focus': 1,
+        '_FocusInheritedScope': 1,
+      });
+
+      // The keys still reach the step that is showing now.
+      Future<void> press(LogicalKeyboardKey key) async {
+        await tester.sendKeyEvent(key);
+        // Through the reverse animation, then the next step in.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+
+      await press(LogicalKeyboardKey.arrowRight);
+      expect(state.currentIndex, 2);
+      await press(LogicalKeyboardKey.arrowLeft);
+      expect(state.currentIndex, 1);
+      await press(LogicalKeyboardKey.escape);
+      expect(state.isShowcaseRunning, isFalse);
+    });
+
+    for (final variant in ['vertical', 'right', 'container']) {
+      testWidgets('the animated tooltip repaints on its own layer ($variant)', (tester) async {
+        final key = GlobalKey();
+        const child = SizedBox(height: 20, width: 100, child: Text('t'));
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ShowCaseWidget(
+              builder: Builder(
+                builder: (context) => Scaffold(
+                  body: Center(
+                    child: variant == 'container'
+                        ? Showcase.withWidget(
+                            key: key,
+                            height: 50,
+                            width: 120,
+                            container: const Text('custom'),
+                            child: child,
+                          )
+                        : Showcase(
+                            key: key,
+                            title: 'Animated',
+                            description: 'd',
+                            tooltipPosition: variant == 'right' ? TooltipPosition.right : null,
+                            child: child,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        ShowCaseWidget.of(tester.element(find.byType(Scaffold))).startShowCase([key]);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        // The scale and slide change every frame. The layer they repaint must
+        // be the tooltip's own, not the one the scrim and cut-out are on.
+        final scrim = tester.renderObject(find.byWidgetPredicate((w) => w is ClipPath && w.clipper is RRectClipper));
+        final animated = [
+          ...tester.allRenderObjects.whereType<RenderTransform>().where((r) => r.runtimeType != RenderTransform),
+          ...tester.allRenderObjects.whereType<RenderFractionalTranslation>().where(
+            (r) => r.runtimeType != RenderFractionalTranslation,
+          ),
+        ];
+        expect(animated, hasLength(variant == 'container' ? 1 : 2));
+        for (final renderObject in animated) {
+          var boundary = renderObject.parent!;
+          while (!boundary.isRepaintBoundary) {
+            boundary = boundary.parent!;
+          }
+          var isScrimLayer = false;
+          for (RenderObject? r = scrim; r != null; r = r.parent) {
+            if (identical(r, boundary)) isScrimLayer = true;
+          }
+          expect(isScrimLayer, isFalse, reason: '${renderObject.runtimeType} repaints the scrim');
+        }
+      });
+    }
   });
 
   testWidgets('renders the child before the showcase starts', (tester) async {
@@ -4080,6 +4297,225 @@ void main() {
       final context = tester.element(find.byType(Scaffold));
       expect(() => ShowCaseWidget.of(context).startShowCase(keys), throwsException);
     });
+  });
+
+  group('a tooltip drawn above its target responds to taps', () {
+    // Above its target, the tooltip is drawn a whole height away from where
+    // it is laid out. A tap that misses it falls through to the dimmed
+    // background, which moves the tour on: "Previous" would act as "Next".
+    Future<void> settle(WidgetTester tester) async {
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    void usePhoneScreen(WidgetTester tester) {
+      tester.view.physicalSize = const Size(1236, 2745);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+    }
+
+    for (final rtl in [false, true]) {
+      testWidgets('its buttons and body are tappable (${rtl ? 'RTL' : 'LTR'})', (tester) async {
+        usePhoneScreen(tester);
+        final keys = [GlobalKey(), GlobalKey(), GlobalKey()];
+        var bodyTaps = 0;
+        var dismissed = false;
+        late BuildContext pageContext;
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) =>
+                Directionality(textDirection: rtl ? TextDirection.rtl : TextDirection.ltr, child: child!),
+            home: ShowCaseWidget(
+              actionsPosition: TooltipActionPosition.inside,
+              globalActions: (_) => const ShowCaseDefaultActions(),
+              onDismiss: (_) => dismissed = true,
+              builder: Builder(
+                builder: (context) {
+                  pageContext = context;
+                  return Scaffold(
+                    // The targets sit at the bottom, so every tooltip goes above.
+                    body: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        for (var i = 0; i < keys.length; i++)
+                          Showcase(
+                            key: keys[i],
+                            title: 'Step $i',
+                            description: 'Above the target',
+                            tooltipPosition: TooltipPosition.top,
+                            disposeOnTap: false,
+                            onToolTipClick: () => bodyTaps++,
+                            onTargetClick: () {},
+                            child: SizedBox(height: 56, child: Text('target $i')),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+        ShowCaseWidget.of(pageContext).startShowCase(keys);
+        await settle(tester);
+        ShowCaseWidget.of(pageContext).next();
+        await settle(tester);
+        expect(find.text('Step 1'), findsOneWidget);
+        expect(
+          tester.getBottomLeft(find.text('Step 1')).dy,
+          lessThan(tester.getTopLeft(find.text('target 1')).dy),
+          reason: 'the tooltip is above its target',
+        );
+
+        // The body of the tooltip.
+        await tester.tap(find.text('Above the target'), warnIfMissed: false);
+        await settle(tester);
+        expect(bodyTaps, 1);
+        expect(find.text('Step 1'), findsOneWidget, reason: 'a tap on the tooltip does not move the tour');
+
+        // Previous goes back, rather than falling through and going forward.
+        await tester.tap(find.text('Previous'), warnIfMissed: false);
+        await settle(tester);
+        expect(find.text('Step 0'), findsOneWidget);
+
+        await tester.tap(find.text('Next'), warnIfMissed: false);
+        await settle(tester);
+        expect(find.text('Step 1'), findsOneWidget);
+
+        await tester.tap(find.text('Stop'), warnIfMissed: false);
+        await settle(tester);
+        expect(dismissed, isTrue);
+        expect(find.text('Step 1'), findsNothing);
+      });
+    }
+
+    testWidgets('a button in a custom tooltip above its target is tappable', (tester) async {
+      usePhoneScreen(tester);
+      final key = GlobalKey();
+      var taps = 0;
+      var finished = false;
+      late BuildContext pageContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            onFinish: () => finished = true,
+            builder: Builder(
+              builder: (context) {
+                pageContext = context;
+                return Scaffold(
+                  body: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Showcase.withWidget(
+                      key: key,
+                      width: 200,
+                      height: 80,
+                      tooltipPosition: TooltipPosition.top,
+                      container: SizedBox(
+                        width: 200,
+                        child: FilledButton(onPressed: () => taps++, child: const Text('Got it')),
+                      ),
+                      child: const SizedBox(height: 56, child: Text('target')),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      ShowCaseWidget.of(pageContext).startShowCase([key]);
+      await settle(tester);
+      expect(tester.getCenter(find.text('Got it')).dy, lessThan(tester.getTopLeft(find.text('target')).dy));
+
+      await tester.tap(find.text('Got it'), warnIfMissed: false);
+      await settle(tester);
+      expect(taps, 1);
+      expect(finished, isFalse, reason: 'the tap did not fall through to the dimmed background');
+    });
+  });
+
+  group('built-in buttons respond to taps', () {
+    // Taps land on the buttons themselves, inside and outside the tooltip,
+    // with the tooltip animations on, on a phone-sized screen.
+    for (final inside in [true, false]) {
+      testWidgets('Next, Previous and Stop work (${inside ? 'inside' : 'outside'} the tooltip)', (tester) async {
+        tester.view.physicalSize = const Size(1236, 2745);
+        tester.view.devicePixelRatio = 3;
+        addTearDown(tester.view.reset);
+        final previousWarning = WidgetController.hitTestWarningShouldBeFatal;
+        WidgetController.hitTestWarningShouldBeFatal = true;
+        addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = previousWarning);
+
+        final keys = [GlobalKey(), GlobalKey(), GlobalKey()];
+        var finished = false;
+        var dismissed = false;
+        late BuildContext pageContext;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ShowCaseWidget(
+              actionsPosition: inside ? TooltipActionPosition.inside : TooltipActionPosition.outside,
+              globalActions: (_) => const ShowCaseDefaultActions(
+                previous: ActionButtonConfig(icon: Icon(Icons.arrow_back, size: 16)),
+                next: ActionButtonConfig(icon: Icon(Icons.arrow_forward, size: 16)),
+              ),
+              onFinish: () => finished = true,
+              onDismiss: (_) => dismissed = true,
+              builder: Builder(
+                builder: (context) {
+                  pageContext = context;
+                  return Scaffold(
+                    body: ListView(
+                      children: [
+                        for (var i = 0; i < keys.length; i++) ...[
+                          Showcase(
+                            key: keys[i],
+                            title: 'Step $i',
+                            description: 'Search 120 destinations by city or country.',
+                            child: SizedBox(height: 56, child: Text('target $i')),
+                          ),
+                          const SizedBox(height: 160),
+                        ],
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+
+        Future<void> settle() async {
+          for (var i = 0; i < 10; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+        }
+
+        ShowCaseWidget.of(pageContext).startShowCase(keys);
+        await settle();
+        expect(find.text('Step 0'), findsOneWidget);
+
+        await tester.tap(find.text('Next'));
+        await settle();
+        expect(find.text('Step 1'), findsOneWidget);
+
+        await tester.tap(find.text('Previous'));
+        await settle();
+        expect(find.text('Step 0'), findsOneWidget);
+
+        // The icon is part of the button too.
+        await tester.tap(find.byIcon(Icons.arrow_forward));
+        await settle();
+        expect(find.text('Step 1'), findsOneWidget);
+
+        await tester.tap(find.text('Stop'));
+        await settle();
+        expect(find.text('Step 1'), findsNothing);
+        expect(dismissed, isTrue);
+        expect(finished, isFalse);
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 
   group('built-in buttons: direction, one-line labels and translations', () {

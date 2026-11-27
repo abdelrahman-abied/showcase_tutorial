@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.0.1
+
+A faster tour, a migration guide, and one demo that shows the whole package.
+Nothing to change in your code.
+
+* **Faster.** A showing step does about half the work it did:
+
+  | Widget rebuilds | 2.0.0 | Now |
+  | --- | ---: | ---: |
+  | When a tour starts | 100 | 51 |
+  | On each step change | 121 | 48 |
+  | On each frame while a step shows | 1 | 0 |
+
+  * The tooltip's scale-in and its gentle bobbing are now applied when it is
+    painted, instead of rebuilding widgets on every frame.
+  * The animated tooltip is painted on its own layer, so a frame no longer
+    repaints the dimmed background and the cut-out.
+  * Keyboard focus stays in the tour from one step to the next, instead of
+    going back to the page and returning.
+  * The pulse ring repaints without rebuilding.
+
+  In the repo's benchmark (a 60-step tour), tour start and step changes take
+  about 28% less time and a steady frame 18% less. On a mid-range Android
+  phone in profile mode, the app's own work per frame (build time) is about
+  19% lower; total frame time is about the same, because drawing on the GPU
+  dominates it and that did not change.
+* **New: a migration guide** in the README,
+  [Migrating from 1.x to 2.0](https://github.com/abdelrahman-abied/showcase_tutorial#migrating-from-1x-to-20).
+  It covers what changes when you upgrade, how to keep the 1.x look, what to
+  replace before 3.0.0, and which property types changed.
+* **One preview instead of three.** The README and pub.dev now show one GIF,
+  recorded on an Android phone, of a travel app whose tour uses most of the
+  package: an exact-shape highlight, two widgets in one step, auto-scroll with
+  a pulse ring, a step that continues on the next screen and ends in a custom
+  tooltip, then the same tour in dark mode and in Arabic. The three old GIFs,
+  which showed the 1.x look, are removed.
+* **New example: `example/lib/trips_demo.dart`**, the app in the preview. It
+  sets no colours. It starts its tour on first open, offers to resume a tour
+  you stopped, skips the offer step once you close the banner, and skips
+  check-in once you have checked in. Its settings menu switches dark mode,
+  Arabic, auto-play, a blurred background and buttons below the tooltip. Open
+  it from the example's Feature demos page, or run it on its own with
+  `flutter run -t lib/trips_demo_main.dart`.
+* Tests now tap the built-in Next, Previous and Stop buttons, inside and
+  outside the tooltip, and on a tooltip drawn above its target.
+
 ## 2.0.0
 
 A tour that matches your app: its colours follow your theme in light and dark

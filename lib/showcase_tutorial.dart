@@ -31,4 +31,4 @@ export 'src/showcase.dart';
 export 'src/showcase_default_actions.dart';
 export 'src/showcase_labels.dart';
 export 'src/showcase_style.dart';
-export 'src/showcase_widget.dart';
+export 'src/showcase_widget.dart' hide ShowcaseTourFocus;

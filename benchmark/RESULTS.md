@@ -5,6 +5,8 @@
 > The tables in the first section are the **1.14.1 baseline** — the state that
 > motivated the `_InheritedShowCaseView` change. For where the package stands
 > now, jump to [Current standing (1.15.0)](#current-standing-1150).
+> The latest numbers, after 2.0.0, are in
+> [After 2.0.0: animations at paint time (2026-11-27)](#after-200-animations-at-paint-time-2026-11-27).
 
 Environment: Flutter 3.47.2 / Dart 3.13.2, macOS 26.6.2 (Apple Silicon) for the
 widget tests; Infinix X687 (Android 10, arm64, Mali GPU) for the profile runs.
@@ -167,6 +169,10 @@ together, inside the package's most feature-dense file (tooltip positions, RTL,
 arrow, actions, margins). High risk on the densest code for a saving no user can
 perceive.
 
+*Revisited after 2.0.0, in a narrower form: see the next section.* The
+positioning stays in the widgets; only the two transforms moved to render
+objects.
+
 ### The device cannot rank these packages, and here is the evidence
 
 Every profile run on the Infinix X687 draws the same scrim, cut-out and tooltip,
@@ -191,6 +197,55 @@ convenient to explain away as a competitor problem, and on `showcaseview` later,
 which is exactly when it would have been convenient to publish as a win. Neither
 is true: it is thermal or scheduling state on the phone, not a property of either
 package. Repeat before believing a device number here.
+
+## After 2.0.0: animations at paint time (2026-11-27)
+
+Flutter 3.50.1 / Dart 3.14.0, macOS 27.2 (Apple Silicon), `flutter test`,
+N=60. Each timing is the median of per-pair deltas over interleaved runs
+(A, B, A, B, ...), with the number of pairs where B was faster. Counts are
+exact. All `SANITY_` gates passed.
+
+| metric | 2.0.0 | after | change | pairs faster |
+| --- | ---: | ---: | ---: | ---: |
+| rebuilds per tour start | 100 | **51** | -49% | exact |
+| rebuilds per step change | 121 | **48** | -60% | exact |
+| rebuilds per steady frame | 1 | **0** | | exact |
+| CPU per tour start (us) | 12,184 | 8,804 | -27.5% | 16/16 |
+| CPU per step change (us) | 10,095 | 7,428 | -26.9% | 16/16 |
+| CPU per steady frame (us) | 103.5 | 84.0 | -18.3% | 16/16 |
+| active / idle elements | 743 / 671 | 742 / 671 | | |
+| step latency | 2 frames | 2 frames | | |
+
+Against 1.16.0 under the same harness (12 pairs): start -22.2%, step change
+-25.9%, steady frame -18.1%, every pair faster.
+
+Where it came from, each change measured against the commit before it:
+
+| change | rebuilds start / step / frame | start | step change | frame |
+| --- | --- | ---: | ---: | ---: |
+| scale and slide applied by render objects, not `AnimatedWidget`s | 100→51 / 121→71 / 1→0 | -27% (8/8) | -15% (8/8) | -5% (8/8) |
+| animated tooltip on its own `RepaintBoundary` | — | -5.8% (9/12) | -7.6% (10/12) | -11.1% (12/12) |
+| one focus node per tour instead of per step | — / 71→48 / — | -1.2% (7/12) | -7.6% (10/12) | -0.3% (6/12) |
+| pulse ring repaints from its controller | 1→0 per frame, with `enablePulseAnimation` | n/a: the scene has no pulse | | |
+
+About half the rebuilds of every opening and step change were the tooltip's two
+`AnimatedWidget`s rebuilding on each tick, and the slide never stops while a step
+is open. Both now drive the same `RenderTransform` / `RenderFractionalTranslation`
+from the animation. Those transforms sat above the tooltip's own boundary, so
+each tick also repainted the scrim and the cut-out. At a step change the leaving
+overlay's focus node was detached while it had focus, which sent focus back to
+the page before the next step took it again: 23 focus-widget rebuilds per step.
+
+Tried and dropped: measuring the title and description once instead of twice
+(`_textSize` only runs when a step opens, not per build). Instrumented, it cut the
+measurement from ~150 to ~100 us, but the harness could not see it (start -1.9%,
+9/12; step change -0.1%, 6/12).
+
+Two things about measuring this. Keep A and B in equivalent locations: with B in
+the branch's own worktree under `.claude/worktrees/` and A in `/tmp`, B paid a
+steady +15-25% on `start_us` alone, enough to hide the whole gain; with both in
+`/tmp` it disappeared. And `start_us` is the most warm-up-sensitive figure: the
+first of its 7 trials is about twice the others.
 
 ## Real frame timings on a device (`--profile`)
 

@@ -16,13 +16,27 @@ controller API.
 
 ## Preview
 
-![Feature walkthrough](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/demo.gif)
+<img src="https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/tour.gif" width="320" alt="A travel app opens and its tour starts by itself. It highlights the round profile picture, the search bar, an offer banner, a flight and a hotel together, then scrolls down to a popular place with a pulsing ring, points at the Saved tab, and highlights the Check in button. Tapping it opens the boarding pass page, where the tour ends with a custom tooltip. The app then switches to dark mode and Arabic, and the tour runs again with the layout mirrored.">
 
-Animated step transitions — the default instant cut (left) vs `enableStepTransition` gliding the highlight between targets (right):
+One app, one tour, recorded on an Android phone. In about half a minute it
+shows:
 
-![Animated step transitions: instant cut on the left, enableStepTransition glide on the right.](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/step_transition.gif)
+- the tour **starting by itself** the first time the app opens;
+- an **exact-shape highlight** (the round profile picture);
+- **two widgets in one step** (the flight and the hotel);
+- **auto-scroll** to a step below the fold, with a **pulse ring**;
+- a step that **continues on the next screen** when you tap its target, and
+  ends in a **custom tooltip**;
+- progress dots, Skip, a floating **End tour** button, and a highlight that
+  **glides** between steps;
+- **dark mode** and **Arabic (right-to-left)** with translated buttons.
 
-![The example app running on iOS](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/showcase_tutorial.gif)
+Nothing in it sets a colour: the tour takes them from the app's theme. Its
+settings menu also turns on auto-play, a blurred background, and buttons below
+the tooltip, and closing the offer banner skips its step. The code is
+[`example/lib/trips_demo.dart`](https://github.com/abdelrahman-abied/showcase_tutorial/blob/main/example/lib/trips_demo.dart),
+and you can run it on its own with
+`flutter run -t lib/trips_demo_main.dart` from `example/`.
 
 ## Features
 
@@ -78,12 +92,94 @@ Animated step transitions — the default instant cut (left) vs `enableStepTrans
 | [Right-to-left buttons](#right-to-left-rtl) | The built-in buttons follow your app's direction, and their labels never break mid-word. |
 | [Resume where the user left off](#resume-where-the-user-left-off) | `startShowCase(keys, startAt: savedIndex)` opens the tour on a saved step. |
 
-2.0.0 changes how the tour looks and has a few small API changes. The
-[changelog](https://pub.dev/packages/showcase_tutorial/changelog) lists them,
-with the four lines that bring back the 1.x look.
+2.0.0 changes how the tour looks and has a few small API changes. See
+[Migrating from 1.x to 2.0](#migrating-from-1x-to-20).
+
+## Migrating from 1.x to 2.0
+
+Most apps upgrade by changing one line. Nothing was removed, and code that
+compiled on 1.x compiles on 2.0, except for the rare cases under step 4.
+
+**1. Update the dependency.**
+
+```yaml
+dependencies:
+  showcase_tutorial: ^2.0.0
+```
+
+2.0 needs Flutter 3.47 or newer, the same as 1.15.2 and later.
+
+**2. Check how the tour looks.** Colours you didn't set now come from your
+app's theme instead of being fixed (white tooltip, black text, light blue
+buttons). Colours you did set are unchanged, and text on them is kept
+readable. If you want the 1.x look back, set it once:
+
+```dart
+ShowCaseWidget(
+  style: const ShowcaseStyle(
+    tooltipBackgroundColor: Colors.white,
+    textColor: Colors.black,
+    actionTextColor: Color(0xff48cae4),
+    actionDividerColor: Color(0xffcaf0f8),
+  ),
+  builder: const HomePage(),
+);
+```
+
+An app with no `material_ui` theme (for example, one still on `MaterialApp`
+from `package:flutter/material.dart`) keeps the 1.x colours without this.
+
+Also new in how the built-in buttons look:
+
+- **In a right-to-left app**, each button's icon now sits on the right of its
+  label. To keep the 1.x order, pass `textDirection: TextDirection.ltr` to that
+  button's `ActionButtonConfig`.
+- **Box behind buttons placed outside the tooltip:**
+  `ActionsSettings.containerColor` now defaults to the tooltip's colour, not
+  white. Pass `Colors.transparent` for no box.
+- **Labels stay on one line.** A tooltip with the built-in buttons may be a
+  little wider so its labels fit.
+
+**3. Replace what's deprecated.** These still work in 2.0 and are removed in
+3.0.0. Your IDE flags them:
+
+| 1.x | 2.0 |
+| --- | --- |
+| `skipButtonText: 'Skip tour'` | `labels: const ShowcaseLabels(skip: 'Skip tour')` |
+| `disableBarrierInteraction: true` | `barrierInteraction: BarrierInteraction.none` |
+
+`ShowcaseLabels` also sets the Next, Previous and Stop labels, so you can drop
+the same `text:` repeated on every `ActionButtonConfig`. See
+[Translating the tour](#translating-the-tour).
+
+**4. Code that reads these properties back.** Passing values is unchanged.
+Only code that reads one of these from a widget, rather than passing it in,
+may need a small change:
+
+| Property | 1.x type | 2.0 type |
+| --- | --- | --- |
+| `Showcase.overlayColor` | `Color` | `Color?` |
+| `Showcase.scrollLoadingWidget` | `Widget` | `Widget?` |
+| `ActionButtonConfig.textColor` | `Color` | `Color?` |
+| `ActionButtonConfig.textDirection` | `TextDirection` | `TextDirection?` |
+| `ShowCaseDefaultActions.verticalDividerColor` | `Color` | `Color?` |
+| `ShowCaseWidget.skipButtonText` | `String` | `String?` (deprecated) |
+| `ShowCaseWidget.onStart` / `onComplete` | `Function(int?, GlobalKey)?` | `ShowcaseStepCallback?` |
+| `ShowCaseWidget.builder` | `Builder` | `Widget` |
+
+**5. Optional clean-ups.**
+
+- `builder: Builder(builder: (context) => const HomePage())` can become
+  `builder: const HomePage()`.
+- Colours you set on every step can move to `ShowcaseStyle`, which now covers
+  every colour (`overlayColor`, `actionTextColor`, `actionDividerColor`,
+  `loadingIndicatorColor` are new).
+- If you saved progress yourself to resume a tour, use
+  [`startShowCase(keys, startAt: savedIndex)`](#resume-where-the-user-left-off).
 
 ## Table of contents
 
+- [Migrating from 1.x to 2.0](#migrating-from-1x-to-20)
 - [Installation](#installation)
 - [Getting started](#getting-started)
 - [Custom tooltip](#custom-tooltip-with-showcasewithwidget)
@@ -125,7 +221,7 @@ with the four lines that bring back the 1.x look.
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^2.0.0
+     showcase_tutorial: ^2.0.1
    ```
 
    Or from the command line:
@@ -553,11 +649,8 @@ default color for the whole tour once via
 By default the highlight cuts instantly from one target to the next. Turn on
 `enableStepTransition` and it glides there instead — the "guided tour" feel:
 
-![Left: the default instant cut. Right: the same tour with enableStepTransition on.](https://raw.githubusercontent.com/abdelrahman-abied/showcase_tutorial/main/preview/step_transition.gif)
-
-Both sides run the same four steps on the same clock — only the right-hand tour
-sets `enableStepTransition: true`. The cut-out also morphs between target
-shapes, so a circular avatar becomes a rounded card on the way over.
+The [preview](#preview) at the top uses it. The cut-out also morphs between
+target shapes, so a round icon becomes a rounded card on the way over.
 
 ```dart
 ShowCaseWidget(

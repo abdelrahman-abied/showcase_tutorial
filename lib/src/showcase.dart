@@ -31,6 +31,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../showcase_tutorial.dart';
+import 'showcase_widget.dart' show ShowcaseTourFocus;
 import 'get_position.dart';
 import 'shape_clipper.dart';
 import 'tooltip_widget.dart';
@@ -660,10 +661,6 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   /// this step should simply appear.
   Rect? _transitionFrom;
 
-  /// Focus node for the active overlay so a hardware keyboard can drive the
-  /// tour **only while the showcase holds focus** (never app-wide).
-  final FocusNode _focusNode = FocusNode(debugLabel: 'Showcase');
-
   /// Wraps the child when [Showcase.highlightExactShape] is enabled so it can
   /// be captured with [RenderRepaintBoundary.toImage].
   final GlobalKey _childBoundaryKey = GlobalKey();
@@ -711,7 +708,6 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     _unwatchRoute();
     _removeOverlayEntry();
     _releaseSnapshots();
-    _focusNode.dispose();
     _transitionController?.dispose();
     timer?.cancel();
     super.dispose();
@@ -827,7 +823,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
       // Take focus so keyboard navigation works without the user tapping first.
       if (showcaseState.enableKeyboardNavigation) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _focusNode.requestFocus();
+          if (mounted) showCaseWidgetState.overlayFocusNode.requestFocus();
         });
       }
     } else if (!isActiveNow && wasActive) {
@@ -1488,7 +1484,15 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     if (!showcaseState.enableKeyboardNavigation) return overlay;
     // Focus-scoped: keys are handled only while this overlay holds focus, so
     // navigation never hijacks keys from the rest of the app.
-    return Focus(focusNode: _focusNode, autofocus: true, onKeyEvent: _handleKeyEvent, child: overlay);
+    // The node belongs to the tour, not to this step, so focus stays put when
+    // the tour moves from one step to the next (see
+    // [ShowcaseTourFocus.overlayFocusNode]).
+    return Focus(
+      focusNode: showcaseState.overlayFocusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: overlay,
+    );
   }
 }
 
@@ -1690,26 +1694,23 @@ class _PulsingOverlayState extends State<_PulsingOverlay> with SingleTickerProvi
     final bounds = widget.targetRect.inflate(margin);
     final localTarget = Rect.fromLTWH(margin, margin, widget.targetRect.width, widget.targetRect.height);
 
-    CustomPaint paintRing(double? progress) => CustomPaint(
-      size: bounds.size,
-      painter: _PulsingRingPainter(
-        targetRect: localTarget,
-        isCircle: widget.isCircle,
-        borderRadius: widget.borderRadius,
-        color: widget.color,
-        progress: progress,
-      ),
-    );
-
     return Positioned.fromRect(
       rect: bounds,
       child: IgnorePointer(
         child: RepaintBoundary(
-          // Under reduced motion the controller is idle, so skip the per-frame
-          // AnimatedBuilder rebuild entirely and draw a single static ring.
-          child: _reduceMotion
-              ? paintRing(null)
-              : AnimatedBuilder(animation: _controller, builder: (context, _) => paintRing(_controller.value)),
+          // The painter repaints from the controller itself, so the running
+          // pulse rebuilds no widgets. Under reduced motion it gets no
+          // controller and draws a single static ring.
+          child: CustomPaint(
+            size: bounds.size,
+            painter: _PulsingRingPainter(
+              targetRect: localTarget,
+              isCircle: widget.isCircle,
+              borderRadius: widget.borderRadius,
+              color: widget.color,
+              progress: _reduceMotion ? null : _controller,
+            ),
+          ),
         ),
       ),
     );
@@ -1723,9 +1724,9 @@ class _PulsingRingPainter extends CustomPainter {
   final BorderRadius? borderRadius;
   final Color color;
 
-  /// Animation value in `[0, 1)`, or `null` to draw a single static ring
-  /// (reduced motion).
-  final double? progress;
+  /// Drives the rings with a value in `[0, 1)`, or `null` to draw a single
+  /// static ring (reduced motion). The painter repaints whenever it ticks.
+  final Animation<double>? progress;
 
   /// Number of concurrent rings, phased evenly to read as a continuous wave.
   static const _ringCount = 2;
@@ -1741,7 +1742,7 @@ class _PulsingRingPainter extends CustomPainter {
     required this.borderRadius,
     required this.color,
     required this.progress,
-  });
+  }) : super(repaint: progress);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1752,7 +1753,7 @@ class _PulsingRingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = _strokeWidth;
 
-    final localProgress = progress;
+    final localProgress = progress?.value;
     if (localProgress == null) {
       // Reduced motion: one steady ring hugging the target.
       _drawRing(canvas, paint, expansion: 2.0, alpha: 0.9);
