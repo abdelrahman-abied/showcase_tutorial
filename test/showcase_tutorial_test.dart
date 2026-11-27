@@ -593,6 +593,67 @@ void main() {
 
       expect(builds, greaterThan(before));
     });
+
+    // A tour with the tooltip's scale and moving animations left on, as apps
+    // run it.
+    Widget animatedStep(GlobalKey key, {TooltipPosition? tooltipPosition}) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Showcase(
+                  key: key,
+                  title: 'Animated',
+                  description: 'd',
+                  tooltipPosition: tooltipPosition,
+                  child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    for (final tooltipPosition in [null, TooltipPosition.right]) {
+      testWidgets('the tooltip animations rebuild no widgets (${tooltipPosition?.name ?? 'vertical'})', (tester) async {
+        final key = GlobalKey();
+        await tester.pumpWidget(animatedStep(key, tooltipPosition: tooltipPosition));
+        ShowCaseWidget.of(tester.element(find.byType(Scaffold))).startShowCase([key]);
+        // The overlay is inserted, then the tooltip takes focus.
+        for (var i = 0; i < 3; i++) {
+          await tester.pump();
+        }
+
+        // Both animations used to be AnimatedWidgets, rebuilt on every tick:
+        // ~20 rebuilds while the tooltip scaled in, then one per frame for as
+        // long as the step stayed open. They are applied at paint time now.
+        final rects = <Rect>[];
+        final scaling = await rebuildsDuring(() async {
+          for (var i = 0; i < 10; i++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            rects.add(tester.getRect(find.text('Animated')));
+          }
+        });
+        expect(scaling, isEmpty);
+        // ...and the tooltip still grows in.
+        expect(rects.last.width, greaterThan(rects.first.width));
+
+        await tester.pump(const Duration(seconds: 1));
+        final bobbing = <double>[];
+        final open = await rebuildsDuring(() async {
+          for (var i = 0; i < 30; i++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            final rect = tester.getRect(find.text('Animated'));
+            bobbing.add(tooltipPosition == null ? rect.top : rect.left);
+          }
+        });
+        expect(open, isEmpty);
+        // ...and it still bobs.
+        expect(bobbing.toSet().length, greaterThan(1));
+      });
+    }
   });
 
   testWidgets('renders the child before the showcase starts', (tester) async {

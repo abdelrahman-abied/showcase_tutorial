@@ -26,6 +26,7 @@ import 'dart:math';
 import 'package:material_ui/material_ui.dart';
 
 import '../showcase_tutorial.dart';
+import 'animated_transforms.dart';
 import 'get_position.dart';
 import 'measure_size.dart';
 import 'utilities/_showcase_colors.dart';
@@ -704,10 +705,10 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
         Positioned(
           top: top,
           left: left,
-          child: ScaleTransition(
+          child: ScaleTransitionBox(
             scale: _scaleAnimation,
             alignment: isLeft ? Alignment.centerRight : Alignment.centerLeft,
-            child: SlideTransition(
+            child: SlideTransitionBox(
               position: Tween<Offset>(
                 begin: Offset.zero,
                 end: Offset(isLeft ? -0.06 : 0.06, 0.0),
@@ -818,12 +819,12 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
             top: contentY,
             left: _getLeft(),
             right: _getRight(),
-            child: ScaleTransition(
+            child: ScaleTransitionBox(
               scale: _scaleAnimation,
               alignment: widget.scaleAnimationAlignment ?? Alignment(_getAlignmentX(), _getAlignmentY()),
               child: FractionalTranslation(
                 translation: Offset(0.0, contentFractionalOffset as double),
-                child: SlideTransition(
+                child: SlideTransitionBox(
                   position: Tween<Offset>(
                     begin: Offset(0.0, contentFractionalOffset / 10),
                     end: const Offset(0.0, 0.100),
@@ -941,7 +942,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
           top: contentY - 10,
           child: FractionalTranslation(
             translation: Offset(0.0, contentFractionalOffset as double),
-            child: SlideTransition(
+            child: SlideTransitionBox(
               position: Tween<Offset>(
                 begin: Offset(0.0, contentFractionalOffset / 10),
                 end: !widget.showArrow && !isArrowUp ? const Offset(0.0, 0.0) : const Offset(0.0, 0.100),
