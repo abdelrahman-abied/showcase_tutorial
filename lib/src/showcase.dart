@@ -892,10 +892,9 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
         ].whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty).join('. ');
     if (label.isEmpty) return;
     final textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
-    // `announce` is kept for compatibility with the package's Flutter floor
-    // (>=3.27.0); its replacement `sendAnnouncement` doesn't exist there yet.
-    // ignore: deprecated_member_use
-    SemanticsService.announce(label, textDirection);
+    // Announce on the view this step is drawn in, so a multi-window app
+    // routes it to the right one.
+    SemanticsService.sendAnnouncement(View.of(context), label, textDirection);
   }
 
   /// Handles hardware-keyboard navigation for the active step. Only called

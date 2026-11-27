@@ -17,6 +17,8 @@ Nothing to change in your code.
 * **New guide: [Tours across screens](README.md#tours-across-screens).** Put
   `ShowCaseWidget` in `MaterialApp.builder` and one tour reaches steps on every
   page: a step on a page that isn't open yet waits until the user gets there.
+* Screen-reader announcements use `SemanticsService.sendAnnouncement`, which
+  replaces the deprecated `announce` and targets the view the step is in.
 
 ## 1.15.2
 
