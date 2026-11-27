@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.0.1
 
 A faster tour, a migration guide, and one demo that shows the whole package.
 Nothing to change in your code.
