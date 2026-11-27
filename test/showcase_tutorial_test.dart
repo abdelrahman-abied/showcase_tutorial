@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/gestures.dart';
+// The legacy library is deprecated since Flutter 3.47; it is imported only to
+// build apps that are still on it.
+// ignore: deprecated_member_use
+import 'package:flutter/material.dart' as legacy;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -659,6 +663,142 @@ void main() {
 
     final title = tester.widget<Text>(find.text('Styled'));
     expect(title.style?.color, Colors.green);
+  });
+
+  group('default text style and the app theme', () {
+    // material_ui keeps its own Theme, separate from the one the legacy
+    // package:flutter/material.dart MaterialApp inserts, so the tooltip cannot
+    // read a legacy theme by itself. ShowcaseStyle is how a legacy app passes
+    // its text styles in once.
+    final legacyTheme = legacy.ThemeData(
+      textTheme: const legacy.TextTheme(
+        titleLarge: TextStyle(fontFamily: 'LegacyTitle', fontSize: 31),
+        titleSmall: TextStyle(fontFamily: 'LegacyBody', fontSize: 13),
+      ),
+    );
+
+    Widget showcaseBody(GlobalKey key) {
+      return Center(
+        child: Showcase(key: key, title: 'Theme title', description: 'Theme body', child: const Text('target')),
+      );
+    }
+
+    Future<void> startTour(WidgetTester tester, GlobalKey key) async {
+      ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    TextStyle? styleOf(WidgetTester tester, String text) => tester.widget<Text>(find.text(text)).style;
+
+    testWidgets('a legacy MaterialApp theme reaches the tooltip through ShowcaseStyle', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        legacy.MaterialApp(
+          theme: legacyTheme,
+          home: legacy.Builder(
+            builder: (context) {
+              final textTheme = legacy.Theme.of(context).textTheme;
+              return ShowCaseWidget(
+                disableMovingAnimation: true,
+                disableScaleAnimation: true,
+                style: ShowcaseStyle(titleTextStyle: textTheme.titleLarge, descTextStyle: textTheme.titleSmall),
+                builder: Builder(builder: (context) => showcaseBody(key)),
+              );
+            },
+          ),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(tester.takeException(), isNull);
+      final title = styleOf(tester, 'Theme title');
+      final body = styleOf(tester, 'Theme body');
+      expect(title?.fontFamily, 'LegacyTitle');
+      expect(title?.fontSize, 31);
+      expect(body?.fontFamily, 'LegacyBody');
+      expect(body?.fontSize, 13);
+    });
+
+    testWidgets('without ShowcaseStyle a legacy theme is not visible to the tooltip', (tester) async {
+      // Pins the limitation the README describes: if material_ui ever starts
+      // reading the legacy theme, this fails and the README needs updating.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        legacy.MaterialApp(
+          theme: legacyTheme,
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(builder: (context) => showcaseBody(key)),
+          ),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(tester.takeException(), isNull);
+      final fallback = Theme.of(tester.element(find.text('target'))).textTheme;
+      final title = styleOf(tester, 'Theme title');
+      final body = styleOf(tester, 'Theme body');
+      expect(title?.fontFamily, isNot('LegacyTitle'));
+      expect(title?.fontFamily, fallback.titleLarge!.fontFamily);
+      expect(title?.fontSize, fallback.titleLarge!.fontSize);
+      expect(body?.fontFamily, isNot('LegacyBody'));
+      expect(body?.fontSize, fallback.titleSmall!.fontSize);
+    });
+
+    testWidgets('a material_ui theme still styles the default tooltip text', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            textTheme: const TextTheme(
+              titleLarge: TextStyle(fontFamily: 'ModernTitle', fontSize: 27),
+              titleSmall: TextStyle(fontFamily: 'ModernBody', fontSize: 11),
+            ),
+          ),
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(builder: (context) => showcaseBody(key)),
+          ),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(tester.takeException(), isNull);
+      final title = styleOf(tester, 'Theme title');
+      final body = styleOf(tester, 'Theme body');
+      expect(title?.fontFamily, 'ModernTitle');
+      expect(title?.fontSize, 27);
+      expect(title?.color, Colors.black);
+      expect(body?.fontFamily, 'ModernBody');
+      expect(body?.fontSize, 11);
+      expect(body?.color, Colors.black);
+    });
+
+    testWidgets('a material_ui theme wins over a legacy Theme nested below it', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            textTheme: const TextTheme(titleLarge: TextStyle(fontFamily: 'ModernTitle')),
+          ),
+          home: legacy.Theme(
+            data: legacyTheme,
+            child: ShowCaseWidget(
+              disableMovingAnimation: true,
+              disableScaleAnimation: true,
+              builder: Builder(builder: (context) => showcaseBody(key)),
+            ),
+          ),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(tester.takeException(), isNull);
+      expect(styleOf(tester, 'Theme title')?.fontFamily, 'ModernTitle');
+    });
   });
 
   testWidgets('description is optional and the tooltip still renders', (tester) async {
