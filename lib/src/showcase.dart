@@ -1337,6 +1337,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
       textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
       child: ShowcaseContextProvider(
         context: context,
+        labels: showcaseState.labels,
         child: Stack(
           children: [
             GestureDetector(
@@ -1470,7 +1471,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                 showProgress: showcaseState.showProgress,
                 progressStyle: showcaseState.progressStyle,
                 showSkip: showcaseState.showSkip,
-                skipText: showcaseState.skipButtonText,
+                skipText: showcaseState.labels.skip,
                 currentStep: showcaseState.currentIndex ?? 0,
                 totalSteps: showcaseState.totalSteps,
                 onSkip: _dismissShowcaseTour,

@@ -372,8 +372,21 @@ class ShowCaseWidget extends StatefulWidget {
   /// explicit navigation. Defaults to `null` (no branching).
   final GlobalKey? Function(int currentIndex, GlobalKey currentKey)? onResolveNextStep;
 
-  /// Label for the skip button (see [showSkip]). Defaults to `'Skip'`.
-  final String skipButtonText;
+  /// The text of the tour's built-in buttons: Next, Previous and Stop in every
+  /// [ShowCaseDefaultActions], and the Skip button of [showSkip].
+  ///
+  /// Set it once to translate the tour, e.g.
+  /// `labels: const ShowcaseLabels(next: 'التالي', previous: 'السابق')`. A
+  /// button's own [ActionButtonConfig.text] still wins for that button.
+  /// Defaults to the English labels of `const ShowcaseLabels()`.
+  final ShowcaseLabels labels;
+
+  /// Label for the skip button (see [showSkip]).
+  ///
+  /// When set, it wins over `labels.skip`, so existing apps keep their text.
+  /// Defaults to `null`, which uses [labels].
+  @Deprecated('Use labels: ShowcaseLabels(skip: ...) instead. Will be removed in 3.0.0.')
+  final String? skipButtonText;
 
   /// Creates a [ShowCaseWidget] that hosts the showcase tour for the
   /// [Showcase] widgets built by [builder].
@@ -418,7 +431,8 @@ class ShowCaseWidget extends StatefulWidget {
     this.showProgress = false,
     this.progressStyle = ShowcaseProgressStyle.dots,
     this.showSkip = false,
-    this.skipButtonText = 'Skip',
+    this.labels = const ShowcaseLabels(),
+    @Deprecated('Use labels: ShowcaseLabels(skip: ...) instead. Will be removed in 3.0.0.') this.skipButtonText,
     this.onResolveNextStep,
   });
 
@@ -566,8 +580,18 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Value of [ShowCaseWidget.showSkip].
   bool get showSkip => widget.showSkip;
 
-  /// Value of [ShowCaseWidget.skipButtonText].
-  String get skipButtonText => widget.skipButtonText;
+  /// The labels the tour's built-in buttons show: [ShowCaseWidget.labels],
+  /// with its Skip label replaced by the deprecated
+  /// [ShowCaseWidget.skipButtonText] when that is set.
+  ShowcaseLabels get labels {
+    // ignore: deprecated_member_use_from_same_package
+    final legacySkip = widget.skipButtonText;
+    return legacySkip == null ? widget.labels : widget.labels.copyWith(skip: legacySkip);
+  }
+
+  /// The Skip button's label.
+  @Deprecated('Use labels.skip instead. Will be removed in 3.0.0.')
+  String get skipButtonText => labels.skip;
 
   /// Default tooltip styling for showcases in this tree.
   ShowcaseStyle get style => widget.style;

@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../showcase_tutorial.dart';
@@ -9,6 +10,12 @@ import 'utilities/_showcase_context_provider.dart';
 /// Lays out the Previous, Stop and Next buttons in a [Row], each configurable
 /// through an [ActionButtonConfig]. Pass it to the `actions` property of a
 /// [Showcase] and style its container with [ActionsSettings].
+///
+/// The buttons' text comes from [ShowCaseWidget.labels] unless a button sets
+/// its own [ActionButtonConfig.text]. The row and each button follow the
+/// app's text direction, so in a right-to-left app Previous sits on the
+/// right. A label that does not fit its button stays on one line and is
+/// scaled down instead of wrapping.
 class ShowCaseDefaultActions extends StatelessWidget {
   /// How the buttons are placed along the main (horizontal) axis of the [Row].
   final MainAxisAlignment mainAxisAlignment;
@@ -68,7 +75,11 @@ class ShowCaseDefaultActions extends StatelessWidget {
   /// Builds the [Row] of Previous, Stop and Next buttons for the tooltip.
   @override
   Widget build(BuildContext context) {
-    final showcaseContext = ShowcaseContextProvider.of(context)?.context;
+    final provider = ShowcaseContextProvider.of(context);
+    final showcaseContext = provider?.context;
+    // The tour's labels, published by the overlay the buttons are in. Used
+    // outside one, the buttons keep their English text.
+    final labels = provider?.labels ?? const ShowcaseLabels();
     // Provided by the tooltip the buttons are in. Used outside one, the
     // buttons keep the colours they had before they followed the theme.
     final defaults = ShowcaseActionColors.maybeOf(context);
@@ -87,7 +98,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
           _getButtonWidget(
             previous,
             foreground,
-            previous.text ?? 'Previous',
+            previous.text ?? labels.previous,
             previous.callback ??
                 () {
                   if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
@@ -101,7 +112,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
           _getButtonWidget(
             stop,
             foreground,
-            stop.text ?? 'Stop',
+            stop.text ?? labels.stop,
             stop.callback ??
                 () {
                   if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
@@ -114,7 +125,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
           _getButtonWidget(
             next,
             foreground,
-            next.text ?? 'Next',
+            next.text ?? labels.next,
             next.callback ??
                 () {
                   if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
@@ -138,26 +149,129 @@ class ShowCaseDefaultActions extends StatelessWidget {
     String buttonText,
     VoidCallback onClick,
   ) {
-    return Expanded(
-      child: Directionality(
-        textDirection: actionConfig.textDirection,
-        child: TextButton.icon(
-          label: actionConfig.buttonTextVisible
-              ? Text(buttonText, style: TextStyle(color: actionConfig.textColor ?? defaultTextColor))
-              : const SizedBox.shrink(),
-          icon: actionConfig.icon ?? const SizedBox.shrink(),
-          style: ButtonStyle(backgroundColor: WidgetStateProperty.all<Color>(actionConfig.textButtonBgColor)),
-          onPressed: onClick,
-        ),
+    final icon = actionConfig.icon;
+    final label = actionConfig.buttonTextVisible
+        ? Text(
+            buttonText,
+            maxLines: 1,
+            softWrap: false,
+            style: TextStyle(color: actionConfig.textColor ?? defaultTextColor),
+          )
+        : null;
+    // The icon leads, so it follows the text direction: left of the label in
+    // a left-to-right app, right of it in a right-to-left one.
+    final Widget content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [?icon, if (icon != null && label != null) const SizedBox(width: 8), ?label],
+    );
+    final button = TextButton(
+      style: ButtonStyle(backgroundColor: WidgetStateProperty.all<Color>(actionConfig.textButtonBgColor)),
+      onPressed: onClick,
+      // A label that does not fit (e.g. "Previous" in a narrow tooltip) stays
+      // on one line and is scaled down with its icon, instead of breaking
+      // mid-word. Only the content scales: the button keeps its size, and so
+      // its tap target.
+      child: _ScaleDownToWidth(
+        // With the text hidden, the label is still what screen readers announce.
+        child: label == null ? Semantics(label: buttonText, child: content) : content,
       ),
     );
+
+    final textDirection = actionConfig.textDirection;
+    return Expanded(
+      child: textDirection == null ? button : Directionality(textDirection: textDirection, child: button),
+    );
   }
+}
+
+/// Lays [child] out at its natural width, on one line, and scales it down
+/// uniformly when that is wider than the space available.
+///
+/// Unlike a [FittedBox], the child keeps the incoming height limit, so an
+/// icon such as an unsized [Image] is sized the way a button would size it
+/// rather than at its full resolution (which would then shrink the label
+/// next to it too).
+class _ScaleDownToWidth extends SingleChildRenderObjectWidget {
+  const _ScaleDownToWidth({required Widget super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderScaleDownToWidth();
+}
+
+class _RenderScaleDownToWidth extends RenderProxyBox {
+  double _scale = 1.0;
+
+  BoxConstraints _childConstraints(BoxConstraints constraints) => BoxConstraints(maxHeight: constraints.maxHeight);
+
+  double _scaleFor(BoxConstraints constraints, Size childSize) {
+    if (!constraints.hasBoundedWidth || childSize.width <= constraints.maxWidth || childSize.width == 0) return 1.0;
+    return constraints.maxWidth / childSize.width;
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final child = this.child;
+    if (child == null) return constraints.smallest;
+    final childSize = child.getDryLayout(_childConstraints(constraints));
+    return constraints.constrain(childSize * _scaleFor(constraints, childSize));
+  }
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      _scale = 1.0;
+      size = constraints.smallest;
+      return;
+    }
+    child.layout(_childConstraints(constraints), parentUsesSize: true);
+    _scale = _scaleFor(constraints, child.size);
+    size = constraints.constrain(child.size * _scale);
+  }
+
+  Matrix4 get _transform => Matrix4.diagonal3Values(_scale, _scale, 1.0);
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child == null) return;
+    if (_scale == 1.0) {
+      layer = null;
+      context.paintChild(child, offset);
+      return;
+    }
+    layer = context.pushTransform(
+      needsCompositing,
+      offset,
+      _transform,
+      (context, offset) => context.paintChild(child, offset),
+      oldLayer: layer is TransformLayer ? layer as TransformLayer? : null,
+    );
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    final child = this.child;
+    if (child == null) return false;
+    return result.addWithPaintTransform(
+      transform: _transform,
+      position: position,
+      hitTest: (result, position) => child.hitTest(result, position: position),
+    );
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) => transform.multiply(_transform);
 }
 
 /// Styling and behavior configuration for a single action button rendered by
 /// [ShowCaseDefaultActions], such as Next, Previous or Stop.
 class ActionButtonConfig {
-  /// button text
+  /// Button text.
+  ///
+  /// When `null` (the default) it is the matching [ShowCaseWidget.labels]
+  /// entry: `'Next'`, `'Previous'` or `'Stop'` unless the tour translates them.
+  /// Also announced by screen readers when [buttonTextVisible] is `false`.
   final String? text;
 
   /// button icon or image
@@ -181,11 +295,17 @@ class ActionButtonConfig {
   /// Defines visibility of button.
   final bool buttonVisible;
 
-  /// Defines visibility of button.
+  /// Whether the button shows its text. When `false` only [icon] is shown,
+  /// and the text is still announced by screen readers.
   final bool buttonTextVisible;
 
-  /// Defines icon and text direction.
-  final TextDirection textDirection;
+  /// The order of [icon] and text inside the button.
+  ///
+  /// When `null` (the default) the button follows the app's text direction:
+  /// the icon comes first, which is on the left in a left-to-right app and on
+  /// the right in a right-to-left one. Set [TextDirection.rtl] in a
+  /// left-to-right app to put the icon after the text, e.g. a Next arrow.
+  final TextDirection? textDirection;
 
   /// Creates a configuration for a single tooltip action button.
   const ActionButtonConfig({
@@ -196,6 +316,6 @@ class ActionButtonConfig {
     this.callback,
     this.buttonVisible = true,
     this.buttonTextVisible = true,
-    this.textDirection = TextDirection.ltr,
+    this.textDirection,
   });
 }
