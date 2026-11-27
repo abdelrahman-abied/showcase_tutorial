@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.16.0
 
 Skip or wait for missing steps one by one, and a fix for apps still on the old
 `MaterialApp`. Nothing to change in your code.

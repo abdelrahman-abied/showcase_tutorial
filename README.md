@@ -119,7 +119,7 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^1.15.4
+     showcase_tutorial: ^1.16.0
    ```
 
    Or from the command line:
