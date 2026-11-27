@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -14,8 +16,11 @@ import 'utilities/_showcase_context_provider.dart';
 /// The buttons' text comes from [ShowCaseWidget.labels] unless a button sets
 /// its own [ActionButtonConfig.text]. The row and each button follow the
 /// app's text direction, so in a right-to-left app Previous sits on the
-/// right. A label that does not fit its button stays on one line and is
-/// scaled down instead of wrapping.
+/// right. The default tooltip is made wide enough for the buttons' labels. A
+/// label that still does not fit its button (for example a long translation
+/// on a narrow screen) stays on one line: it is scaled down to no less than
+/// 70% of its size, and past that it ends with an ellipsis instead of
+/// wrapping.
 class ShowCaseDefaultActions extends StatelessWidget {
   /// How the buttons are placed along the main (horizontal) axis of the [Row].
   final MainAxisAlignment mainAxisAlignment;
@@ -155,6 +160,7 @@ class ShowCaseDefaultActions extends StatelessWidget {
             buttonText,
             maxLines: 1,
             softWrap: false,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(color: actionConfig.textColor ?? defaultTextColor),
           )
         : null;
@@ -162,15 +168,21 @@ class ShowCaseDefaultActions extends StatelessWidget {
     // a left-to-right app, right of it in a right-to-left one.
     final Widget content = Row(
       mainAxisSize: MainAxisSize.min,
-      children: [?icon, if (icon != null && label != null) const SizedBox(width: 8), ?label],
+      children: [
+        ?icon,
+        if (icon != null && label != null) const SizedBox(width: 8),
+        // Flexible, so that past the smallest scale the label is ellipsized
+        // rather than pushing the row out of the button.
+        if (label != null) Flexible(child: label),
+      ],
     );
     final button = TextButton(
       style: ButtonStyle(backgroundColor: WidgetStateProperty.all<Color>(actionConfig.textButtonBgColor)),
       onPressed: onClick,
-      // A label that does not fit (e.g. "Previous" in a narrow tooltip) stays
-      // on one line and is scaled down with its icon, instead of breaking
-      // mid-word. Only the content scales: the button keeps its size, and so
-      // its tap target.
+      // A label that does not fit (e.g. a long translation on a narrow
+      // screen) stays on one line and is scaled down with its icon, instead
+      // of breaking mid-word. Only the content scales: the button keeps its
+      // size, and so its tap target.
       child: _ScaleDownToWidth(
         // With the text hidden, the label is still what screen readers announce.
         child: label == null ? Semantics(label: buttonText, child: content) : content,
@@ -187,6 +199,11 @@ class ShowCaseDefaultActions extends StatelessWidget {
 /// Lays [child] out at its natural width, on one line, and scales it down
 /// uniformly when that is wider than the space available.
 ///
+/// The scale never goes below [_RenderScaleDownToWidth.minScale], so the text
+/// stays readable. Below that the child is laid out narrower than its natural
+/// width, and the label (a [Flexible] with [TextOverflow.ellipsis]) is
+/// ellipsized.
+///
 /// Unlike a [FittedBox], the child keeps the incoming height limit, so an
 /// icon such as an unsized [Image] is sized the way a button would size it
 /// rather than at its full resolution (which would then shrink the label
@@ -199,21 +216,39 @@ class _ScaleDownToWidth extends SingleChildRenderObjectWidget {
 }
 
 class _RenderScaleDownToWidth extends RenderProxyBox {
+  /// The smallest scale the content is drawn at.
+  static const double minScale = 0.7;
+
   double _scale = 1.0;
 
-  BoxConstraints _childConstraints(BoxConstraints constraints) => BoxConstraints(maxHeight: constraints.maxHeight);
-
-  double _scaleFor(BoxConstraints constraints, Size childSize) {
-    if (!constraints.hasBoundedWidth || childSize.width <= constraints.maxWidth || childSize.width == 0) return 1.0;
-    return constraints.maxWidth / childSize.width;
+  /// The scale [child] is drawn at under [constraints], and the constraints
+  /// it is laid out with.
+  ({double scale, BoxConstraints childConstraints}) _fit(BoxConstraints constraints, RenderBox child) {
+    final natural = child.getMaxIntrinsicWidth(constraints.maxHeight);
+    final available = constraints.hasBoundedWidth ? constraints.maxWidth : natural;
+    final scale = natural <= available || natural == 0 ? 1.0 : max(available / natural, minScale);
+    // At the smallest scale the child gets only the room that is left, and
+    // its label is ellipsized. Otherwise it fits at its natural width; the
+    // slack keeps rounding from ellipsizing the last letter.
+    final maxWidth = scale == minScale ? available / minScale : natural + 0.5;
+    return (scale: scale, childConstraints: BoxConstraints(maxWidth: maxWidth, maxHeight: constraints.maxHeight));
   }
 
   @override
   Size computeDryLayout(BoxConstraints constraints) {
     final child = this.child;
     if (child == null) return constraints.smallest;
-    final childSize = child.getDryLayout(_childConstraints(constraints));
-    return constraints.constrain(childSize * _scaleFor(constraints, childSize));
+    final fit = _fit(constraints, child);
+    return constraints.constrain(child.getDryLayout(fit.childConstraints) * fit.scale);
+  }
+
+  @override
+  double? computeDryBaseline(BoxConstraints constraints, TextBaseline baseline) {
+    final child = this.child;
+    if (child == null) return null;
+    final fit = _fit(constraints, child);
+    final distance = child.getDryBaseline(fit.childConstraints, baseline);
+    return distance == null ? null : distance * fit.scale;
   }
 
   @override
@@ -224,9 +259,17 @@ class _RenderScaleDownToWidth extends RenderProxyBox {
       size = constraints.smallest;
       return;
     }
-    child.layout(_childConstraints(constraints), parentUsesSize: true);
-    _scale = _scaleFor(constraints, child.size);
+    final fit = _fit(constraints, child);
+    child.layout(fit.childConstraints, parentUsesSize: true);
+    _scale = fit.scale;
     size = constraints.constrain(child.size * _scale);
+  }
+
+  // The child is drawn scaled, so its baseline is too.
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) {
+    final distance = child?.getDistanceToActualBaseline(baseline);
+    return distance == null ? null : distance * _scale;
   }
 
   Matrix4 get _transform => Matrix4.diagonal3Values(_scale, _scale, 1.0);

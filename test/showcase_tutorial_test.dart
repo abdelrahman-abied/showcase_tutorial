@@ -3710,7 +3710,10 @@ void main() {
       String? skipButtonText,
       bool showSkip = false,
       bool showProgress = false,
+      String? title = 'Title',
       String description = 'A tooltip with buttons',
+      TooltipActionPosition actionsPosition = TooltipActionPosition.inside,
+      ActionsSettings? actionSettings,
     }) {
       return MaterialApp(
         home: Directionality(
@@ -3725,15 +3728,16 @@ void main() {
             showProgress: showProgress,
             progressStyle: ShowcaseProgressStyle.numeric,
             globalActions: globalActions,
-            actionsPosition: TooltipActionPosition.inside,
+            actionsPosition: actionsPosition,
             builder: Builder(
               builder: (context) => Scaffold(
                 body: Center(
                   child: Showcase(
                     key: stepKey,
-                    title: 'Title',
+                    title: title,
                     description: description,
                     actions: actions,
+                    actionSettings: actionSettings,
                     child: const SizedBox(width: 40, height: 20, child: Text('t')),
                   ),
                 ),
@@ -3827,39 +3831,162 @@ void main() {
       expect(centerX(tester, find.text('1/1')), greaterThan(centerX(tester, find.text('Skip'))));
     });
 
-    // A short description keeps the tooltip, and so each button, narrow.
-    for (final (name, actions) in [
-      ('text only', const ShowCaseDefaultActions()),
-      ('with an icon', const ShowCaseDefaultActions(previous: ActionButtonConfig(icon: Icon(Icons.arrow_back)))),
+    /// The scale a label is drawn at: its painted height over its laid-out one.
+    double drawnScale(WidgetTester tester, String label) =>
+        tester.getRect(find.text(label)).height / tester.renderObject<RenderParagraph>(find.text(label)).size.height;
+
+    void expectOneLineInsideItsButton(WidgetTester tester, String label) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
+      expect(
+        paragraph.size.height,
+        paragraph.getMinIntrinsicHeight(double.infinity),
+        reason: '"$label" is laid out as a single line',
+      );
+      final button = tester.getRect(find.ancestor(of: find.text(label), matching: find.byType(TextButton)));
+      final text = tester.getRect(find.text(label));
+      expect(button.left, lessThanOrEqualTo(text.left + 0.01), reason: '"$label" is drawn inside its button');
+      expect(button.right, greaterThanOrEqualTo(text.right - 0.01), reason: '"$label" is drawn inside its button');
+    }
+
+    // Short text would make a narrow tooltip; the tooltip widens to fit the
+    // buttons instead, so their labels are drawn at full size.
+    for (final (name, title, description, position, actions) in [
+      ('README sample', 'Menu', 'Open the menu', TooltipActionPosition.outside, const ShowCaseDefaultActions()),
+      (
+        'README sample with an icon',
+        'Menu',
+        'Open the menu',
+        TooltipActionPosition.outside,
+        const ShowCaseDefaultActions(previous: ActionButtonConfig(icon: Icon(Icons.arrow_back))),
+      ),
+      ('one-word description', null, 'Tip', TooltipActionPosition.outside, const ShowCaseDefaultActions()),
+      ('one-word description, inside', null, 'Tip', TooltipActionPosition.inside, const ShowCaseDefaultActions()),
     ]) {
-      testWidgets('a long label in a narrow tooltip stays on one line and is shrunk, not cut ($name)', (tester) async {
+      testWidgets('the tooltip is wide enough for the button labels at full size ($name)', (tester) async {
         final key = GlobalKey();
-        await tester.pumpWidget(app(stepKey: key, description: 'Tip', actions: actions));
+        await tester.pumpWidget(
+          app(stepKey: key, title: title, description: description, actionsPosition: position, actions: actions),
+        );
         await startTour(tester, key);
         expect(tester.takeException(), isNull, reason: 'no overflow');
 
         for (final label in ['Previous', 'Stop', 'Next']) {
+          expectOneLineInsideItsButton(tester, label);
+          expect(drawnScale(tester, label), moreOrLessEquals(1.0), reason: '"$label" is drawn at full size');
           final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
-          expect(
-            paragraph.size.height,
-            paragraph.getMinIntrinsicHeight(double.infinity),
-            reason: '"$label" is laid out as a single line',
-          );
-          expect(
-            paragraph.size.width,
-            moreOrLessEquals(paragraph.getMaxIntrinsicWidth(double.infinity)),
-            reason: '"$label" is laid out at its full width, nothing wrapped or clipped',
-          );
-          final button = tester.getRect(find.ancestor(of: find.text(label), matching: find.byType(TextButton)));
-          final text = tester.getRect(find.text(label));
-          expect(button.left, lessThanOrEqualTo(text.left + 0.01), reason: '"$label" is drawn inside its button');
-          expect(button.right, greaterThanOrEqualTo(text.right - 0.01), reason: '"$label" is drawn inside its button');
+          expect(paragraph.didExceedMaxLines, isFalse, reason: '"$label" is not ellipsized');
         }
-        final previous = tester.getRect(find.text('Previous'));
-        final paragraph = tester.renderObject<RenderParagraph>(find.text('Previous'));
-        expect(previous.width, lessThan(paragraph.size.width), reason: 'the button was too narrow, so it was scaled');
       });
     }
+
+    // On a phone the tooltip cannot always grow enough: the test font's
+    // square glyphs make "Previous" 112px, about twice a real font's width.
+    for (final (name, actions) in [
+      ('text only', const ShowCaseDefaultActions()),
+      ('with an icon', const ShowCaseDefaultActions(previous: ActionButtonConfig(icon: Icon(Icons.arrow_back)))),
+    ]) {
+      testWidgets('on a phone the README sample labels stay readable ($name)', (tester) async {
+        tester.view
+          ..physicalSize = const Size(390, 844)
+          ..devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          app(
+            stepKey: key,
+            title: 'Menu',
+            description: 'Open the menu',
+            actionsPosition: TooltipActionPosition.outside,
+            actions: actions,
+          ),
+        );
+        await startTour(tester, key);
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+
+        for (final label in ['Previous', 'Stop', 'Next']) {
+          expectOneLineInsideItsButton(tester, label);
+          expect(drawnScale(tester, label), greaterThanOrEqualTo(0.7 - 1e-9), reason: '"$label" stays readable');
+        }
+      });
+    }
+
+    testWidgets('a label too long for its button stays on one line and is shrunk a little', (tester) async {
+      final key = GlobalKey();
+      // A declared width fixes the buttons' room: about 109px each, which
+      // leaves 85px for "Previous" (112px in the test font).
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(),
+          actionSettings: const ActionsSettings(containerWidth: 330),
+        ),
+      );
+      await startTour(tester, key);
+      expect(tester.takeException(), isNull);
+
+      expectOneLineInsideItsButton(tester, 'Previous');
+      final scale = drawnScale(tester, 'Previous');
+      expect(scale, lessThan(1.0), reason: 'too wide for its button, so it was scaled');
+      expect(scale, greaterThanOrEqualTo(0.7), reason: 'but no smaller than 70%');
+      expect(tester.renderObject<RenderParagraph>(find.text('Previous')).didExceedMaxLines, isFalse);
+      expect(drawnScale(tester, 'Stop'), moreOrLessEquals(1.0), reason: 'labels that fit are not scaled');
+    });
+
+    for (final (name, actions) in [
+      ('text only', const ShowCaseDefaultActions()),
+      ('with an icon', const ShowCaseDefaultActions(previous: ActionButtonConfig(icon: Icon(Icons.arrow_back)))),
+    ]) {
+      testWidgets('past 70% a label is ellipsized, not shrunk until it cannot be read ($name)', (tester) async {
+        final key = GlobalKey();
+        // About 66px per button: "Previous" would need a scale of 0.38.
+        await tester.pumpWidget(
+          app(stepKey: key, actions: actions, actionSettings: const ActionsSettings(containerWidth: 200)),
+        );
+        await startTour(tester, key);
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+
+        for (final label in ['Previous', 'Stop', 'Next']) {
+          expectOneLineInsideItsButton(tester, label);
+          expect(drawnScale(tester, label), greaterThanOrEqualTo(0.7 - 1e-9), reason: '"$label" stays readable');
+        }
+        expect(drawnScale(tester, 'Previous'), moreOrLessEquals(0.7));
+        expect(
+          tester.renderObject<RenderParagraph>(find.text('Previous')).didExceedMaxLines,
+          isTrue,
+          reason: 'what does not fit at 70% is ellipsized',
+        );
+      });
+    }
+
+    testWidgets('baseline alignment lines up a scaled label with the others', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+          ),
+          actionSettings: const ActionsSettings(containerWidth: 330),
+        ),
+      );
+      await startTour(tester, key);
+      expect(tester.takeException(), isNull);
+      expect(drawnScale(tester, 'Previous'), lessThan(0.9), reason: 'the case under test: Previous is scaled');
+
+      double drawnBaseline(String label) {
+        final painter = TextPainter(
+          text: tester.renderObject<RenderParagraph>(find.text(label)).text,
+          textDirection: TextDirection.ltr,
+        )..layout();
+        addTearDown(painter.dispose);
+        return tester.getRect(find.text(label)).top +
+            painter.computeDistanceToActualBaseline(TextBaseline.alphabetic) * drawnScale(tester, label);
+      }
+
+      expect(drawnBaseline('Previous'), moreOrLessEquals(drawnBaseline('Stop'), epsilon: 0.01));
+      expect(drawnBaseline('Next'), moreOrLessEquals(drawnBaseline('Stop'), epsilon: 0.01));
+    });
 
     testWidgets('an icon-only button keeps its full tap area and is announced by its label', (tester) async {
       final semantics = tester.ensureSemantics();

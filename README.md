@@ -275,7 +275,7 @@ Showcase(
     next: ActionButtonConfig(
       text: 'Next',
       icon: const Icon(Icons.arrow_forward, size: 16),
-      // Put the arrow after the text. Leave it out to follow the app.
+      // In an LTR app, puts the arrow after the text. Leave it out to follow the app.
       textDirection: TextDirection.rtl,
     ),
     previous: const ActionButtonConfig(text: 'Back'),
@@ -289,11 +289,17 @@ Showcase(
 Each button puts its icon first. By default it follows your app's text
 direction, so the icon is on the left in an English app and on the right in an
 Arabic or Hebrew one, and the whole row mirrors too (Previous on the right).
-Set `textDirection` on one button to choose its order yourself.
+Set `textDirection` on one button to choose its order yourself. The value is
+the actual order, not relative to your app: `TextDirection.rtl` puts the icon
+on the right, after the text, in an English app, but in an Arabic app it is the
+same as leaving it out. There, `TextDirection.ltr` puts the arrow after the
+text.
 
-A label too long for its button stays on one line and gets smaller to fit,
-instead of breaking in the middle of a word. The button itself keeps its size,
-so it is just as easy to tap. With `buttonTextVisible: false` the button shows
+The tooltip is made wide enough for the buttons' labels. If a label still does
+not fit its button, for example a long translation on a narrow phone, it stays
+on one line instead of breaking in the middle of a word: it gets smaller, down
+to 70% of its size, and past that it ends with "…". The button itself keeps its
+size, so it is just as easy to tap. With `buttonTextVisible: false` the button shows
 only its icon, and screen readers still read its label.
 
 The buttons [follow your theme](#colours-and-your-apps-theme). To colour them

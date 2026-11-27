@@ -29,6 +29,7 @@ import '../showcase_tutorial.dart';
 import 'get_position.dart';
 import 'measure_size.dart';
 import 'utilities/_showcase_colors.dart';
+import 'utilities/_showcase_context_provider.dart';
 
 class ToolTipWidget extends StatefulWidget {
   final GetPosition? position;
@@ -240,7 +241,10 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
               widget.tooltipPadding!.left +
               (widget.descriptionPadding?.right ?? 0) +
               (widget.descriptionPadding?.left ?? 0));
-    var maxTextWidth = max(max(titleLength, descriptionLength), max(_footerWidth, _insideActionsWidth));
+    var maxTextWidth = max(
+      max(max(titleLength, descriptionLength), max(_footerWidth, _insideActionsWidth)),
+      _defaultActionsWidth,
+    );
     if (maxTextWidth > widget.screenSize!.width - widget.toolTipMargin.horizontal) {
       tooltipWidth = widget.screenSize!.width - widget.toolTipMargin.horizontal;
     } else {
@@ -294,6 +298,47 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     final declared = widget.actionSettings?.containerWidth;
     if (declared == null) return 0;
     return declared + widget.tooltipPadding!.left + widget.tooltipPadding!.right;
+  }
+
+  /// Width the tooltip needs so the labels of [ShowCaseDefaultActions] fit
+  /// their buttons at full size, or 0 for other actions.
+  ///
+  /// The buttons share the row equally, so every button needs the room of
+  /// the widest one. The estimate follows [TextButton]'s defaults: its label
+  /// style, padding and minimum width. A declared
+  /// [ActionsSettings.containerWidth] for inside actions sets their width
+  /// instead (see [_insideActionsWidth]).
+  double get _defaultActionsWidth {
+    final actions = widget.actions;
+    if (actions is! ShowCaseDefaultActions) return 0;
+    if (_hasInsideActions && widget.actionSettings?.containerWidth != null) return 0;
+    final theme = Theme.of(context);
+    final labels = ShowcaseContextProvider.of(context)?.labels ?? const ShowcaseLabels();
+    final labelStyle = theme.textTheme.labelLarge ?? const TextStyle(fontSize: 14);
+    final padding = theme.useMaterial3 ? 24.0 : 16.0;
+    double buttonWidth(ActionButtonConfig config, String label) {
+      final icon = config.icon;
+      final iconWidth = icon == null
+          ? 0.0
+          : icon is Icon
+          ? icon.size ?? (theme.useMaterial3 ? 18.0 : 24.0)
+          : 24.0;
+      final textWidth = config.buttonTextVisible ? _textSize(config.text ?? label, labelStyle).width : 0.0;
+      final gap = icon != null && config.buttonTextVisible ? 8.0 : 0.0;
+      return max(64.0, iconWidth + gap + textWidth + padding);
+    }
+
+    final widths = [
+      if (actions.previous.buttonVisible) buttonWidth(actions.previous, labels.previous),
+      if (actions.stop.buttonVisible) buttonWidth(actions.stop, labels.stop),
+      if (actions.next.buttonVisible) buttonWidth(actions.next, labels.next),
+    ];
+    if (widths.isEmpty) return 0;
+    // One-pixel dividers sit between the buttons.
+    final row = widths.reduce(max) * widths.length + (widths.length - 1);
+    // Outside actions are as wide as the tooltip; inside ones sit within its
+    // padding.
+    return _hasInsideActions ? row + widget.tooltipPadding!.left + widget.tooltipPadding!.right : row;
   }
 
   /// Builds the action row that flows inside the tooltip box, or `null` when
