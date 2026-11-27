@@ -55,6 +55,13 @@ void main() {
     );
     await next(tester);
     expect(find.text('Saved places'), findsOneWidget);
+    // This tooltip is above its target. Its buttons work too: Previous goes
+    // back (a tap that missed would fall through and go forward).
+    await next(tester, label: 'Previous');
+    await settle(tester, frames: 15);
+    expect(find.text('Trending now'), findsOneWidget);
+    await next(tester);
+    expect(find.text('Saved places'), findsOneWidget);
     await next(tester);
     await settle(tester, frames: 15);
     expect(find.text('Check in now'), findsOneWidget);

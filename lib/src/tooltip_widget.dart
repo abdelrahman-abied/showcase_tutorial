@@ -707,7 +707,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
           left: left,
           // The animations repaint this subtree every frame; on its own layer
           // that leaves the scrim and the cut-out alone.
-          child: RepaintBoundary(
+          child: OverflowRepaintBoundary(
             child: ScaleTransitionBox(
               scale: _scaleAnimation,
               alignment: isLeft ? Alignment.centerRight : Alignment.centerLeft,
@@ -829,7 +829,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
             right: _getRight(),
             // The animations repaint this subtree every frame; on its own layer
             // that leaves the scrim and the cut-out alone.
-            child: RepaintBoundary(
+            child: OverflowRepaintBoundary(
               child: ScaleTransitionBox(
                 scale: _scaleAnimation,
                 alignment: widget.scaleAnimationAlignment ?? Alignment(_getAlignmentX(), _getAlignmentY()),
@@ -953,7 +953,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
           left: _getSpace(),
           top: contentY - 10,
           // Keeps the per-frame slide off the scrim's layer, as above.
-          child: RepaintBoundary(
+          child: OverflowRepaintBoundary(
             child: FractionalTranslation(
               translation: Offset(0.0, contentFractionalOffset as double),
               child: SlideTransitionBox(

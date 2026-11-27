@@ -167,3 +167,25 @@ class RenderSlideTransitionBox extends RenderFractionalTranslation {
     super.detach();
   }
 }
+
+/// A [RepaintBoundary] whose child may be drawn, and tapped, outside its box.
+///
+/// The tooltip's scale and slide draw it away from where it was laid out: a
+/// tooltip above its target is moved up by its whole height. A plain
+/// [RepaintBoundary] only hit-tests points inside its own box, so taps on a
+/// tooltip drawn outside it would fall through to the dimmed background.
+/// This one asks its child regardless, as the transforms below it do.
+class OverflowRepaintBoundary extends SingleChildRenderObjectWidget {
+  /// Puts [child] on its own layer without limiting where it can be tapped.
+  const OverflowRepaintBoundary({super.key, super.child});
+
+  @override
+  RenderRepaintBoundary createRenderObject(BuildContext context) => _RenderOverflowRepaintBoundary();
+}
+
+class _RenderOverflowRepaintBoundary extends RenderRepaintBoundary {
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    return hitTestChildren(result, position: position);
+  }
+}

@@ -4299,6 +4299,142 @@ void main() {
     });
   });
 
+  group('a tooltip drawn above its target responds to taps', () {
+    // Above its target, the tooltip is drawn a whole height away from where
+    // it is laid out. A tap that misses it falls through to the dimmed
+    // background, which moves the tour on: "Previous" would act as "Next".
+    Future<void> settle(WidgetTester tester) async {
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    void usePhoneScreen(WidgetTester tester) {
+      tester.view.physicalSize = const Size(1236, 2745);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+    }
+
+    for (final rtl in [false, true]) {
+      testWidgets('its buttons and body are tappable (${rtl ? 'RTL' : 'LTR'})', (tester) async {
+        usePhoneScreen(tester);
+        final keys = [GlobalKey(), GlobalKey(), GlobalKey()];
+        var bodyTaps = 0;
+        var dismissed = false;
+        late BuildContext pageContext;
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) =>
+                Directionality(textDirection: rtl ? TextDirection.rtl : TextDirection.ltr, child: child!),
+            home: ShowCaseWidget(
+              actionsPosition: TooltipActionPosition.inside,
+              globalActions: (_) => const ShowCaseDefaultActions(),
+              onDismiss: (_) => dismissed = true,
+              builder: Builder(
+                builder: (context) {
+                  pageContext = context;
+                  return Scaffold(
+                    // The targets sit at the bottom, so every tooltip goes above.
+                    body: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        for (var i = 0; i < keys.length; i++)
+                          Showcase(
+                            key: keys[i],
+                            title: 'Step $i',
+                            description: 'Above the target',
+                            tooltipPosition: TooltipPosition.top,
+                            disposeOnTap: false,
+                            onToolTipClick: () => bodyTaps++,
+                            onTargetClick: () {},
+                            child: SizedBox(height: 56, child: Text('target $i')),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+        ShowCaseWidget.of(pageContext).startShowCase(keys);
+        await settle(tester);
+        ShowCaseWidget.of(pageContext).next();
+        await settle(tester);
+        expect(find.text('Step 1'), findsOneWidget);
+        expect(
+          tester.getBottomLeft(find.text('Step 1')).dy,
+          lessThan(tester.getTopLeft(find.text('target 1')).dy),
+          reason: 'the tooltip is above its target',
+        );
+
+        // The body of the tooltip.
+        await tester.tap(find.text('Above the target'), warnIfMissed: false);
+        await settle(tester);
+        expect(bodyTaps, 1);
+        expect(find.text('Step 1'), findsOneWidget, reason: 'a tap on the tooltip does not move the tour');
+
+        // Previous goes back, rather than falling through and going forward.
+        await tester.tap(find.text('Previous'), warnIfMissed: false);
+        await settle(tester);
+        expect(find.text('Step 0'), findsOneWidget);
+
+        await tester.tap(find.text('Next'), warnIfMissed: false);
+        await settle(tester);
+        expect(find.text('Step 1'), findsOneWidget);
+
+        await tester.tap(find.text('Stop'), warnIfMissed: false);
+        await settle(tester);
+        expect(dismissed, isTrue);
+        expect(find.text('Step 1'), findsNothing);
+      });
+    }
+
+    testWidgets('a button in a custom tooltip above its target is tappable', (tester) async {
+      usePhoneScreen(tester);
+      final key = GlobalKey();
+      var taps = 0;
+      var finished = false;
+      late BuildContext pageContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            onFinish: () => finished = true,
+            builder: Builder(
+              builder: (context) {
+                pageContext = context;
+                return Scaffold(
+                  body: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Showcase.withWidget(
+                      key: key,
+                      width: 200,
+                      height: 80,
+                      tooltipPosition: TooltipPosition.top,
+                      container: SizedBox(
+                        width: 200,
+                        child: FilledButton(onPressed: () => taps++, child: const Text('Got it')),
+                      ),
+                      child: const SizedBox(height: 56, child: Text('target')),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      ShowCaseWidget.of(pageContext).startShowCase([key]);
+      await settle(tester);
+      expect(tester.getCenter(find.text('Got it')).dy, lessThan(tester.getTopLeft(find.text('target')).dy));
+
+      await tester.tap(find.text('Got it'), warnIfMissed: false);
+      await settle(tester);
+      expect(taps, 1);
+      expect(finished, isFalse, reason: 'the tap did not fall through to the dimmed background');
+    });
+  });
+
   group('built-in buttons respond to taps', () {
     // Taps land on the buttons themselves, inside and outside the tooltip,
     // with the tooltip animations on, on a phone-sized screen.
