@@ -1694,26 +1694,23 @@ class _PulsingOverlayState extends State<_PulsingOverlay> with SingleTickerProvi
     final bounds = widget.targetRect.inflate(margin);
     final localTarget = Rect.fromLTWH(margin, margin, widget.targetRect.width, widget.targetRect.height);
 
-    CustomPaint paintRing(double? progress) => CustomPaint(
-      size: bounds.size,
-      painter: _PulsingRingPainter(
-        targetRect: localTarget,
-        isCircle: widget.isCircle,
-        borderRadius: widget.borderRadius,
-        color: widget.color,
-        progress: progress,
-      ),
-    );
-
     return Positioned.fromRect(
       rect: bounds,
       child: IgnorePointer(
         child: RepaintBoundary(
-          // Under reduced motion the controller is idle, so skip the per-frame
-          // AnimatedBuilder rebuild entirely and draw a single static ring.
-          child: _reduceMotion
-              ? paintRing(null)
-              : AnimatedBuilder(animation: _controller, builder: (context, _) => paintRing(_controller.value)),
+          // The painter repaints from the controller itself, so the running
+          // pulse rebuilds no widgets. Under reduced motion it gets no
+          // controller and draws a single static ring.
+          child: CustomPaint(
+            size: bounds.size,
+            painter: _PulsingRingPainter(
+              targetRect: localTarget,
+              isCircle: widget.isCircle,
+              borderRadius: widget.borderRadius,
+              color: widget.color,
+              progress: _reduceMotion ? null : _controller,
+            ),
+          ),
         ),
       ),
     );
@@ -1727,9 +1724,9 @@ class _PulsingRingPainter extends CustomPainter {
   final BorderRadius? borderRadius;
   final Color color;
 
-  /// Animation value in `[0, 1)`, or `null` to draw a single static ring
-  /// (reduced motion).
-  final double? progress;
+  /// Drives the rings with a value in `[0, 1)`, or `null` to draw a single
+  /// static ring (reduced motion). The painter repaints whenever it ticks.
+  final Animation<double>? progress;
 
   /// Number of concurrent rings, phased evenly to read as a continuous wave.
   static const _ringCount = 2;
@@ -1745,7 +1742,7 @@ class _PulsingRingPainter extends CustomPainter {
     required this.borderRadius,
     required this.color,
     required this.progress,
-  });
+  }) : super(repaint: progress);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1756,7 +1753,7 @@ class _PulsingRingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = _strokeWidth;
 
-    final localProgress = progress;
+    final localProgress = progress?.value;
     if (localProgress == null) {
       // Reduced motion: one steady ring hugging the target.
       _drawRing(canvas, paint, expansion: 2.0, alpha: 0.9);

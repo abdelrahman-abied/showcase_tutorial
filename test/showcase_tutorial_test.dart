@@ -655,6 +655,57 @@ void main() {
       });
     }
 
+    testWidgets('the pulse ring repaints without rebuilding', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: Showcase(
+                    key: key,
+                    title: 'Pulse',
+                    description: 'd',
+                    enablePulseAnimation: true,
+                    child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      ShowCaseWidget.of(tester.element(find.byType(Scaffold))).startShowCase([key]);
+      for (var i = 0; i < 3; i++) {
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final ring = tester.allRenderObjects.whereType<RenderCustomPaint>().singleWhere(
+        (r) => r.painter.runtimeType.toString() == '_PulsingRingPainter',
+      );
+      // ignore: avoid_dynamic_calls
+      double progress() => ((ring.painter as dynamic).progress as Animation<double>).value;
+      final seen = <double>{};
+      final counts = await rebuildsDuring(() async {
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          seen.add(progress());
+        }
+      });
+      // It used to be an AnimatedBuilder, rebuilt on every frame. The same
+      // painter now repaints from the controller.
+      expect(counts, isEmpty);
+      expect(seen, hasLength(10));
+      expect(
+        tester.allRenderObjects.whereType<RenderCustomPaint>().where((r) => identical(r.painter, ring.painter)),
+        hasLength(1),
+      );
+    });
+
     testWidgets('moving between steps keeps focus in the overlay', (tester) async {
       final keys = List.generate(3, (_) => GlobalKey());
       await tester.pumpWidget(manySteps(keys));
