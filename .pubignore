@@ -46,9 +46,6 @@ pub_login.sh
 # Internal planning notes — not useful to package consumers.
 ROADMAP.md
 
-# Maintainer tooling that regenerates preview/step_transition.gif. The GIF it
-# produces still ships (the README links it); the capture harness doesn't.
-tool/
 
 # Maintainer benchmark harness. It is an alternate entrypoint in the example so
 # it can be run on a device (`flutter run --profile -t lib/perf_harness.dart`),

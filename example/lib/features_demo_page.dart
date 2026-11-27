@@ -3,6 +3,7 @@ import 'package:showcase_tutorial/showcase_tutorial.dart';
 
 import 'cross_screen_demo_page.dart';
 import 'scroll_alignment_demo_page.dart';
+import 'trips_demo.dart';
 
 /// A scratch page to manually exercise the package features:
 /// left/right tooltip positions, the progress API, auto-skip of unmounted
@@ -490,6 +491,19 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                               ),
                             ),
                             child: const Text('Tour across screens demo'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () => Navigator.push<void>(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (context) => TripsDemoApp(
+                                  onClose: () => Navigator.pop(context),
+                                ),
+                              ),
+                            ),
+                            child: const Text(
+                              'Theme, dark mode and Arabic demo',
+                            ),
                           ),
                         ],
                       ),

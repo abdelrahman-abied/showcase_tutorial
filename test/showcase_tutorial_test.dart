@@ -4082,6 +4082,89 @@ void main() {
     });
   });
 
+  group('built-in buttons respond to taps', () {
+    // Taps land on the buttons themselves, inside and outside the tooltip,
+    // with the tooltip animations on, on a phone-sized screen.
+    for (final inside in [true, false]) {
+      testWidgets('Next, Previous and Stop work (${inside ? 'inside' : 'outside'} the tooltip)', (tester) async {
+        tester.view.physicalSize = const Size(1236, 2745);
+        tester.view.devicePixelRatio = 3;
+        addTearDown(tester.view.reset);
+        final previousWarning = WidgetController.hitTestWarningShouldBeFatal;
+        WidgetController.hitTestWarningShouldBeFatal = true;
+        addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = previousWarning);
+
+        final keys = [GlobalKey(), GlobalKey(), GlobalKey()];
+        var finished = false;
+        var dismissed = false;
+        late BuildContext pageContext;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ShowCaseWidget(
+              actionsPosition: inside ? TooltipActionPosition.inside : TooltipActionPosition.outside,
+              globalActions: (_) => const ShowCaseDefaultActions(
+                previous: ActionButtonConfig(icon: Icon(Icons.arrow_back, size: 16)),
+                next: ActionButtonConfig(icon: Icon(Icons.arrow_forward, size: 16)),
+              ),
+              onFinish: () => finished = true,
+              onDismiss: (_) => dismissed = true,
+              builder: Builder(
+                builder: (context) {
+                  pageContext = context;
+                  return Scaffold(
+                    body: ListView(
+                      children: [
+                        for (var i = 0; i < keys.length; i++) ...[
+                          Showcase(
+                            key: keys[i],
+                            title: 'Step $i',
+                            description: 'Search 120 destinations by city or country.',
+                            child: SizedBox(height: 56, child: Text('target $i')),
+                          ),
+                          const SizedBox(height: 160),
+                        ],
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+
+        Future<void> settle() async {
+          for (var i = 0; i < 10; i++) {
+            await tester.pump(const Duration(milliseconds: 100));
+          }
+        }
+
+        ShowCaseWidget.of(pageContext).startShowCase(keys);
+        await settle();
+        expect(find.text('Step 0'), findsOneWidget);
+
+        await tester.tap(find.text('Next'));
+        await settle();
+        expect(find.text('Step 1'), findsOneWidget);
+
+        await tester.tap(find.text('Previous'));
+        await settle();
+        expect(find.text('Step 0'), findsOneWidget);
+
+        // The icon is part of the button too.
+        await tester.tap(find.byIcon(Icons.arrow_forward));
+        await settle();
+        expect(find.text('Step 1'), findsOneWidget);
+
+        await tester.tap(find.text('Stop'));
+        await settle();
+        expect(find.text('Step 1'), findsNothing);
+        expect(dismissed, isTrue);
+        expect(finished, isFalse);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  });
+
   group('built-in buttons: direction, one-line labels and translations', () {
     const prevIcon = ValueKey('prev-icon');
     const nextIcon = ValueKey('next-icon');

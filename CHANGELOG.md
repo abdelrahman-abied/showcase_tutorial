@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+Docs and the example. Nothing to change in your code.
+
+* **New: a migration guide** in the README,
+  [Migrating from 1.x to 2.0](https://github.com/abdelrahman-abied/showcase_tutorial#migrating-from-1x-to-20).
+  It covers what changes when you upgrade, how to keep the 1.x look, what to
+  replace before 3.0.0, and which property types changed.
+* **One preview instead of three.** The README and pub.dev now show one GIF,
+  recorded on an Android phone, of a travel app whose tour uses most of the
+  package: an exact-shape highlight, two widgets in one step, auto-scroll with
+  a pulse ring, a step that continues on the next screen and ends in a custom
+  tooltip, then the same tour in dark mode and in Arabic. The three old GIFs,
+  which showed the 1.x look, are removed.
+* **New example: `example/lib/trips_demo.dart`**, the app in the preview. It
+  sets no colours. It starts its tour on first open, offers to resume a tour
+  you stopped, skips the offer step once you close the banner, and skips
+  check-in once you have checked in. Its settings menu switches dark mode,
+  Arabic, auto-play, a blurred background and buttons below the tooltip. Open
+  it from the example's Feature demos page, or run it on its own with
+  `flutter run -t lib/trips_demo_main.dart`.
+* Tests now tap the built-in Next, Previous and Stop buttons, inside and
+  outside the tooltip.
+
 ## 2.0.0
 
 A tour that matches your app: its colours follow your theme in light and dark
