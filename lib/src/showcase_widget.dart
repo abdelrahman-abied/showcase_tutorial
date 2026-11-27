@@ -256,7 +256,8 @@ class ShowCaseWidget extends StatefulWidget {
   /// auto-play, [ShowCaseWidgetState.next] and [ShowCaseWidgetState.completed])
   /// and when it moves back with [ShowCaseWidgetState.previous]. It runs while
   /// the tour is changing step, so keep it a quick, synchronous check that
-  /// does not call `setState`.
+  /// does not call `setState` or move the tour itself (`next`, `goTo`,
+  /// `startShowCase` and the like).
   ///
   /// When provided, its answer replaces [autoSkipUnmountedSteps] for every
   /// step; the flag only applies while this is `null`. Explicit jumps are not

@@ -3989,6 +3989,22 @@ void main() {
 
     testWidgets('previous() stays put when every earlier step is skipped', (tester) async {
       await tester.pumpWidget(app(onShouldSkipUnmountedStep: (_, _) => true));
+      // The banner before the home step is skipped, so the tour opens on 1.
+      controller().startShowCase([bannerStep, homeStep]);
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 1);
+
+      // Every step before it is skipped too: previous() leaves the tour where
+      // it is instead of walking off the start.
+      controller().previous();
+      await tester.pumpAndSettle();
+      expect(controller().currentIndex, 1);
+      expect(find.text('Home step'), findsOneWidget);
+      expect(controller().isShowcaseRunning, isTrue);
+    });
+
+    testWidgets('previous() walks back past a skipped step to the first one', (tester) async {
+      await tester.pumpWidget(app(onShouldSkipUnmountedStep: (_, _) => true));
       controller().startShowCase([homeStep, bannerStep, homeStep2]);
       await tester.pumpAndSettle();
       controller().next();

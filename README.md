@@ -161,9 +161,10 @@ ShowCaseWidget(
 );
 ```
 
-These styles replace the default ones, so `textColor` no longer applies. Set
-the colour in the style itself. The tooltip is white by default, and a dark
-theme's text is usually white too. Once your app uses `material_ui`'s
+These styles replace the default title and description styles, so `textColor`
+no longer colours that text (it still colours the progress indicator and the
+Skip label). Set the colour in the style itself: the tooltip is white by
+default, and a dark theme's text is usually white too. Once your app uses `material_ui`'s
 `MaterialApp`, you can delete these two lines: the tooltip then follows your
 theme by itself.
 
@@ -689,7 +690,8 @@ The resolver is honored by **every** forward path — the Next button, a tap on 
 target or tooltip, the barrier, the keyboard, auto-play, and `next()`. The
 returned step may be ahead of or behind the current one, and a branch is treated
 as an explicit jump (like `goTo`), so `autoSkipUnmountedSteps` and
-`onShouldSkipUnmountedStep` are not applied to the target. `previous()`, `goTo()`, and `goToKey()` ignore the resolver.
+`onShouldSkipUnmountedStep` are not applied to the target. `previous()`,
+`goTo()`, and `goToKey()` ignore the resolver.
 
 ## Tours across screens
 
