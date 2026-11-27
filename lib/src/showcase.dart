@@ -727,7 +727,9 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     // Depend on this step's key only, so advancing the tour rebuilds the step
     // being left and the step being entered instead of every Showcase on screen.
     _activeStep = ShowCaseWidget.activeTargetWidget(context, aspect: widget.key);
-    _watchRoute(ModalRoute.of(context));
+    // Only the active step needs its route. Depending on it from every step
+    // would rebuild all of a page's steps on each push and pop, tour or not.
+    if (_activeStep == widget.key) _watchRoute(ModalRoute.of(context));
     _updateVisibility();
   }
 
@@ -764,9 +766,10 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   }
 
   void _onRouteAnimationStatus(AnimationStatus _) {
-    // Only a change of settledness matters; the active-step branch below
-    // re-arms auto-play and scrolling, so don't run it on every status tick.
-    if (mounted && _isRouteSettled != _wasRouteSettled) _updateVisibility();
+    // A step that was active once keeps listening; only the active one acts.
+    // And only a change of settledness matters: the active-step branch of
+    // [_updateVisibility] re-arms auto-play and scrolling.
+    if (mounted && _activeStep == widget.key && _isRouteSettled != _wasRouteSettled) _updateVisibility();
   }
 
   /// Shows or hides this step from [_activeStep] and its route, firing the

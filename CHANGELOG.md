@@ -18,6 +18,11 @@ Nothing to change in your code.
   target responds now. This bug dates back to the package's origins.
 * **Fixed:** with `autoPlay`, a step could hold two timers at once and advance
   the tour twice. A new timer now replaces the old one.
+* **Faster navigation:** since 1.15.3 every `Showcase` on a page rebuilt
+  whenever a page was opened or closed above it, even with no tour running.
+  Now only the active step reacts. With 30 steps on a page, opening and closing
+  another page costs 3 `Showcase` rebuilds during a tour and none otherwise,
+  down from 60.
 * **New demo:** the example app's Feature demos page has a *Tour across
   screens* demo, a working version of the
   [guide](https://github.com/abdelrahman-abied/showcase_tutorial#tours-across-screens).

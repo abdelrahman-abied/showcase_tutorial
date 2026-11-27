@@ -212,6 +212,60 @@ void main() {
       expect(find.text('Late'), findsOneWidget);
     });
 
+    testWidgets('opening and closing a page rebuilds only the active step', (tester) async {
+      final keys = List.generate(30, (_) => GlobalKey());
+      final navigator = GlobalKey<NavigatorState>();
+      late BuildContext home;
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          builder: (context, child) => ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(builder: (_) => child!),
+          ),
+          home: Builder(
+            builder: (context) {
+              home = context;
+              return Scaffold(
+                body: ListView(
+                  children: [
+                    for (final key in keys) Showcase(key: key, description: 'd', child: const SizedBox(height: 10)),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      );
+
+      Future<int> showcaseRebuildsDuringPushAndPop() async {
+        var rebuilds = 0;
+        debugOnRebuildDirtyWidget = (element, _) {
+          if (element.widget is Showcase) rebuilds++;
+        };
+        try {
+          navigator.currentState!.push(MaterialPageRoute<void>(builder: (_) => const Scaffold(body: Text('page'))));
+          await tester.pumpAndSettle();
+          navigator.currentState!.pop();
+          await tester.pumpAndSettle();
+        } finally {
+          debugOnRebuildDirtyWidget = null;
+        }
+        return rebuilds;
+      }
+
+      // Only an active step needs to know about its page. Steps that never
+      // were active don't depend on the route at all.
+      expect(await showcaseRebuildsDuringPushAndPop(), 0, reason: 'no tour running');
+
+      ShowCaseWidget.of(home).startShowCase(keys);
+      await tester.pumpAndSettle();
+      // The active step hides on push, then reappears once the page is back
+      // and settled: 3 rebuilds, regardless of how many steps the page has.
+      expect(await showcaseRebuildsDuringPushAndPop(), 3, reason: 'tour running');
+    });
+
     testWidgets('an idle Showcase mounts no overlay entry', (tester) async {
       final keys = List.generate(10, (_) => GlobalKey());
       await tester.pumpWidget(manySteps(keys));
