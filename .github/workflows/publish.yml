@@ -1,0 +1,52 @@
+name: Publish to pub.dev
+
+# Publishes the package when a version tag is pushed, using pub.dev's automated
+# publishing (GitHub OIDC): no stored credentials.
+#
+# One-time setup on https://pub.dev/packages/showcase_tutorial/admin, under
+# "Automated publishing": enable publishing from GitHub Actions, with
+#   repository:  abdelrahman-abied/showcase_tutorial
+#   tag pattern: v{{version}}
+#
+# pub.dev only accepts a run triggered by pushing a tag, so a GitHub release
+# alone doesn't publish; pushing its tag does. The tag must match the version
+# in pubspec.yaml.
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Lets pub.dev verify this run (OIDC).
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Check the tag matches pubspec.yaml
+        run: |
+          version=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match pubspec.yaml version $version"
+            exit 1
+          fi
+
+      - run: flutter pub get
+      # lib/ and test/ only: benchmark/ is a separate project that isn't
+      # resolved here, and isn't published.
+      - run: flutter analyze lib test
+      - run: flutter test
+      - run: flutter pub publish --dry-run
+
+      # Exchanges the run's OIDC token for a pub.dev credential, which the
+      # publish step below picks up. Placed last so the short-lived token is
+      # fresh when it's used.
+      - uses: dart-lang/setup-dart@v1
+      - name: Publish
+        run: flutter pub publish --force

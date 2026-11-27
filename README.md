@@ -119,7 +119,7 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^1.15.3
+     showcase_tutorial: ^1.15.4
    ```
 
    Or from the command line:
@@ -682,8 +682,9 @@ MaterialApp(
 Then pass keys from any page to `startShowCase`:
 
 - **A step on a page that isn't open yet** waits. Nothing is drawn, and the
-  step appears as soon as the user opens its page. Leave
-  `autoSkipUnmountedSteps` off for such tours: it would skip that step instead.
+  step appears once the user opens its page and the page has finished
+  animating in. Leave `autoSkipUnmountedSteps` off for such tours: it would
+  skip that step instead.
 - **A step whose page gets covered** by another screen, a dialog or a bottom
   sheet hides until its page is back on top. It stays the tour's current step,
   its `onDismiss` and `onShow` fire as it hides and returns, and auto-play
@@ -705,6 +706,9 @@ Showcase(
   child: const Icon(Icons.settings),
 );
 ```
+
+The example app has a working version: **Feature demos → Tour across screens
+demo** ([`cross_screen_demo_page.dart`](example/lib/cross_screen_demo_page.dart)).
 
 ## Target interactions
 

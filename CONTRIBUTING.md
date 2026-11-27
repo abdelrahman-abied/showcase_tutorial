@@ -159,6 +159,28 @@ There are a few things to think about when doing a release:
   There should be migration docs on each PR, if they haven't been copied to the commit message.
 - Create a PR containing the updated changelog and `pubspec.yaml` files.
 
+### Publishing to pub.dev
+
+Publishing is automated: pushing a version tag runs
+`.github/workflows/publish.yml`, which checks the tag matches `pubspec.yaml`,
+runs the analyzer and tests, and publishes. There are no stored credentials;
+pub.dev verifies the GitHub Actions run itself.
+
+1. Merge the release PR into `main`.
+2. Tag the merged commit with the version from `pubspec.yaml` and push the tag:
+
+   ```sh
+   git tag -a v1.2.3 -m "v1.2.3" && git push origin v1.2.3
+   ```
+
+3. Optionally create a GitHub release for the tag, with the changelog entry as
+   its notes. The release itself doesn't publish anything; the tag push does.
+
+Publishing from GitHub Actions has to be enabled once on the package's
+[pub.dev admin page](https://pub.dev/packages/showcase_tutorial/admin), under
+"Automated publishing": repository `abdelrahman-abied/showcase_tutorial`, tag
+pattern `v{{version}}`.
+
 
 [GitHub issue]: https://github.com/abdelrahman-abied/showcase_tutorial/issues/new
 [GitHub issues]: https://github.com/abdelrahman-abied/showcase_tutorial/issues/new

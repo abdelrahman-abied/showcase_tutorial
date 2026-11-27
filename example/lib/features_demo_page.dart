@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
 
+import 'cross_screen_demo_page.dart';
 import 'scroll_alignment_demo_page.dart';
 
 /// A scratch page to manually exercise the package features:
@@ -474,6 +475,15 @@ class _FeaturesDemoPageState extends State<FeaturesDemoPage> {
                               ),
                             ),
                             child: const Text('Auto-scroll alignment demo'),
+                          ),
+                          OutlinedButton(
+                            onPressed: () => Navigator.push<void>(
+                              context,
+                              MaterialPageRoute<void>(
+                                builder: (_) => const CrossScreenDemoPage(),
+                              ),
+                            ),
+                            child: const Text('Tour across screens demo'),
                           ),
                         ],
                       ),
