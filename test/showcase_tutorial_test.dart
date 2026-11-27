@@ -593,6 +593,223 @@ void main() {
 
       expect(builds, greaterThan(before));
     });
+
+    // A tour with the tooltip's scale and moving animations left on, as apps
+    // run it.
+    Widget animatedStep(GlobalKey key, {TooltipPosition? tooltipPosition}) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Showcase(
+                  key: key,
+                  title: 'Animated',
+                  description: 'd',
+                  tooltipPosition: tooltipPosition,
+                  child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    for (final tooltipPosition in [null, TooltipPosition.right]) {
+      testWidgets('the tooltip animations rebuild no widgets (${tooltipPosition?.name ?? 'vertical'})', (tester) async {
+        final key = GlobalKey();
+        await tester.pumpWidget(animatedStep(key, tooltipPosition: tooltipPosition));
+        ShowCaseWidget.of(tester.element(find.byType(Scaffold))).startShowCase([key]);
+        // The overlay is inserted, then the tooltip takes focus.
+        for (var i = 0; i < 3; i++) {
+          await tester.pump();
+        }
+
+        // Both animations used to be AnimatedWidgets, rebuilt on every tick:
+        // ~20 rebuilds while the tooltip scaled in, then one per frame for as
+        // long as the step stayed open. They are applied at paint time now.
+        final rects = <Rect>[];
+        final scaling = await rebuildsDuring(() async {
+          for (var i = 0; i < 10; i++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            rects.add(tester.getRect(find.text('Animated')));
+          }
+        });
+        expect(scaling, isEmpty);
+        // ...and the tooltip still grows in.
+        expect(rects.last.width, greaterThan(rects.first.width));
+
+        await tester.pump(const Duration(seconds: 1));
+        final bobbing = <double>[];
+        final open = await rebuildsDuring(() async {
+          for (var i = 0; i < 30; i++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            final rect = tester.getRect(find.text('Animated'));
+            bobbing.add(tooltipPosition == null ? rect.top : rect.left);
+          }
+        });
+        expect(open, isEmpty);
+        // ...and it still bobs.
+        expect(bobbing.toSet().length, greaterThan(1));
+      });
+    }
+
+    testWidgets('the pulse ring repaints without rebuilding', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: Showcase(
+                    key: key,
+                    title: 'Pulse',
+                    description: 'd',
+                    enablePulseAnimation: true,
+                    child: const SizedBox(height: 20, width: 100, child: Text('t')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      ShowCaseWidget.of(tester.element(find.byType(Scaffold))).startShowCase([key]);
+      for (var i = 0; i < 3; i++) {
+        await tester.pump();
+      }
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final ring = tester.allRenderObjects.whereType<RenderCustomPaint>().singleWhere(
+        (r) => r.painter.runtimeType.toString() == '_PulsingRingPainter',
+      );
+      // ignore: avoid_dynamic_calls
+      double progress() => ((ring.painter as dynamic).progress as Animation<double>).value;
+      final seen = <double>{};
+      final counts = await rebuildsDuring(() async {
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          seen.add(progress());
+        }
+      });
+      // It used to be an AnimatedBuilder, rebuilt on every frame. The same
+      // painter now repaints from the controller.
+      expect(counts, isEmpty);
+      expect(seen, hasLength(10));
+      expect(
+        tester.allRenderObjects.whereType<RenderCustomPaint>().where((r) => identical(r.painter, ring.painter)),
+        hasLength(1),
+      );
+    });
+
+    testWidgets('moving between steps keeps focus in the overlay', (tester) async {
+      final keys = List.generate(3, (_) => GlobalKey());
+      await tester.pumpWidget(manySteps(keys));
+      final context = tester.element(find.byType(Scaffold));
+      final state = ShowCaseWidget.of(context);
+      state.startShowCase(keys);
+      await tester.pumpAndSettle();
+      final focused = FocusManager.instance.primaryFocus;
+
+      var focusChanges = 0;
+      void onFocusChange() => focusChanges++;
+      FocusManager.instance.addListener(onFocusChange);
+      addTearDown(() => FocusManager.instance.removeListener(onFocusChange));
+
+      // Every step used to own its focus node. The step being left gave focus
+      // back to the page as its overlay went, and the step being entered took
+      // it again: two focus changes, ~20 focus widgets rebuilt on the way.
+      final counts = await rebuildsDuring(() async {
+        state.next();
+        await tester.pumpAndSettle();
+      });
+      expect(focusChanges, 0);
+      expect(FocusManager.instance.primaryFocus, same(focused));
+      // Only the entering overlay's own Focus is built, nothing above it.
+      expect(Map.fromEntries(counts.entries.where((e) => e.key.contains('Focus'))), {
+        'Focus': 1,
+        '_FocusInheritedScope': 1,
+      });
+
+      // The keys still reach the step that is showing now.
+      Future<void> press(LogicalKeyboardKey key) async {
+        await tester.sendKeyEvent(key);
+        // Through the reverse animation, then the next step in.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+
+      await press(LogicalKeyboardKey.arrowRight);
+      expect(state.currentIndex, 2);
+      await press(LogicalKeyboardKey.arrowLeft);
+      expect(state.currentIndex, 1);
+      await press(LogicalKeyboardKey.escape);
+      expect(state.isShowcaseRunning, isFalse);
+    });
+
+    for (final variant in ['vertical', 'right', 'container']) {
+      testWidgets('the animated tooltip repaints on its own layer ($variant)', (tester) async {
+        final key = GlobalKey();
+        const child = SizedBox(height: 20, width: 100, child: Text('t'));
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ShowCaseWidget(
+              builder: Builder(
+                builder: (context) => Scaffold(
+                  body: Center(
+                    child: variant == 'container'
+                        ? Showcase.withWidget(
+                            key: key,
+                            height: 50,
+                            width: 120,
+                            container: const Text('custom'),
+                            child: child,
+                          )
+                        : Showcase(
+                            key: key,
+                            title: 'Animated',
+                            description: 'd',
+                            tooltipPosition: variant == 'right' ? TooltipPosition.right : null,
+                            child: child,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        ShowCaseWidget.of(tester.element(find.byType(Scaffold))).startShowCase([key]);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        // The scale and slide change every frame. The layer they repaint must
+        // be the tooltip's own, not the one the scrim and cut-out are on.
+        final scrim = tester.renderObject(find.byWidgetPredicate((w) => w is ClipPath && w.clipper is RRectClipper));
+        final animated = [
+          ...tester.allRenderObjects.whereType<RenderTransform>().where((r) => r.runtimeType != RenderTransform),
+          ...tester.allRenderObjects.whereType<RenderFractionalTranslation>().where(
+            (r) => r.runtimeType != RenderFractionalTranslation,
+          ),
+        ];
+        expect(animated, hasLength(variant == 'container' ? 1 : 2));
+        for (final renderObject in animated) {
+          var boundary = renderObject.parent!;
+          while (!boundary.isRepaintBoundary) {
+            boundary = boundary.parent!;
+          }
+          var isScrimLayer = false;
+          for (RenderObject? r = scrim; r != null; r = r.parent) {
+            if (identical(r, boundary)) isScrimLayer = true;
+          }
+          expect(isScrimLayer, isFalse, reason: '${renderObject.runtimeType} repaints the scrim');
+        }
+      });
+    }
   });
 
   testWidgets('renders the child before the showcase starts', (tester) async {

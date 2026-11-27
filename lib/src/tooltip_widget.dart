@@ -26,6 +26,7 @@ import 'dart:math';
 import 'package:material_ui/material_ui.dart';
 
 import '../showcase_tutorial.dart';
+import 'animated_transforms.dart';
 import 'get_position.dart';
 import 'measure_size.dart';
 import 'utilities/_showcase_colors.dart';
@@ -704,24 +705,32 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
         Positioned(
           top: top,
           left: left,
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            alignment: isLeft ? Alignment.centerRight : Alignment.centerLeft,
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: Offset.zero,
-                end: Offset(isLeft ? -0.06 : 0.06, 0.0),
-              ).animate(_movingAnimation),
-              child: Material(
-                type: MaterialType.transparency,
-                child: Row(
-                  // left/right are physical positions, so keep the
-                  // arrow/box order fixed regardless of the app text direction.
-                  // (Tooltip text inside `box` still renders RTL.)
-                  textDirection: TextDirection.ltr,
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [if (showArrow && !isLeft) arrow, box, if (showArrow && isLeft) arrow],
+          // The animations repaint this subtree every frame; on its own layer
+          // that leaves the scrim and the cut-out alone.
+          child: RepaintBoundary(
+            child: ScaleTransitionBox(
+              scale: _scaleAnimation,
+              alignment: isLeft ? Alignment.centerRight : Alignment.centerLeft,
+              child: SlideTransitionBox(
+                position: Tween<Offset>(
+                  begin: Offset.zero,
+                  end: Offset(isLeft ? -0.06 : 0.06, 0.0),
+                ).animate(_movingAnimation),
+                // As in the vertical layout: the slide moves this layer rather
+                // than re-recording the text, arrow and clipped background.
+                child: RepaintBoundary(
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: Row(
+                      // left/right are physical positions, so keep the
+                      // arrow/box order fixed regardless of the app text direction.
+                      // (Tooltip text inside `box` still renders RTL.)
+                      textDirection: TextDirection.ltr,
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [if (showArrow && !isLeft) arrow, box, if (showArrow && isLeft) arrow],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -818,101 +827,105 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
             top: contentY,
             left: _getLeft(),
             right: _getRight(),
-            child: ScaleTransition(
-              scale: _scaleAnimation,
-              alignment: widget.scaleAnimationAlignment ?? Alignment(_getAlignmentX(), _getAlignmentY()),
-              child: FractionalTranslation(
-                translation: Offset(0.0, contentFractionalOffset as double),
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: Offset(0.0, contentFractionalOffset / 10),
-                    end: const Offset(0.0, 0.100),
-                  ).animate(_movingAnimation),
-                  // The moving animation ping-pongs forever, so the tooltip is
-                  // translated every frame. Behind a RepaintBoundary that becomes a
-                  // layer offset instead of a re-raster of the text, the arrow and
-                  // the clipped background.
-                  child: RepaintBoundary(
-                    child: Material(
-                      type: MaterialType.transparency,
-                      child: Container(
-                        padding: widget.showArrow
-                            ? EdgeInsets.only(
-                                top: paddingTop - (isArrowUp ? arrowHeight : 0),
-                                bottom: paddingBottom - (isArrowUp ? 0 : arrowHeight),
-                              )
-                            : null,
-                        child: Stack(
-                          alignment: isArrowUp
-                              ? Alignment.topLeft
-                              : _getLeft() == null
-                              ? Alignment.bottomRight
-                              : Alignment.bottomLeft,
-                          children: [
-                            if (widget.showArrow)
-                              Positioned(
-                                left: _getArrowLeft(arrowWidth),
-                                right: _getArrowRight(arrowWidth),
-                                child: CustomPaint(
-                                  painter: _Arrow(
-                                    strokeColor: widget.arrowColor ?? widget.tooltipBackgroundColor!,
-                                    strokeWidth: 10,
-                                    paintingStyle: PaintingStyle.fill,
-                                    direction: isArrowUp ? _ArrowDirection.up : _ArrowDirection.down,
+            // The animations repaint this subtree every frame; on its own layer
+            // that leaves the scrim and the cut-out alone.
+            child: RepaintBoundary(
+              child: ScaleTransitionBox(
+                scale: _scaleAnimation,
+                alignment: widget.scaleAnimationAlignment ?? Alignment(_getAlignmentX(), _getAlignmentY()),
+                child: FractionalTranslation(
+                  translation: Offset(0.0, contentFractionalOffset as double),
+                  child: SlideTransitionBox(
+                    position: Tween<Offset>(
+                      begin: Offset(0.0, contentFractionalOffset / 10),
+                      end: const Offset(0.0, 0.100),
+                    ).animate(_movingAnimation),
+                    // The moving animation ping-pongs forever, so the tooltip is
+                    // translated every frame. Behind a RepaintBoundary that becomes a
+                    // layer offset instead of a re-raster of the text, the arrow and
+                    // the clipped background.
+                    child: RepaintBoundary(
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: Container(
+                          padding: widget.showArrow
+                              ? EdgeInsets.only(
+                                  top: paddingTop - (isArrowUp ? arrowHeight : 0),
+                                  bottom: paddingBottom - (isArrowUp ? 0 : arrowHeight),
+                                )
+                              : null,
+                          child: Stack(
+                            alignment: isArrowUp
+                                ? Alignment.topLeft
+                                : _getLeft() == null
+                                ? Alignment.bottomRight
+                                : Alignment.bottomLeft,
+                            children: [
+                              if (widget.showArrow)
+                                Positioned(
+                                  left: _getArrowLeft(arrowWidth),
+                                  right: _getArrowRight(arrowWidth),
+                                  child: CustomPaint(
+                                    painter: _Arrow(
+                                      strokeColor: widget.arrowColor ?? widget.tooltipBackgroundColor!,
+                                      strokeWidth: 10,
+                                      paintingStyle: PaintingStyle.fill,
+                                      direction: isArrowUp ? _ArrowDirection.up : _ArrowDirection.down,
+                                    ),
+                                    child: SizedBox(height: arrowHeight, width: arrowWidth),
                                   ),
-                                  child: SizedBox(height: arrowHeight, width: arrowWidth),
                                 ),
-                              ),
-                            Padding(
-                              padding: EdgeInsets.only(
-                                top: isArrowUp ? arrowHeight - 1 : 0,
-                                bottom: isArrowUp ? 0 : arrowHeight - 1,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: widget.tooltipBorderRadius ?? BorderRadius.circular(8.0),
-                                child: _tappable(
-                                  child: Container(
-                                    width: tooltipWidth,
-                                    padding: widget.tooltipPadding,
-                                    color: widget.tooltipBackgroundColor,
-                                    child: Column(
-                                      crossAxisAlignment: widget.title != null
-                                          ? CrossAxisAlignment.start
-                                          : CrossAxisAlignment.center,
-                                      children: <Widget>[
-                                        if (widget.title != null)
-                                          Padding(
-                                            padding: widget.titlePadding ?? EdgeInsets.zero,
-                                            child: Text(
-                                              widget.title!,
-                                              textAlign: widget.titleAlignment,
-                                              style:
-                                                  widget.titleTextStyle ??
-                                                  Theme.of(context).textTheme.titleLarge!
-                                                      .merge(TextStyle(color: widget.textColor)),
+                              Padding(
+                                padding: EdgeInsets.only(
+                                  top: isArrowUp ? arrowHeight - 1 : 0,
+                                  bottom: isArrowUp ? 0 : arrowHeight - 1,
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: widget.tooltipBorderRadius ?? BorderRadius.circular(8.0),
+                                  child: _tappable(
+                                    child: Container(
+                                      width: tooltipWidth,
+                                      padding: widget.tooltipPadding,
+                                      color: widget.tooltipBackgroundColor,
+                                      child: Column(
+                                        crossAxisAlignment: widget.title != null
+                                            ? CrossAxisAlignment.start
+                                            : CrossAxisAlignment.center,
+                                        children: <Widget>[
+                                          if (widget.title != null)
+                                            Padding(
+                                              padding: widget.titlePadding ?? EdgeInsets.zero,
+                                              child: Text(
+                                                widget.title!,
+                                                textAlign: widget.titleAlignment,
+                                                style:
+                                                    widget.titleTextStyle ??
+                                                    Theme.of(context).textTheme.titleLarge!
+                                                        .merge(TextStyle(color: widget.textColor)),
+                                              ),
                                             ),
-                                          ),
-                                        if (widget.description != null)
-                                          Padding(
-                                            padding: widget.descriptionPadding ?? EdgeInsets.zero,
-                                            child: Text(
-                                              widget.description!,
-                                              textAlign: widget.descriptionAlignment,
-                                              style:
-                                                  widget.descTextStyle ??
-                                                  Theme.of(context).textTheme.titleSmall!
-                                                      .merge(TextStyle(color: widget.textColor)),
+                                          if (widget.description != null)
+                                            Padding(
+                                              padding: widget.descriptionPadding ?? EdgeInsets.zero,
+                                              child: Text(
+                                                widget.description!,
+                                                textAlign: widget.descriptionAlignment,
+                                                style:
+                                                    widget.descTextStyle ??
+                                                    Theme.of(context).textTheme.titleSmall!
+                                                        .merge(TextStyle(color: widget.textColor)),
+                                              ),
                                             ),
-                                          ),
-                                        if (_hasFooter) _buildProgressFooter()!,
-                                        if (_hasInsideActions) _buildInsideActions()!,
-                                      ],
+                                          if (_hasFooter) _buildProgressFooter()!,
+                                          if (_hasInsideActions) _buildInsideActions()!,
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -939,24 +952,27 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
         Positioned(
           left: _getSpace(),
           top: contentY - 10,
-          child: FractionalTranslation(
-            translation: Offset(0.0, contentFractionalOffset as double),
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: Offset(0.0, contentFractionalOffset / 10),
-                end: !widget.showArrow && !isArrowUp ? const Offset(0.0, 0.0) : const Offset(0.0, 0.100),
-              ).animate(_movingAnimation),
-              // Same reason as the default tooltip: the custom container slides
-              // every frame, so keep it on its own layer.
-              child: RepaintBoundary(
-                child: Material(
-                  color: Colors.transparent,
-                  child: _tappable(
-                    child: Container(
-                      padding: EdgeInsets.only(top: paddingTop),
-                      color: Colors.transparent,
-                      child: Center(
-                        child: MeasureSize(onSizeChange: onSizeChange, child: widget.container),
+          // Keeps the per-frame slide off the scrim's layer, as above.
+          child: RepaintBoundary(
+            child: FractionalTranslation(
+              translation: Offset(0.0, contentFractionalOffset as double),
+              child: SlideTransitionBox(
+                position: Tween<Offset>(
+                  begin: Offset(0.0, contentFractionalOffset / 10),
+                  end: !widget.showArrow && !isArrowUp ? const Offset(0.0, 0.0) : const Offset(0.0, 0.100),
+                ).animate(_movingAnimation),
+                // Same reason as the default tooltip: the custom container slides
+                // every frame, so keep it on its own layer.
+                child: RepaintBoundary(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: _tappable(
+                      child: Container(
+                        padding: EdgeInsets.only(top: paddingTop),
+                        color: Colors.transparent,
+                        child: Center(
+                          child: MeasureSize(onSizeChange: onSizeChange, child: widget.container),
+                        ),
                       ),
                     ),
                   ),

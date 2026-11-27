@@ -661,6 +661,11 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Total number of steps in the running tour (0 when none is running).
   int get totalSteps => ids?.length ?? 0;
 
+  /// The focus node of the active step's overlay, shared by every step.
+  ///
+  /// See [ShowcaseTourFocus.overlayFocusNode].
+  final FocusNode _overlayFocusNode = FocusNode(debugLabel: 'Showcase');
+
   /// Listeners registered with [addOnStartCallback].
   final List<ShowcaseStepCallback> _onStartCallbacks = [];
 
@@ -972,6 +977,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   void dispose() {
     _onStartCallbacks.clear();
     _onCompleteCallbacks.clear();
+    _overlayFocusNode.dispose();
     super.dispose();
   }
 
@@ -1039,4 +1045,18 @@ class _InheritedShowCaseView extends InheritedModel<GlobalKey> {
     // "am I active?" is still no.
     return aspects.contains(activeWidgetIds) || aspects.contains(oldWidget.activeWidgetIds);
   }
+}
+
+/// Gives [Showcase] the parts of [ShowCaseWidgetState] that are not public
+/// API. Hidden from the package's public library.
+extension ShowcaseTourFocus on ShowCaseWidgetState {
+  /// The focus node of the active step's overlay, which a hardware keyboard
+  /// drives the tour through.
+  ///
+  /// It belongs to the tour rather than to each step. When the tour moves on,
+  /// the step being entered attaches the node before the step being left lets
+  /// go of it, so focus never leaves the overlay. With a node per step, the
+  /// one being left gave focus back to the page and the next one took it
+  /// again, rebuilding every focus widget on the way in between.
+  FocusNode get overlayFocusNode => _overlayFocusNode;
 }
