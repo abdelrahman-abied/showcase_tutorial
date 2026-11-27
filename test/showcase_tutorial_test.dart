@@ -654,6 +654,65 @@ void main() {
         expect(bobbing.toSet().length, greaterThan(1));
       });
     }
+
+    for (final variant in ['vertical', 'right', 'container']) {
+      testWidgets('the animated tooltip repaints on its own layer ($variant)', (tester) async {
+        final key = GlobalKey();
+        const child = SizedBox(height: 20, width: 100, child: Text('t'));
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ShowCaseWidget(
+              builder: Builder(
+                builder: (context) => Scaffold(
+                  body: Center(
+                    child: variant == 'container'
+                        ? Showcase.withWidget(
+                            key: key,
+                            height: 50,
+                            width: 120,
+                            container: const Text('custom'),
+                            child: child,
+                          )
+                        : Showcase(
+                            key: key,
+                            title: 'Animated',
+                            description: 'd',
+                            tooltipPosition: variant == 'right' ? TooltipPosition.right : null,
+                            child: child,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        ShowCaseWidget.of(tester.element(find.byType(Scaffold))).startShowCase([key]);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+
+        // The scale and slide change every frame. The layer they repaint must
+        // be the tooltip's own, not the one the scrim and cut-out are on.
+        final scrim = tester.renderObject(find.byWidgetPredicate((w) => w is ClipPath && w.clipper is RRectClipper));
+        final animated = [
+          ...tester.allRenderObjects.whereType<RenderTransform>().where((r) => r.runtimeType != RenderTransform),
+          ...tester.allRenderObjects.whereType<RenderFractionalTranslation>().where(
+            (r) => r.runtimeType != RenderFractionalTranslation,
+          ),
+        ];
+        expect(animated, hasLength(variant == 'container' ? 1 : 2));
+        for (final renderObject in animated) {
+          var boundary = renderObject.parent!;
+          while (!boundary.isRepaintBoundary) {
+            boundary = boundary.parent!;
+          }
+          var isScrimLayer = false;
+          for (RenderObject? r = scrim; r != null; r = r.parent) {
+            if (identical(r, boundary)) isScrimLayer = true;
+          }
+          expect(isScrimLayer, isFalse, reason: '${renderObject.runtimeType} repaints the scrim');
+        }
+      });
+    }
   });
 
   testWidgets('renders the child before the showcase starts', (tester) async {
