@@ -136,10 +136,36 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 
 > **Requirements:** Flutter 3.47 or newer (Dart 3.13). The package is built on
 > [`material_ui`](https://pub.dev/packages/material_ui), Flutter's standalone
-> Material library. If your app still imports `package:flutter/material.dart`,
-> migrate with `dart fix --apply --code=migrate_design_widgets`. Otherwise the
-> tooltip's default title and description text uses the default Material theme
-> instead of yours. On an older Flutter, pub resolves to 1.15.1.
+> Material library. On an older Flutter, pub resolves to 1.15.1.
+
+**If your app still uses `MaterialApp` from `package:flutter/material.dart`:**
+the tour works, but the tooltip can't see your app's theme. `material_ui` keeps
+its own `Theme`, separate from the old one, and the old one exposes nothing the
+package can read without importing the deprecated library. So the default
+title and description text uses the default Material fonts instead of yours.
+
+The best fix is to migrate: `dart fix --apply --code=migrate_design_widgets`.
+Until then, pass your text styles once through `ShowcaseStyle`, from somewhere
+under your `MaterialApp` (for example `home` or `builder`):
+
+```dart
+// Theme here is the one from package:flutter/material.dart.
+final textTheme = Theme.of(context).textTheme;
+
+ShowCaseWidget(
+  style: ShowcaseStyle(
+    titleTextStyle: textTheme.titleLarge?.copyWith(color: Colors.black),
+    descTextStyle: textTheme.titleSmall?.copyWith(color: Colors.black),
+  ),
+  builder: ...,
+);
+```
+
+These styles replace the default ones, so `textColor` no longer applies. Set
+the colour in the style itself. The tooltip is white by default, and a dark
+theme's text is usually white too. Once your app uses `material_ui`'s
+`MaterialApp`, you can delete these two lines: the tooltip then follows your
+theme by itself.
 
 ## Getting started
 
