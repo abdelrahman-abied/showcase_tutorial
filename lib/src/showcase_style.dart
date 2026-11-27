@@ -21,7 +21,7 @@
  * SOFTWARE.
  */
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// Default tooltip styling shared by every `Showcase` under a `ShowCaseWidget`.
 ///

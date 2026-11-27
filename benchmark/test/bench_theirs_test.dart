@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'harness.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:showcase_benchmark/scenes.dart';
 import 'package:showcaseview/showcaseview.dart' as theirs;
+
+import 'harness.dart';
 
 class TheirsDriver extends Driver {
   @override

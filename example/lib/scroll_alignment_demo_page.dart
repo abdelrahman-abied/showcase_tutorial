@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
 
 /// Demonstrates [ShowCaseWidget.enableAutoScroll] together with `scrollAlignment`.
@@ -34,9 +34,9 @@ class ScrollAlignmentDemoPage extends StatelessWidget {
             child: Column(
               children: [
                 ElevatedButton(
-                  onPressed: () => ShowCaseWidget.of(
-                    context,
-                  ).startShowCase([top, center, bottom]),
+                  onPressed: () =>
+                      ShowCaseWidget.of(context)
+                          .startShowCase([top, center, bottom]),
                   child: const Text('Start auto-scroll tour'),
                 ),
                 const SizedBox(height: 16),

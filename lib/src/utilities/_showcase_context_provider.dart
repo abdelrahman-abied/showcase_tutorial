@@ -21,7 +21,7 @@
  * SOFTWARE.
  */
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// This class is used to provide context of Showcase widget to Overlay so
 /// that we can access ShowcaseWidget in widget tree from overlay.

@@ -2,8 +2,8 @@
 // merely compiling. The demo leaves the looping tooltip animation on, so this
 // pumps fixed durations instead of pumpAndSettle, which never settles.
 import 'package:example/features_demo_page.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
 
 void main() {

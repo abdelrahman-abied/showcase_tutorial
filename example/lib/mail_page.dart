@@ -1,5 +1,5 @@
 import 'package:example/detailscreen.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart';
 
 import 'features_demo_page.dart';
@@ -30,9 +30,9 @@ class _MailPageState extends State<MailPage> {
 
     //Start showcase view after current widget frames are drawn.
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => ShowCaseWidget.of(
-        context,
-      ).startShowCase([_one, _two, firstMutliWidgetKey]),
+      (_) =>
+          ShowCaseWidget.of(context)
+              .startShowCase([_one, _two, firstMutliWidgetKey]),
     );
     mails = [
       Mail(
@@ -149,18 +149,16 @@ class _MailPageState extends State<MailPage> {
                                         previous: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/left.png',
-                                            color: Theme.of(
-                                              context,
-                                            ).primaryColor,
+                                            color: Theme.of(context)
+                                                .primaryColor,
                                           ),
                                           buttonTextVisible: false,
                                         ),
                                         next: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/right.png',
-                                            color: Theme.of(
-                                              context,
-                                            ).primaryColor,
+                                            color: Theme.of(context)
+                                                .primaryColor,
                                           ),
                                           textDirection: TextDirection.rtl,
                                           buttonTextVisible: false,
@@ -168,9 +166,8 @@ class _MailPageState extends State<MailPage> {
                                         stop: ActionButtonConfig(
                                           icon: Image.asset(
                                             'assets/close.png',
-                                            color: Theme.of(
-                                              context,
-                                            ).primaryColor,
+                                            color: Theme.of(context)
+                                                .primaryColor,
                                           ),
                                           buttonTextVisible: false,
                                         ),
@@ -210,8 +207,7 @@ class _MailPageState extends State<MailPage> {
                       targetPadding: const EdgeInsets.all(5),
                       key: _two,
                       title: 'Profile',
-                      description:
-                          "Tap to see profile which contains user's name, profile picture, mobile number and country",
+                      description: "Tap to see profile which contains user's name, profile picture, mobile number and country",
                       tooltipBackgroundColor: Theme.of(context).primaryColor,
                       textColor: Colors.white,
                       targetShapeBorder: const CircleBorder(),

@@ -118,7 +118,7 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^1.14.0
+     showcase_tutorial: ^1.15.2
    ```
 
    Or from the command line:
@@ -132,6 +132,13 @@ to the previous behavior, so upgrading changes nothing until you opt in.
    ```dart
    import 'package:showcase_tutorial/showcase_tutorial.dart';
    ```
+
+> **Requirements:** Flutter 3.47 or newer (Dart 3.13). The package is built on
+> [`material_ui`](https://pub.dev/packages/material_ui), Flutter's standalone
+> Material library. If your app still imports `package:flutter/material.dart`,
+> migrate with `dart fix --apply --code=migrate_design_widgets`. Otherwise the
+> tooltip's default title and description text uses the default Material theme
+> instead of yours. On an older Flutter, pub resolves to 1.15.1.
 
 ## Getting started
 
