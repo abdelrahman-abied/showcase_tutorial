@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.15.4
+
+A fix for tours across screens, a demo of them, and automated releases.
+Nothing to change in your code.
+
+* **Fixed:** a step that became active while its page was still animating in
+  (the usual case when a tour moves to another screen) measured its target
+  mid-animation. Its dimmed-background cut-out and tap area stayed where the
+  target was in that frame, so tapping the target didn't advance the tour. A
+  step now waits until its page has finished animating in, or back into view,
+  before it shows.
+* **Fixed:** only the bottom-right quarter of a highlighted target responded to
+  taps. A tap anywhere else on it went to the widget underneath instead of the
+  tour. With default settings the tour still moved on, so this showed only with
+  a custom `onTargetClick` (for example, to open the next screen). The whole
+  target responds now. This bug dates back to the package's origins.
+* **Fixed:** with `autoPlay`, a step could hold two timers at once and advance
+  the tour twice. A new timer now replaces the old one.
+* **New demo:** the example app's Feature demos page has a *Tour across
+  screens* demo, a working version of the
+  [guide](https://github.com/abdelrahman-abied/showcase_tutorial#tours-across-screens).
+* Releases are now published to pub.dev automatically from GitHub Actions when
+  a version tag is pushed.
+
 ## 1.15.3
 
 A fix for tours that span several screens, and a guide for building them.

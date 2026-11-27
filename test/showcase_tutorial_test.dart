@@ -3385,6 +3385,50 @@ void main() {
     });
   });
 
+  testWidgets('a tap anywhere on the target reaches onTargetClick, not just right of and below its centre', (
+    tester,
+  ) async {
+    final key = GlobalKey();
+    var targetClicks = 0;
+    late BuildContext context;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (ctx) {
+              context = ctx;
+              return Scaffold(
+                body: Center(
+                  child: Showcase(
+                    key: key,
+                    description: 'd',
+                    disposeOnTap: false,
+                    onTargetClick: () => targetClicks++,
+                    child: const SizedBox(key: ValueKey('target'), width: 48, height: 48),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    ShowCaseWidget.of(context).startShowCase([key]);
+    await tester.pumpAndSettle();
+
+    final center = tester.getCenter(find.byKey(const ValueKey('target')));
+    // One tap in each quarter of the target. The tap area used to be checked
+    // against its box before the box was shifted onto the target, so only the
+    // bottom-right quarter registered.
+    for (final corner in const [Offset(-16, -16), Offset(16, -16), Offset(-16, 16), Offset(16, 16)]) {
+      await tester.tapAt(center + corner);
+      await tester.pump(const Duration(seconds: 1));
+    }
+    expect(targetClicks, 4);
+  });
+
   group('tours across screens', () {
     // ShowCaseWidget sits above the Navigator (MaterialApp.builder), so one
     // tour can reach steps on every page.
@@ -3464,6 +3508,47 @@ void main() {
       navigator.currentState!.push(detailsRoute());
       await tester.pumpAndSettle();
       expect(find.text('Details step'), findsOneWidget);
+    });
+
+    testWidgets('a step whose page is animating in waits, then measures the target where it settled', (tester) async {
+      var finished = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          builder: (context, child) => ShowCaseWidget(
+            onFinish: () => finished = true,
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(builder: (_) => child!),
+          ),
+          home: Builder(
+            builder: (context) {
+              homeContext = context;
+              return const Scaffold(body: SizedBox.expand());
+            },
+          ),
+        ),
+      );
+      controller().startShowCase([detailsStep]);
+      await tester.pump();
+
+      navigator.currentState!.push(detailsRoute());
+      // Mid-transition the page, and the target with it, is still moving.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('Details step'), findsNothing, reason: 'the step waits for its page to settle');
+
+      await tester.pumpAndSettle();
+      expect(find.text('Details step'), findsOneWidget);
+
+      // The tap area sits on the target's settled position: tapping it there
+      // advances (here: finishes) the tour.
+      await tester.tapAt(tester.getCenter(find.text('details')));
+      // The tap waits out the tooltip's closing animation (a plain delay that
+      // pumpAndSettle doesn't advance) before completing the step.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      expect(finished, isTrue);
     });
 
     testWidgets('the README recipe: a target tap advances the tour and opens the next page', (tester) async {

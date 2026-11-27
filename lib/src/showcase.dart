@@ -670,8 +670,20 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
 
   ShowCaseWidgetState get showCaseWidgetState => ShowCaseWidget.of(context);
 
+  /// The tour's active step, as last read from [ShowCaseWidget] in
+  /// [showOverlay]. Cached so a route transition can re-check visibility
+  /// without an inherited-widget lookup outside the build phase.
+  GlobalKey? _activeStep;
+
+  /// The route this step's page is on, watched by [_watchRoute].
+  ModalRoute<Object?>? _route;
+
+  /// [_isRouteSettled] as of the last visibility check.
+  bool _wasRouteSettled = true;
+
   @override
   void dispose() {
+    _unwatchRoute();
     _removeOverlayEntry();
     _releaseSnapshots();
     _focusNode.dispose();
@@ -712,21 +724,62 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
 
   /// show overlay if there is any target widget
   void showOverlay() {
-    final showcaseState = showCaseWidgetState;
     // Depend on this step's key only, so advancing the tour rebuilds the step
     // being left and the step being entered instead of every Showcase on screen.
-    final activeStep = ShowCaseWidget.activeTargetWidget(context, aspect: widget.key);
+    _activeStep = ShowCaseWidget.activeTargetWidget(context, aspect: widget.key);
+    _watchRoute(ModalRoute.of(context));
+    _updateVisibility();
+  }
+
+  /// Starts watching [route]'s transitions, so the step can show once its page
+  /// settles. Only the status listeners are added: no rebuild per frame.
+  void _watchRoute(ModalRoute<Object?>? route) {
+    if (identical(route, _route)) return;
+    _unwatchRoute();
+    _route = route;
+    route?.animation?.addStatusListener(_onRouteAnimationStatus);
+    route?.secondaryAnimation?.addStatusListener(_onRouteAnimationStatus);
+  }
+
+  void _unwatchRoute() {
+    _route?.animation?.removeStatusListener(_onRouteAnimationStatus);
+    _route?.secondaryAnimation?.removeStatusListener(_onRouteAnimationStatus);
+    _route = null;
+  }
+
+  /// Whether this step's page is on top and still.
+  ///
+  /// Routes below the top one stay mounted, so a step whose page is covered (by
+  /// a pushed screen, a dialog, a bottom sheet) would otherwise keep painting
+  /// over the new page. And a page that is animating in or out moves its target
+  /// without rebuilding this step, so an overlay measured mid-transition keeps
+  /// its cut-out and tap area where the target was in that frame. Outside a
+  /// Navigator there is no route, which counts as visible.
+  bool get _isRouteSettled {
+    final route = _route;
+    if (route == null) return true;
+    return route.isCurrent &&
+        (route.animation?.status ?? AnimationStatus.completed) == AnimationStatus.completed &&
+        (route.secondaryAnimation?.status ?? AnimationStatus.dismissed) == AnimationStatus.dismissed;
+  }
+
+  void _onRouteAnimationStatus(AnimationStatus _) {
+    // Only a change of settledness matters; the active-step branch below
+    // re-arms auto-play and scrolling, so don't run it on every status tick.
+    if (mounted && _isRouteSettled != _wasRouteSettled) _updateVisibility();
+  }
+
+  /// Shows or hides this step from [_activeStep] and its route, firing the
+  /// lifecycle callbacks on actual transitions.
+  void _updateVisibility() {
+    final showcaseState = showCaseWidgetState;
     // A disabled tour has no active step, so switching it off runs this step
-    // through the same teardown as the tour moving on.
-    //
-    // The same goes for a step whose page is covered by another route (a
-    // pushed screen, a dialog, a bottom sheet). Routes below the top one stay
-    // mounted, so without this check the step's overlay would keep painting
-    // over the new page. The step stays the tour's current one and shows again
-    // when its page is back on top. `isCurrentOf` only notifies on that change,
-    // and returns null outside a Navigator, which counts as visible.
-    final isRouteCurrent = ModalRoute.isCurrentOf(context) ?? true;
-    final isActiveNow = _enableShowcase && activeStep == widget.key && isRouteCurrent;
+    // through the same teardown as the tour moving on. So does a page that is
+    // covered or still moving: the step stays the tour's current one and shows
+    // once its page is on top and settled.
+    final isRouteSettled = _isRouteSettled;
+    _wasRouteSettled = isRouteSettled;
+    final isActiveNow = _enableShowcase && _activeStep == widget.key && isRouteSettled;
     final wasActive = _showShowCase;
 
     setState(() {
@@ -768,6 +821,9 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
         // Per-step [Showcase.autoPlayDelay] overrides the tour-wide delay; the
         // full Duration is used (no longer truncated to whole seconds).
         final autoPlayDelay = widget.autoPlayDelay ?? showcaseState.autoPlayDelay;
+        // Replace, never stack: a second live timer would advance the tour
+        // twice.
+        timer?.cancel();
         timer = Timer(autoPlayDelay, _nextIfAny);
       }
     }
@@ -1456,10 +1512,14 @@ class _TargetWidget extends StatelessWidget {
     return Positioned(
       top: offset.dy,
       left: offset.dx,
-      child: IgnorePointer(
-        ignoring: disableDefaultChildGestures,
-        child: FractionalTranslation(
-          translation: const Offset(-0.5, -0.5),
+      // The translation centres the box on the target and has to come first:
+      // a render box tests a tap against its own, untranslated bounds, so an
+      // IgnorePointer above it would only see taps right of and below the
+      // target's centre.
+      child: FractionalTranslation(
+        translation: const Offset(-0.5, -0.5),
+        child: IgnorePointer(
+          ignoring: disableDefaultChildGestures,
           // Not opaque, so the real widget underneath still receives hover
           // events (and keeps its own hover states) while the cursor here wins.
           child: MouseRegion(
