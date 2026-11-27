@@ -771,10 +771,12 @@ void main() {
       final body = styleOf(tester, 'Theme body');
       expect(title?.fontFamily, 'ModernTitle');
       expect(title?.fontSize, 27);
-      expect(title?.color, Colors.black);
       expect(body?.fontFamily, 'ModernBody');
       expect(body?.fontSize, 11);
-      expect(body?.color, Colors.black);
+      // The colour follows the theme too (see 'colours follow the app theme').
+      final onSurface = Theme.of(tester.element(find.text('target'))).colorScheme.onSurface;
+      expect(title?.color, onSurface);
+      expect(body?.color, onSurface);
     });
 
     testWidgets('a material_ui theme wins over a legacy Theme nested below it', (tester) async {
@@ -798,6 +800,390 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(styleOf(tester, 'Theme title')?.fontFamily, 'ModernTitle');
+    });
+  });
+
+  group('colours follow the app theme', () {
+    // Anything the developer leaves unset comes from the app's material_ui
+    // theme; anything they set, per step or in ShowcaseStyle, wins.
+    final light = ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal));
+    final dark = ThemeData(
+      colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark),
+    );
+
+    Widget app({
+      ThemeData? theme,
+      ShowcaseStyle style = const ShowcaseStyle(),
+      required GlobalKey stepKey,
+      Color? tooltipBackgroundColor,
+      Color? textColor,
+      Color? overlayColor,
+      Widget? actions,
+      ActionsSettings? actionSettings,
+      TooltipActionPosition actionsPosition = TooltipActionPosition.outside,
+      bool enablePulseAnimation = false,
+      bool showProgress = false,
+    }) {
+      return MaterialApp(
+        theme: theme,
+        home: ShowCaseWidget(
+          style: style,
+          showProgress: showProgress,
+          showSkip: showProgress,
+          progressStyle: ShowcaseProgressStyle.numeric,
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: Showcase(
+                  key: stepKey,
+                  title: 'Title',
+                  description: 'Body',
+                  tooltipBackgroundColor: tooltipBackgroundColor,
+                  textColor: textColor,
+                  overlayColor: overlayColor,
+                  actions: actions,
+                  actionSettings: actionSettings,
+                  actionsPosition: actionsPosition,
+                  enablePulseAnimation: enablePulseAnimation,
+                  child: const Text('target'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Future<void> startTour(WidgetTester tester, GlobalKey key) async {
+      ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tester.takeException(), isNull);
+    }
+
+    Color? textColorOf(WidgetTester tester, String text) => tester.widget<Text>(find.text(text)).style?.color;
+
+    // The tooltip box is the nearest coloured Container around the title.
+    Color tooltipColor(WidgetTester tester) {
+      return tester
+          .widgetList<Container>(find.ancestor(of: find.text('Title'), matching: find.byType(Container)))
+          .firstWhere((container) => container.color != null)
+          .color!;
+    }
+
+    // The dimmed background is the only ColoredBox at the default 75% opacity.
+    Color scrimColor(WidgetTester tester) {
+      final scrim = tester.widget<ColoredBox>(
+        find.byWidgetPredicate((w) => w is ColoredBox && (w.color.a - 0.75).abs() < 0.001),
+      );
+      return scrim.color.withValues(alpha: 1);
+    }
+
+    // The box drawn behind actions placed outside the tooltip.
+    Color? actionsBoxColor(WidgetTester tester) {
+      return tester
+          .widget<Container>(
+            find.ancestor(of: find.byType(ShowCaseDefaultActions), matching: find.byType(Container)).first,
+          )
+          .color;
+    }
+
+    Color pulseColor(WidgetTester tester) {
+      final pulse = tester.widget(find.byWidgetPredicate((w) => w.runtimeType.toString() == '_PulsingOverlay'));
+      // ignore: avoid_dynamic_calls
+      return (pulse as dynamic).color as Color;
+    }
+
+    testWidgets('a light theme colours the tooltip, text, scrim and buttons', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: light,
+          stepKey: key,
+          showProgress: true,
+          actions: const ShowCaseDefaultActions(),
+          actionsPosition: TooltipActionPosition.inside,
+        ),
+      );
+      await startTour(tester, key);
+
+      final scheme = light.colorScheme;
+      expect(tooltipColor(tester), scheme.surfaceContainerHigh);
+      expect(textColorOf(tester, 'Title'), scheme.onSurface);
+      expect(textColorOf(tester, 'Body'), scheme.onSurface);
+      expect(textColorOf(tester, '1/1'), scheme.onSurface, reason: 'the progress counter');
+      expect(textColorOf(tester, 'Skip'), scheme.onSurface.withValues(alpha: 0.7));
+      expect(scrimColor(tester), scheme.scrim);
+      expect(textColorOf(tester, 'Next'), scheme.primary);
+      expect(textColorOf(tester, 'Previous'), scheme.primary);
+      expect(tester.widget<VerticalDivider>(find.byType(VerticalDivider).first).color, scheme.outlineVariant);
+    });
+
+    testWidgets('a dark theme gives a dark tooltip with light text', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(theme: dark, stepKey: key));
+      await startTour(tester, key);
+
+      final scheme = dark.colorScheme;
+      expect(tooltipColor(tester), scheme.surfaceContainerHigh);
+      expect(ThemeData.estimateBrightnessForColor(tooltipColor(tester)), Brightness.dark);
+      expect(textColorOf(tester, 'Title'), scheme.onSurface);
+      expect(ThemeData.estimateBrightnessForColor(textColorOf(tester, 'Title')!), Brightness.light);
+    });
+
+    testWidgets('switching the app between light and dark recolours a showing step', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(theme: light, stepKey: key));
+      await startTour(tester, key);
+      expect(tooltipColor(tester), light.colorScheme.surfaceContainerHigh);
+
+      await tester.pumpWidget(app(theme: dark, stepKey: key));
+      // MaterialApp animates between themes.
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(tooltipColor(tester), dark.colorScheme.surfaceContainerHigh);
+      expect(textColorOf(tester, 'Title'), dark.colorScheme.onSurface);
+    });
+
+    testWidgets('colours set on the step win over the theme', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: dark,
+          stepKey: key,
+          tooltipBackgroundColor: const Color(0xFF0077B6),
+          textColor: const Color(0xFFFFEE00),
+          overlayColor: const Color(0xFF112233),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(tooltipColor(tester), const Color(0xFF0077B6));
+      expect(textColorOf(tester, 'Title'), const Color(0xFFFFEE00));
+      expect(scrimColor(tester), const Color(0xFF112233));
+    });
+
+    testWidgets('ShowcaseStyle sets every colour once, and a button colour wins over it', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: dark,
+          stepKey: key,
+          enablePulseAnimation: true,
+          style: const ShowcaseStyle(
+            tooltipBackgroundColor: Color(0xFF101010),
+            textColor: Color(0xFFEEEEEE),
+            overlayColor: Color(0xFF223344),
+            actionTextColor: Color(0xFFFF8800),
+            actionDividerColor: Color(0xFF00FF88),
+            pulseColor: Color(0xFFAA00AA),
+          ),
+          actions: const ShowCaseDefaultActions(next: ActionButtonConfig(textColor: Color(0xFF0000FF))),
+          actionsPosition: TooltipActionPosition.inside,
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(tooltipColor(tester), const Color(0xFF101010));
+      expect(textColorOf(tester, 'Title'), const Color(0xFFEEEEEE));
+      expect(scrimColor(tester), const Color(0xFF223344));
+      expect(pulseColor(tester), const Color(0xFFAA00AA));
+      expect(textColorOf(tester, 'Previous'), const Color(0xFFFF8800));
+      expect(textColorOf(tester, 'Next'), const Color(0xFF0000FF), reason: "the button's own colour wins");
+      expect(tester.widget<VerticalDivider>(find.byType(VerticalDivider).first).color, const Color(0xFF00FF88));
+    });
+
+    testWidgets('a background set without a text colour gets readable text and buttons', (tester) async {
+      // An app that only ever set a white tooltip must not get the dark
+      // theme's light text on it.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: dark,
+          stepKey: key,
+          tooltipBackgroundColor: Colors.white,
+          actions: const ShowCaseDefaultActions(),
+          actionsPosition: TooltipActionPosition.inside,
+        ),
+      );
+      await startTour(tester, key);
+      expect(textColorOf(tester, 'Title'), Colors.black);
+      expect(textColorOf(tester, 'Next'), Colors.black);
+
+      // And a dark background in a light app gets white.
+      final key2 = GlobalKey();
+      await tester.pumpWidget(app(theme: light, stepKey: key2, tooltipBackgroundColor: const Color(0xFF001122)));
+      await startTour(tester, key2);
+      expect(textColorOf(tester, 'Title'), Colors.white);
+    });
+
+    testWidgets('actions outside the tooltip: the box matches the tooltip, or the buttons contrast with the scrim', (
+      tester,
+    ) async {
+      // With ActionsSettings there is a box, and it takes the tooltip's colour.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: light,
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(),
+          actionSettings: const ActionsSettings(),
+        ),
+      );
+      await startTour(tester, key);
+      expect(actionsBoxColor(tester), light.colorScheme.surfaceContainerHigh);
+      expect(textColorOf(tester, 'Next'), light.colorScheme.primary);
+
+      // A colour set on the box wins, and the buttons stay readable on it.
+      final key2 = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: light,
+          stepKey: key2,
+          actions: const ShowCaseDefaultActions(),
+          actionSettings: const ActionsSettings(containerColor: Color(0xFF001122)),
+        ),
+      );
+      await startTour(tester, key2);
+      expect(actionsBoxColor(tester), const Color(0xFF001122));
+      expect(textColorOf(tester, 'Next'), Colors.white);
+
+      // Without ActionsSettings there is no box: the buttons sit on the
+      // dimmed background and take the colour that shows against it.
+      final key3 = GlobalKey();
+      await tester.pumpWidget(app(theme: light, stepKey: key3, actions: const ShowCaseDefaultActions()));
+      await startTour(tester, key3);
+      expect(actionsBoxColor(tester), isNull);
+      expect(textColorOf(tester, 'Next'), Colors.white);
+    });
+
+    testWidgets('a button icon takes the label colour, unless it sets its own', (tester) async {
+      // Outside the tooltip with no box, the buttons sit on the dimmed
+      // background: the label turns white there, and the icon must too.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          theme: light,
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(
+            next: ActionButtonConfig(icon: Icon(Icons.arrow_forward)),
+            previous: ActionButtonConfig(icon: Icon(Icons.arrow_back, color: Color(0xFFFF0000))),
+          ),
+        ),
+      );
+      await startTour(tester, key);
+
+      final nextIcon = tester.widget<RichText>(
+        find.descendant(of: find.byIcon(Icons.arrow_forward), matching: find.byType(RichText)),
+      );
+      expect(textColorOf(tester, 'Next'), Colors.white);
+      expect(nextIcon.text.style?.color, Colors.white);
+      final backIcon = tester.widget<RichText>(
+        find.descendant(of: find.byIcon(Icons.arrow_back), matching: find.byType(RichText)),
+      );
+      expect(backIcon.text.style?.color, const Color(0xFFFF0000));
+    });
+
+    testWidgets('the pulse ring shows against the dimmed background', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(theme: light, stepKey: key, enablePulseAnimation: true));
+      await startTour(tester, key);
+      expect(pulseColor(tester), Colors.white, reason: 'the default scrim is black');
+
+      final key2 = GlobalKey();
+      await tester.pumpWidget(app(theme: light, stepKey: key2, enablePulseAnimation: true, overlayColor: Colors.white));
+      await startTour(tester, key2);
+      expect(pulseColor(tester), Colors.black);
+    });
+
+    testWidgets('an app without a material_ui theme keeps the fixed colours', (tester) async {
+      // An app on the legacy MaterialApp: its theme can't be read, so the tour
+      // must not pick up material_ui's unrelated default theme instead.
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        legacy.MaterialApp(
+          theme: legacy.ThemeData.dark(),
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) => Center(
+                child: Showcase(
+                  key: key,
+                  title: 'Title',
+                  description: 'Body',
+                  actions: const ShowCaseDefaultActions(),
+                  actionSettings: const ActionsSettings(),
+                  child: const Text('target'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(tooltipColor(tester), Colors.white);
+      expect(textColorOf(tester, 'Title'), Colors.black);
+      expect(scrimColor(tester), Colors.black);
+      expect(actionsBoxColor(tester), Colors.white);
+      expect(textColorOf(tester, 'Next'), const Color(0xff48cae4));
+      expect(tester.widget<VerticalDivider>(find.byType(VerticalDivider).first).color, const Color(0xffcaf0f8));
+    });
+
+    testWidgets('the scroll spinner takes ShowcaseStyle.loadingIndicatorColor, else contrasts with the scrim', (
+      tester,
+    ) async {
+      Future<Color?> spinnerColor(ShowcaseStyle style) async {
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: light,
+            home: ShowCaseWidget(
+              style: style,
+              enableAutoScroll: true,
+              scrollDuration: const Duration(milliseconds: 300),
+              disableMovingAnimation: true,
+              disableScaleAnimation: true,
+              builder: Builder(
+                builder: (context) => Scaffold(
+                  body: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 1200),
+                        Showcase(key: key, description: 'Far down', child: const Text('t')),
+                        const SizedBox(height: 1200),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+        // The scroll starts after the first frame; the spinner shows from the
+        // frame after that until the scroll ends.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.pump(const Duration(milliseconds: 50));
+        final spinner = tester.widget<CircularProgressIndicator>(find.byType(CircularProgressIndicator));
+        final color = spinner.valueColor?.value;
+        await tester.pumpAndSettle();
+        ShowCaseWidget.of(tester.element(find.text('t'))).dismiss();
+        await tester.pump(const Duration(seconds: 1));
+        // Start the next run from an unscrolled page.
+        await tester.pumpWidget(const SizedBox());
+        return color;
+      }
+
+      expect(await spinnerColor(const ShowcaseStyle()), Colors.white);
+      expect(
+        await spinnerColor(const ShowcaseStyle(loadingIndicatorColor: Color(0xFF00AAFF))),
+        const Color(0xFF00AAFF),
+      );
     });
   });
 
@@ -992,6 +1378,363 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     expect(state.currentIndex, 2);
     expect(find.text('Three'), findsOneWidget);
+  });
+
+  group('startShowCase(startAt:)', () {
+    // Builds a tour with one step per key. Steps whose index is in [absent] are
+    // left out of the tree, so their targets are not mounted.
+    Widget buildResumeApp(
+      List<GlobalKey> keys, {
+      Set<int> absent = const {},
+      bool autoSkipUnmountedSteps = false,
+      bool Function(int, GlobalKey)? onShouldSkipUnmountedStep,
+      FutureOr<bool> Function(String?)? onShouldStartShowcase,
+      ShowcaseStepCallback? onStart,
+      VoidCallback? onFinish,
+      bool enableStepTransition = false,
+    }) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          disableMovingAnimation: true,
+          disableScaleAnimation: true,
+          autoSkipUnmountedSteps: autoSkipUnmountedSteps,
+          onShouldSkipUnmountedStep: onShouldSkipUnmountedStep,
+          onShouldStartShowcase: onShouldStartShowcase,
+          onStart: onStart,
+          onFinish: onFinish,
+          showProgress: true,
+          progressStyle: ShowcaseProgressStyle.numeric,
+          enableStepTransition: enableStepTransition,
+          builder: Scaffold(
+            body: Column(
+              children: [
+                const Text('anchor'),
+                for (var i = 0; i < keys.length; i++)
+                  if (!absent.contains(i))
+                    Showcase(key: keys[i], title: 'Step $i', description: 'd', child: Text('t$i')),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    List<GlobalKey> fourKeys() => List.generate(4, (i) => GlobalKey(debugLabel: 'step$i'));
+
+    ShowCaseWidgetState stateOf(WidgetTester tester) => ShowCaseWidget.of(tester.element(find.text('anchor')));
+
+    Future<void> pumpStep(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+    }
+
+    testWidgets('opens on the given step and reports its real index', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      await tester.pumpWidget(buildResumeApp(keys, onStart: (index, key) => started.add(index)));
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 2);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isTrue);
+      expect(state.currentIndex, 2);
+      expect(state.totalSteps, 4);
+      expect(started, [2]); // onStart reports the step shown, not step 0
+      expect(find.text('Step 2'), findsOneWidget);
+      expect(find.text('Step 0'), findsNothing);
+      expect(find.text('3/4'), findsOneWidget); // progress counts from the real step
+    });
+
+    testWidgets('next, previous and finish behave as in a tour started at 0', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      var finished = 0;
+      await tester.pumpWidget(
+        buildResumeApp(keys, onStart: (index, key) => started.add(index), onFinish: () => finished++),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 2);
+      await pumpStep(tester);
+
+      // Earlier steps are still part of the tour.
+      state.previous();
+      await pumpStep(tester);
+      expect(state.currentIndex, 1);
+      expect(find.text('Step 1'), findsOneWidget);
+      expect(find.text('2/4'), findsOneWidget);
+
+      state.next();
+      await pumpStep(tester);
+      expect(state.currentIndex, 2);
+
+      state.next();
+      await pumpStep(tester);
+      expect(state.currentIndex, 3);
+      expect(finished, 0);
+
+      state.next(); // past the last step
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(state.isShowcaseRunning, isFalse);
+      expect(finished, 1);
+      expect(started, [2, 1, 2, 3]);
+      expect(find.text('Step 3'), findsNothing);
+    });
+
+    testWidgets('autoSkipUnmountedSteps skips forward from startAt', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      await tester.pumpWidget(
+        buildResumeApp(keys, absent: {1}, autoSkipUnmountedSteps: true, onStart: (index, key) => started.add(index)),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 1);
+      await pumpStep(tester);
+
+      expect(state.currentIndex, 2); // step 1 is not mounted, so the tour opens on 2
+      expect(started, [2]);
+      expect(find.text('Step 2'), findsOneWidget);
+    });
+
+    testWidgets('onShouldSkipUnmountedStep is asked from startAt forward', (tester) async {
+      final keys = fourKeys();
+      final asked = <int>[];
+      await tester.pumpWidget(
+        buildResumeApp(
+          keys,
+          absent: {0, 1, 2},
+          onShouldSkipUnmountedStep: (index, key) {
+            asked.add(index);
+            return true;
+          },
+        ),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 1);
+      await pumpStep(tester);
+
+      expect(asked, [1, 2]); // step 0 is before startAt, so it is never asked about
+      expect(state.currentIndex, 3);
+      expect(find.text('Step 3'), findsOneWidget);
+    });
+
+    testWidgets('finishes when every step from startAt on is skipped', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      var finished = 0;
+      await tester.pumpWidget(
+        buildResumeApp(
+          keys,
+          absent: {2, 3},
+          autoSkipUnmountedSteps: true,
+          onStart: (index, key) => started.add(index),
+          onFinish: () => finished++,
+        ),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 2);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isFalse);
+      expect(finished, 1);
+      expect(started, isEmpty);
+      expect(find.text('Step 0'), findsNothing); // does not fall back to earlier steps
+    });
+
+    testWidgets('without auto skip the tour waits on an unmounted start step', (tester) async {
+      final keys = fourKeys();
+      await tester.pumpWidget(buildResumeApp(keys, absent: {1}));
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 1);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isTrue);
+      expect(state.currentIndex, 1);
+      expect(find.text('Step 2'), findsNothing);
+    });
+
+    testWidgets('a guard that refuses blocks a resumed tour, and force bypasses it', (tester) async {
+      final keys = fourKeys();
+      var asked = 0;
+      await tester.pumpWidget(
+        buildResumeApp(
+          keys,
+          onShouldStartShowcase: (id) async {
+            asked++;
+            return false;
+          },
+        ),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 2);
+      await pumpStep(tester);
+      expect(asked, 1);
+      expect(state.isShowcaseRunning, isFalse);
+      expect(find.text('Step 2'), findsNothing);
+
+      state.startShowCase(keys, startAt: 2, force: true);
+      await pumpStep(tester);
+      expect(asked, 1); // force skips the guard
+      expect(state.currentIndex, 2);
+      expect(find.text('Step 2'), findsOneWidget);
+    });
+
+    testWidgets('a guard that allows the start opens on the startAt step', (tester) async {
+      final keys = fourKeys();
+      await tester.pumpWidget(buildResumeApp(keys, onShouldStartShowcase: (id) async => true));
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 3);
+      await tester.pump(); // kick off the guard future
+      await pumpStep(tester); // resolve it and show the step
+
+      expect(state.currentIndex, 3);
+      expect(find.text('Step 3'), findsOneWidget);
+    });
+
+    testWidgets('a startAt past the end opens the last step instead of finishing', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      var finished = 0;
+      await tester.pumpWidget(
+        buildResumeApp(keys, onStart: (index, key) => started.add(index), onFinish: () => finished++),
+      );
+
+      // A saved index from a longer, older version of the tour.
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 7);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isTrue);
+      expect(state.currentIndex, 3);
+      expect(started, [3]);
+      expect(finished, 0);
+      expect(find.text('Step 3'), findsOneWidget);
+      expect(find.text('4/4'), findsOneWidget);
+    });
+
+    testWidgets('a negative startAt opens the first step', (tester) async {
+      final keys = fourKeys();
+      final started = <int?>[];
+      await tester.pumpWidget(buildResumeApp(keys, onStart: (index, key) => started.add(index)));
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: -1);
+      await pumpStep(tester);
+
+      expect(state.currentIndex, 0);
+      expect(started, [0]);
+      expect(find.text('Step 0'), findsOneWidget);
+    });
+
+    testWidgets('a clamped startAt still goes through the guard', (tester) async {
+      final keys = fourKeys();
+      var asked = 0;
+      await tester.pumpWidget(
+        buildResumeApp(
+          keys,
+          onShouldStartShowcase: (id) {
+            asked++;
+            return true;
+          },
+        ),
+      );
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 4);
+      await tester.pump(); // kick off the guard future
+      await pumpStep(tester);
+
+      expect(asked, 1);
+      expect(state.currentIndex, 3);
+    });
+
+    testWidgets('startAt 0 on an empty tour still finishes it straight away', (tester) async {
+      var finished = 0;
+      await tester.pumpWidget(buildResumeApp(const [], onFinish: () => finished++));
+
+      final state = stateOf(tester);
+      state.startShowCase(const []);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isFalse);
+      expect(finished, 1);
+    });
+
+    testWidgets('an empty tour finishes straight away whatever startAt is', (tester) async {
+      var finished = 0;
+      await tester.pumpWidget(buildResumeApp(const [], onFinish: () => finished++));
+
+      final state = stateOf(tester);
+      state.startShowCase(const [], startAt: 5);
+      await pumpStep(tester);
+
+      expect(state.isShowcaseRunning, isFalse);
+      expect(finished, 1);
+    });
+
+    testWidgets('opens directly on the step, without gliding from the previous one', (tester) async {
+      final keys = fourKeys();
+      await tester.pumpWidget(buildResumeApp(keys, enableStepTransition: true));
+
+      final state = stateOf(tester);
+      state.startShowCase(keys, startAt: 1);
+      await pumpStep(tester);
+      expect(state.previousTargetRect, isNull);
+
+      state.next();
+      await pumpStep(tester);
+      expect(state.previousTargetRect, isNotNull); // a step change glides
+
+      // Restarting a running tour mid-way opens on the step, like a new start.
+      state.startShowCase(keys, startAt: 3);
+      await tester.pump();
+      expect(state.currentIndex, 3);
+      expect(state.previousTargetRect, isNull);
+    });
+  });
+
+  group('ShowCaseWidget.builder', () {
+    testWidgets('accepts a plain widget whose own context reaches the controller', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: _PlainHome(stepKey: key),
+          ),
+        ),
+      );
+
+      // _PlainHome calls ShowCaseWidget.of(context) from its own build and from
+      // a button callback, with no Builder in between.
+      expect(find.text('steps: 0'), findsOneWidget);
+      await tester.tap(find.text('start'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(ShowCaseWidget.of(tester.element(find.text('start'))).currentIndex, 0);
+      expect(find.text('Plain'), findsOneWidget);
+    });
+
+    testWidgets('a Builder still works', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(buildApp(key));
+
+      ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('Title A'), findsOneWidget);
+    });
   });
 
   testWidgets('tooltipPosition.right places the tooltip to the right of target', (tester) async {
@@ -1328,6 +2071,8 @@ void main() {
         disableMovingAnimation: true,
         disableScaleAnimation: true,
         barrierInteraction: barrierInteraction,
+        // Covers the deprecated flag on purpose until it is removed in 3.0.0.
+        // ignore: deprecated_member_use_from_same_package
         disableBarrierInteraction: disableBarrierInteraction,
         enableKeyboardNavigation: enableKeyboardNavigation,
         onBarrierClick: onBarrierClick,
@@ -1671,7 +2416,7 @@ void main() {
     bool showProgress = false,
     ShowcaseProgressStyle progressStyle = ShowcaseProgressStyle.dots,
     bool showSkip = false,
-    String skipButtonText = 'Skip',
+    String? skipButtonText,
   }) {
     return MaterialApp(
       home: ShowCaseWidget(
@@ -1680,6 +2425,7 @@ void main() {
         showProgress: showProgress,
         progressStyle: progressStyle,
         showSkip: showSkip,
+        // ignore: deprecated_member_use_from_same_package
         skipButtonText: skipButtonText,
         builder: Builder(
           builder: (context) => Scaffold(
@@ -1759,7 +2505,7 @@ void main() {
     expect(state.isShowcaseRunning, isFalse);
   });
 
-  testWidgets('skipButtonText customizes the skip label', (tester) async {
+  testWidgets('the deprecated skipButtonText still customizes the skip label', (tester) async {
     final k1 = GlobalKey();
     final k2 = GlobalKey();
     final k3 = GlobalKey();
@@ -3336,6 +4082,422 @@ void main() {
     });
   });
 
+  group('built-in buttons: direction, one-line labels and translations', () {
+    const prevIcon = ValueKey('prev-icon');
+    const nextIcon = ValueKey('next-icon');
+    const arabic = ShowcaseLabels(next: 'التالي', previous: 'السابق', stop: 'إنهاء', skip: 'تخطي');
+
+    Widget app({
+      required GlobalKey stepKey,
+      TextDirection direction = TextDirection.ltr,
+      Widget? actions,
+      WidgetBuilder? globalActions,
+      ShowcaseLabels labels = const ShowcaseLabels(),
+      String? skipButtonText,
+      bool showSkip = false,
+      bool showProgress = false,
+      String? title = 'Title',
+      String description = 'A tooltip with buttons',
+      TooltipActionPosition actionsPosition = TooltipActionPosition.inside,
+      ActionsSettings? actionSettings,
+    }) {
+      return MaterialApp(
+        home: Directionality(
+          textDirection: direction,
+          child: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            labels: labels,
+            // ignore: deprecated_member_use_from_same_package
+            skipButtonText: skipButtonText,
+            showSkip: showSkip,
+            showProgress: showProgress,
+            progressStyle: ShowcaseProgressStyle.numeric,
+            globalActions: globalActions,
+            actionsPosition: actionsPosition,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: Showcase(
+                    key: stepKey,
+                    title: title,
+                    description: description,
+                    actions: actions,
+                    actionSettings: actionSettings,
+                    child: const SizedBox(width: 40, height: 20, child: Text('t')),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Future<ShowCaseWidgetState> startTour(WidgetTester tester, GlobalKey key) async {
+      final state = ShowCaseWidget.of(tester.element(find.text('t')));
+      state.startShowCase([key]);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      return state;
+    }
+
+    const iconActions = ShowCaseDefaultActions(
+      previous: ActionButtonConfig(icon: Icon(Icons.arrow_back, key: prevIcon)),
+      next: ActionButtonConfig(icon: Icon(Icons.arrow_forward, key: nextIcon)),
+    );
+
+    double centerX(WidgetTester tester, Finder finder) => tester.getCenter(finder).dx;
+
+    testWidgets('in an RTL app the icon comes after the label, on its right', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, direction: TextDirection.rtl, actions: iconActions));
+      await startTour(tester, key);
+
+      expect(tester.takeException(), isNull);
+      expect(
+        centerX(tester, find.byKey(prevIcon)),
+        greaterThan(centerX(tester, find.text('Previous'))),
+        reason: 'the icon leads, and leading is the right side in RTL',
+      );
+      expect(centerX(tester, find.byKey(nextIcon)), greaterThan(centerX(tester, find.text('Next'))));
+      final button = find.ancestor(of: find.text('Previous'), matching: find.byType(TextButton));
+      expect(Directionality.of(tester.element(button)), TextDirection.rtl, reason: 'not forced to LTR');
+    });
+
+    testWidgets('in an RTL app the row mirrors: Previous on the right, Next on the left', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, direction: TextDirection.rtl, actions: iconActions));
+      await startTour(tester, key);
+
+      final previous = centerX(tester, find.text('Previous'));
+      final stop = centerX(tester, find.text('Stop'));
+      final next = centerX(tester, find.text('Next'));
+      expect(previous, greaterThan(stop));
+      expect(stop, greaterThan(next));
+    });
+
+    testWidgets('in an LTR app the icon stays on the left of the label', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, actions: iconActions));
+      await startTour(tester, key);
+
+      expect(centerX(tester, find.byKey(prevIcon)), lessThan(centerX(tester, find.text('Previous'))));
+      expect(centerX(tester, find.text('Previous')), lessThan(centerX(tester, find.text('Next'))));
+    });
+
+    testWidgets('an explicit textDirection still sets the order inside that button', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(
+            next: ActionButtonConfig(
+              icon: Icon(Icons.arrow_forward, key: nextIcon),
+              textDirection: TextDirection.rtl,
+            ),
+          ),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(
+        centerX(tester, find.byKey(nextIcon)),
+        greaterThan(centerX(tester, find.text('Next'))),
+        reason: 'RTL in an LTR app puts the arrow after the text',
+      );
+    });
+
+    testWidgets('in an RTL app the progress counter is on the right and Skip on the left', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, direction: TextDirection.rtl, showSkip: true, showProgress: true));
+      await startTour(tester, key);
+
+      expect(tester.takeException(), isNull);
+      expect(centerX(tester, find.text('1/1')), greaterThan(centerX(tester, find.text('Skip'))));
+    });
+
+    /// The scale a label is drawn at: its painted height over its laid-out one.
+    double drawnScale(WidgetTester tester, String label) =>
+        tester.getRect(find.text(label)).height / tester.renderObject<RenderParagraph>(find.text(label)).size.height;
+
+    void expectOneLineInsideItsButton(WidgetTester tester, String label) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
+      expect(
+        paragraph.size.height,
+        paragraph.getMinIntrinsicHeight(double.infinity),
+        reason: '"$label" is laid out as a single line',
+      );
+      final button = tester.getRect(find.ancestor(of: find.text(label), matching: find.byType(TextButton)));
+      final text = tester.getRect(find.text(label));
+      expect(button.left, lessThanOrEqualTo(text.left + 0.01), reason: '"$label" is drawn inside its button');
+      expect(button.right, greaterThanOrEqualTo(text.right - 0.01), reason: '"$label" is drawn inside its button');
+    }
+
+    // Short text would make a narrow tooltip; the tooltip widens to fit the
+    // buttons instead, so their labels are drawn at full size.
+    for (final (name, title, description, position, actions) in [
+      ('README sample', 'Menu', 'Open the menu', TooltipActionPosition.outside, const ShowCaseDefaultActions()),
+      (
+        'README sample with an icon',
+        'Menu',
+        'Open the menu',
+        TooltipActionPosition.outside,
+        const ShowCaseDefaultActions(previous: ActionButtonConfig(icon: Icon(Icons.arrow_back))),
+      ),
+      ('one-word description', null, 'Tip', TooltipActionPosition.outside, const ShowCaseDefaultActions()),
+      ('one-word description, inside', null, 'Tip', TooltipActionPosition.inside, const ShowCaseDefaultActions()),
+    ]) {
+      testWidgets('the tooltip is wide enough for the button labels at full size ($name)', (tester) async {
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          app(stepKey: key, title: title, description: description, actionsPosition: position, actions: actions),
+        );
+        await startTour(tester, key);
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+
+        for (final label in ['Previous', 'Stop', 'Next']) {
+          expectOneLineInsideItsButton(tester, label);
+          expect(drawnScale(tester, label), moreOrLessEquals(1.0), reason: '"$label" is drawn at full size');
+          final paragraph = tester.renderObject<RenderParagraph>(find.text(label));
+          expect(paragraph.didExceedMaxLines, isFalse, reason: '"$label" is not ellipsized');
+        }
+      });
+    }
+
+    // On a phone the tooltip cannot always grow enough: the test font's
+    // square glyphs make "Previous" 112px, about twice a real font's width.
+    for (final (name, actions) in [
+      ('text only', const ShowCaseDefaultActions()),
+      ('with an icon', const ShowCaseDefaultActions(previous: ActionButtonConfig(icon: Icon(Icons.arrow_back)))),
+    ]) {
+      testWidgets('on a phone the README sample labels stay readable ($name)', (tester) async {
+        tester.view
+          ..physicalSize = const Size(390, 844)
+          ..devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          app(
+            stepKey: key,
+            title: 'Menu',
+            description: 'Open the menu',
+            actionsPosition: TooltipActionPosition.outside,
+            actions: actions,
+          ),
+        );
+        await startTour(tester, key);
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+
+        for (final label in ['Previous', 'Stop', 'Next']) {
+          expectOneLineInsideItsButton(tester, label);
+          expect(drawnScale(tester, label), greaterThanOrEqualTo(0.7 - 1e-9), reason: '"$label" stays readable');
+        }
+      });
+    }
+
+    testWidgets('a label too long for its button stays on one line and is shrunk a little', (tester) async {
+      final key = GlobalKey();
+      // A declared width fixes the buttons' room: about 109px each, which
+      // leaves 85px for "Previous" (112px in the test font).
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(),
+          actionSettings: const ActionsSettings(containerWidth: 330),
+        ),
+      );
+      await startTour(tester, key);
+      expect(tester.takeException(), isNull);
+
+      expectOneLineInsideItsButton(tester, 'Previous');
+      final scale = drawnScale(tester, 'Previous');
+      expect(scale, lessThan(1.0), reason: 'too wide for its button, so it was scaled');
+      expect(scale, greaterThanOrEqualTo(0.7), reason: 'but no smaller than 70%');
+      expect(tester.renderObject<RenderParagraph>(find.text('Previous')).didExceedMaxLines, isFalse);
+      expect(drawnScale(tester, 'Stop'), moreOrLessEquals(1.0), reason: 'labels that fit are not scaled');
+    });
+
+    for (final (name, actions) in [
+      ('text only', const ShowCaseDefaultActions()),
+      ('with an icon', const ShowCaseDefaultActions(previous: ActionButtonConfig(icon: Icon(Icons.arrow_back)))),
+    ]) {
+      testWidgets('past 70% a label is ellipsized, not shrunk until it cannot be read ($name)', (tester) async {
+        final key = GlobalKey();
+        // About 66px per button: "Previous" would need a scale of 0.38.
+        await tester.pumpWidget(
+          app(stepKey: key, actions: actions, actionSettings: const ActionsSettings(containerWidth: 200)),
+        );
+        await startTour(tester, key);
+        expect(tester.takeException(), isNull, reason: 'no overflow');
+
+        for (final label in ['Previous', 'Stop', 'Next']) {
+          expectOneLineInsideItsButton(tester, label);
+          expect(drawnScale(tester, label), greaterThanOrEqualTo(0.7 - 1e-9), reason: '"$label" stays readable');
+        }
+        expect(drawnScale(tester, 'Previous'), moreOrLessEquals(0.7));
+        expect(
+          tester.renderObject<RenderParagraph>(find.text('Previous')).didExceedMaxLines,
+          isTrue,
+          reason: 'what does not fit at 70% is ellipsized',
+        );
+      });
+    }
+
+    testWidgets('baseline alignment lines up a scaled label with the others', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          actions: const ShowCaseDefaultActions(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+          ),
+          actionSettings: const ActionsSettings(containerWidth: 330),
+        ),
+      );
+      await startTour(tester, key);
+      expect(tester.takeException(), isNull);
+      expect(drawnScale(tester, 'Previous'), lessThan(0.9), reason: 'the case under test: Previous is scaled');
+
+      double drawnBaseline(String label) {
+        final painter = TextPainter(
+          text: tester.renderObject<RenderParagraph>(find.text(label)).text,
+          textDirection: TextDirection.ltr,
+        )..layout();
+        addTearDown(painter.dispose);
+        return tester.getRect(find.text(label)).top +
+            painter.computeDistanceToActualBaseline(TextBaseline.alphabetic) * drawnScale(tester, label);
+      }
+
+      expect(drawnBaseline('Previous'), moreOrLessEquals(drawnBaseline('Stop'), epsilon: 0.01));
+      expect(drawnBaseline('Next'), moreOrLessEquals(drawnBaseline('Stop'), epsilon: 0.01));
+    });
+
+    testWidgets('an icon-only button keeps its full tap area and is announced by its label', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          labels: arabic,
+          actions: const ShowCaseDefaultActions(
+            previous: ActionButtonConfig(icon: Icon(Icons.arrow_back, key: prevIcon), buttonTextVisible: false),
+            next: ActionButtonConfig(icon: Icon(Icons.arrow_forward, key: nextIcon), buttonTextVisible: false),
+          ),
+        ),
+      );
+      final state = await startTour(tester, key);
+      expect(tester.takeException(), isNull);
+
+      expect(find.text('السابق'), findsNothing, reason: 'the text is hidden');
+      expect(find.bySemanticsLabel('السابق'), findsOneWidget);
+      expect(find.bySemanticsLabel('التالي'), findsOneWidget);
+
+      final nextButton = find.ancestor(of: find.byKey(nextIcon), matching: find.byType(TextButton));
+      final stopButton = find.ancestor(of: find.text('إنهاء'), matching: find.byType(TextButton));
+      expect(tester.getSize(nextButton), tester.getSize(stopButton), reason: 'as large as a button with text');
+      expect(tester.getSize(nextButton).height, greaterThanOrEqualTo(40));
+
+      await tester.tap(nextButton);
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(state.isShowcaseRunning, isFalse, reason: 'the icon-only Next button still works');
+      semantics.dispose();
+    });
+
+    testWidgets('labels translate every built-in button and the Skip label', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          direction: TextDirection.rtl,
+          labels: arabic,
+          showSkip: true,
+          actions: const ShowCaseDefaultActions(),
+        ),
+      );
+      await startTour(tester, key);
+
+      for (final label in ['التالي', 'السابق', 'إنهاء', 'تخطي']) {
+        expect(find.text(label), findsOneWidget, reason: label);
+      }
+      for (final english in ['Next', 'Previous', 'Stop', 'Skip']) {
+        expect(find.text(english), findsNothing, reason: english);
+      }
+    });
+
+    testWidgets("a button's own text wins over the labels", (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        app(
+          stepKey: key,
+          labels: arabic,
+          actions: const ShowCaseDefaultActions(next: ActionButtonConfig(text: 'Go')),
+        ),
+      );
+      await startTour(tester, key);
+
+      expect(find.text('Go'), findsOneWidget);
+      expect(find.text('التالي'), findsNothing);
+      expect(find.text('السابق'), findsOneWidget, reason: 'the other buttons still use the labels');
+    });
+
+    testWidgets('labels reach buttons built by globalActions', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, labels: arabic, globalActions: (_) => const ShowCaseDefaultActions()));
+      await startTour(tester, key);
+
+      expect(find.text('التالي'), findsOneWidget);
+      expect(find.text('Next'), findsNothing);
+    });
+
+    testWidgets('the deprecated skipButtonText still wins over labels.skip', (tester) async {
+      final key = GlobalKey();
+      await tester.pumpWidget(app(stepKey: key, labels: arabic, skipButtonText: 'Skip tour', showSkip: true));
+      final state = await startTour(tester, key);
+
+      expect(find.text('Skip tour'), findsOneWidget);
+      expect(find.text('تخطي'), findsNothing);
+      expect(state.labels.skip, 'Skip tour');
+      expect(state.labels.next, 'التالي', reason: 'only the Skip label is replaced');
+    });
+
+    testWidgets('changing labels mid-tour updates const buttons', (tester) async {
+      final key = GlobalKey();
+      var labels = const ShowcaseLabels();
+      late StateSetter setLabels;
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            setLabels = setState;
+            return app(stepKey: key, labels: labels, showSkip: true, actions: const ShowCaseDefaultActions());
+          },
+        ),
+      );
+      await startTour(tester, key);
+      expect(find.text('Next'), findsOneWidget);
+
+      setLabels(() => labels = arabic);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('التالي'), findsOneWidget);
+      expect(find.text('تخطي'), findsOneWidget);
+      expect(find.text('Next'), findsNothing);
+    });
+
+    test('ShowcaseLabels has English defaults, value equality and copyWith', () {
+      const labels = ShowcaseLabels();
+      expect([labels.next, labels.previous, labels.stop, labels.skip], ['Next', 'Previous', 'Stop', 'Skip']);
+      expect(labels, const ShowcaseLabels(next: 'Next'));
+      expect(labels.hashCode, const ShowcaseLabels().hashCode);
+      expect(labels.copyWith(skip: 'تخطي'), const ShowcaseLabels(skip: 'تخطي'));
+      expect(labels.copyWith(), labels);
+      expect(labels == arabic, isFalse);
+    });
+  });
+
   group('tour-wide action buttons', () {
     const globalKeyed = ValueKey('global-actions');
     const perStepKeyed = ValueKey('per-step-actions');
@@ -4207,4 +5369,26 @@ class _CounterState extends State<_Counter> {
 
   @override
   Widget build(BuildContext context) => Text('$value');
+}
+
+/// A screen passed straight to [ShowCaseWidget.builder], with no [Builder]
+/// around it. It reaches the controller through its own context.
+class _PlainHome extends StatelessWidget {
+  const _PlainHome({required this.stepKey});
+
+  final GlobalKey stepKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final show = ShowCaseWidget.of(context);
+    return Scaffold(
+      body: Column(
+        children: [
+          Text('steps: ${show.totalSteps}'),
+          Showcase(key: stepKey, title: 'Plain', description: 'd', child: const Text('target')),
+          TextButton(onPressed: () => ShowCaseWidget.of(context).startShowCase([stepKey]), child: const Text('start')),
+        ],
+      ),
+    );
+  }
 }

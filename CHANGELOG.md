@@ -1,5 +1,104 @@
 # Changelog
 
+## 2.0.0
+
+A tour that matches your app: its colours follow your theme in light and dark
+mode, its buttons follow right-to-left layouts and speak your language, and a
+tour can pick up where the user left off.
+
+**Most apps need no code changes**, but the tour looks different after
+upgrading. See **Upgrading from 1.x** below.
+
+### New
+
+* **Colours follow your theme.** Any colour you don't set comes from your
+  app's `material_ui` `ColorScheme`, so the tour matches your app and switches
+  with light and dark mode. A step that is showing while the app switches is
+  recoloured at once.
+
+  | Part of the tour | Before | Now |
+  | --- | --- | --- |
+  | Tooltip background | white | `surfaceContainerHigh`, the surface a dialog has |
+  | Title, description, progress, Skip | black | `onSurface` |
+  | Action button labels and icons | light blue `0xff48cae4` | `primary` |
+  | Divider between action buttons | pale blue `0xffcaf0f8` | `outlineVariant` |
+  | Dimmed background | black | `scrim` (black unless your theme changes it) |
+
+  A colour you set still wins, per step or in `ShowcaseStyle`. If you set a
+  tooltip background but no text colour, the text is white or black,
+  whichever can be read on it. Buttons on a background you chose, or directly
+  on the dimmed background, are picked the same way, and so are the pulse ring
+  and the scroll spinner.
+* **Every colour in one place.** `ShowcaseStyle` gains `overlayColor`,
+  `actionTextColor`, `actionDividerColor` and `loadingIndicatorColor`.
+* **Translate the tour once.** `ShowCaseWidget.labels` takes a
+  `ShowcaseLabels(next:, previous:, stop:, skip:)` for the built-in buttons.
+  A button's own `ActionButtonConfig.text` still wins. Labels update while the
+  tour is showing if the app changes language. An icon-only button now has its
+  label for screen readers.
+* **Resume a tour.** `startShowCase(keys, startAt: savedIndex)` opens the tour
+  on that step. Save the index in `onStart` and clear it in `onFinish` /
+  `onDismiss`. A saved index that no longer fits (say, after an update made
+  the tour shorter) is clamped to the first or last step instead of failing.
+* **`builder` takes any widget.** `builder: const HomePage()` works; you no
+  longer need `Builder(builder: (context) => const HomePage())`, though it
+  still works.
+
+### Fixed
+
+* **Right-to-left apps:** the built-in buttons forced left-to-right inside
+  each button, so in Arabic or Hebrew the icon sat on the wrong side of its
+  label. They now follow the app's direction.
+* **A button label no longer breaks mid-word** ("Previou" / "s") in a narrow
+  tooltip. Labels stay on one line, the tooltip is made wide enough for the
+  built-in buttons, and a label that still doesn't fit is shrunk slightly
+  (never below 70%) and then shortened with "…".
+* **Action button icons take the label's colour.** On the dimmed background
+  the labels were readable but the icons were not. An icon with its own colour
+  keeps it.
+
+### Upgrading from 1.x
+
+* **The tour looks different.** To keep the 1.x look, set it once:
+
+  ```dart
+  ShowCaseWidget(
+    style: const ShowcaseStyle(
+      tooltipBackgroundColor: Colors.white,
+      textColor: Colors.black,
+      actionTextColor: Color(0xff48cae4),
+      actionDividerColor: Color(0xffcaf0f8),
+    ),
+    builder: const HomePage(),
+  );
+  ```
+
+  Apps without a `material_ui` theme (for example, still on `MaterialApp` from
+  `package:flutter/material.dart`) keep the 1.x colours.
+* **The built-in buttons changed shape slightly.** Text-only and icon-only
+  buttons are centred, tooltips with built-in buttons may be a little wider so
+  the labels fit, and `ActionsSettings.containerColor` now defaults to the
+  tooltip's colour instead of white (pass `Colors.transparent` for none).
+* **Right-to-left apps:** the icon in each built-in button now sits on the
+  right of its label. Pass `textDirection: TextDirection.ltr` to a button's
+  `ActionButtonConfig` to keep the old order.
+* **Deprecated, removed in 3.0.0:**
+  * `ShowCaseWidget.skipButtonText`: use `labels: ShowcaseLabels(skip: ...)`.
+    It still works and wins over `labels.skip`.
+  * `ShowCaseWidget.disableBarrierInteraction`: use
+    `barrierInteraction: BarrierInteraction.none`.
+* **Types.** Only code that reads these back (rather than passing them) can
+  break:
+  * Now nullable, where `null` means "follow the theme" or "follow the app":
+    `Showcase.overlayColor`, `Showcase.scrollLoadingWidget`,
+    `ActionButtonConfig.textColor`, `ActionButtonConfig.textDirection`,
+    `ShowCaseDefaultActions.verticalDividerColor` and
+    `ShowCaseWidget.skipButtonText`.
+  * `ShowCaseWidget.onStart` / `onComplete` are typed `ShowcaseStepCallback`
+    (`void Function(int? index, GlobalKey key)`) instead of an untyped
+    `Function`.
+  * `ShowCaseWidget.builder` is typed `Widget` instead of `Builder`.
+
 ## 1.16.0
 
 Skip or wait for missing steps one by one, and theming help for apps still on

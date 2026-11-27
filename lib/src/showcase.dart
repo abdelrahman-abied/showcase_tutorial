@@ -34,6 +34,7 @@ import '../showcase_tutorial.dart';
 import 'get_position.dart';
 import 'shape_clipper.dart';
 import 'tooltip_widget.dart';
+import 'utilities/_showcase_colors.dart';
 import 'utilities/_showcase_context_provider.dart';
 
 /// Highlights its [child] as a single step of a showcase tour.
@@ -132,7 +133,8 @@ class Showcase extends StatefulWidget {
   /// Color of the pulsing ring (see [enablePulseAnimation]).
   ///
   /// Falls back to [ShowCaseWidget.style] ([ShowcaseStyle.pulseColor]), then to
-  /// [Colors.white].
+  /// white or black, whichever shows against the dimmed background (white on
+  /// the default one).
   final Color? pulseColor;
 
   /// Duration of one full pulse cycle (see [enablePulseAnimation]). A smaller
@@ -188,10 +190,15 @@ class Showcase extends StatefulWidget {
   /// ```
   final EdgeInsets tooltipPadding;
 
-  /// Background color of overlay during showcase.
+  /// Color of the dimmed background drawn behind the step.
   ///
-  /// Default value is [Colors.black45]
-  final Color overlayColor;
+  /// Its own opacity is ignored: [overlayOpacity] sets how see-through it is.
+  ///
+  /// When `null` (the default) it falls back to [ShowCaseWidget.style]
+  /// ([ShowcaseStyle.overlayColor]), then to the `scrim` colour of the app's
+  /// theme (black unless the theme changes it), or black in an app without a
+  /// `material_ui` theme.
+  final Color? overlayColor;
 
   /// Opacity apply on [overlayColor] (which ranges from 0.0 to 1.0)
   ///
@@ -203,18 +210,29 @@ class Showcase extends StatefulWidget {
 
   /// Defines background color for tooltip widget.
   ///
-  /// Falls back to [ShowCaseWidget.style], then to [Colors.white].
+  /// Falls back to [ShowCaseWidget.style], then to the app's theme
+  /// (`colorScheme.surfaceContainerHigh`, the surface a dialog has), so the
+  /// tooltip matches the app in light and dark mode. In an app without a
+  /// `material_ui` theme it is white.
   final Color? tooltipBackgroundColor;
 
   /// Defines text color of default tooltip when [titleTextStyle] and
-  /// [descTextStyle] is not provided.
+  /// [descTextStyle] is not provided. It also colours the progress indicator
+  /// and the Skip label.
   ///
-  /// Falls back to [ShowCaseWidget.style], then to [Colors.black].
+  /// Falls back to [ShowCaseWidget.style], then to the app's theme
+  /// (`colorScheme.onSurface`). If you set [tooltipBackgroundColor] but not
+  /// this, it is white or black, whichever is readable on your background. In
+  /// an app without a `material_ui` theme it is black.
   final Color? textColor;
 
   /// If [ShowCaseWidget.enableAutoScroll] is sets to `true`, this widget will be shown above
   /// the overlay until the target widget is visible in the viewport.
-  final Widget scrollLoadingWidget;
+  ///
+  /// When `null` (the default) it is a [CircularProgressIndicator] coloured
+  /// with [ShowcaseStyle.loadingIndicatorColor], or else white or black,
+  /// whichever shows against the dimmed background.
+  final Widget? scrollLoadingWidget;
 
   /// Whether the default tooltip will have arrow to point out the target widget.
   ///
@@ -439,8 +457,8 @@ class Showcase extends StatefulWidget {
   /// is inert ([BarrierInteraction.none]) because the user must interact with
   /// the target.
   ///
-  /// Takes precedence over the tour-wide setting, including the legacy
-  /// [ShowCaseWidget.disableBarrierInteraction] flag. Does not suppress
+  /// Takes precedence over the tour-wide setting, including the deprecated
+  /// `ShowCaseWidget.disableBarrierInteraction` flag. Does not suppress
   /// [ShowCaseWidget.onBarrierClick], which still fires on every barrier tap.
   /// Defaults to `null`, which uses the tour-wide behaviour.
   final BarrierInteraction? barrierInteraction;
@@ -481,13 +499,13 @@ class Showcase extends StatefulWidget {
     this.descriptionAlignment = TextAlign.start,
     this.targetShapeBorder = const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
     this.highlightExactShape = false,
-    this.overlayColor = Colors.black45,
+    this.overlayColor,
     this.overlayOpacity = 0.75,
     this.titleTextStyle,
     this.descTextStyle,
     this.tooltipBackgroundColor,
     this.textColor,
-    this.scrollLoadingWidget = const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.white)),
+    this.scrollLoadingWidget,
     this.showArrow = true,
     this.onTargetClick,
     this.disposeOnTap,
@@ -558,7 +576,7 @@ class Showcase extends StatefulWidget {
     required this.width,
     this.targetShapeBorder = const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
     this.highlightExactShape = false,
-    this.overlayColor = Colors.black45,
+    this.overlayColor,
     this.targetBorderRadius,
     this.enablePulseAnimation = false,
     this.pulseColor,
@@ -566,7 +584,7 @@ class Showcase extends StatefulWidget {
     this.highlightBorderColor,
     this.highlightBorderWidth,
     this.overlayOpacity = 0.75,
-    this.scrollLoadingWidget = const CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Colors.white)),
+    this.scrollLoadingWidget,
     this.onTargetClick,
     this.disposeOnTap,
     this.movingAnimationDuration = const Duration(milliseconds: 2000),
@@ -681,6 +699,13 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   /// [_isRouteSettled] as of the last visibility check.
   bool _wasRouteSettled = true;
 
+  /// The theme colours for anything the developer left unset, resolved once
+  /// per showing of the step rather than on every overlay build: finding out
+  /// whether the app has a `material_ui` theme is a walk up the tree. Cleared
+  /// when the theme changes ([didChangeDependencies]) and when the overlay is
+  /// removed.
+  ShowcaseColors? _colors;
+
   @override
   void dispose() {
     _unwatchRoute();
@@ -707,6 +732,8 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // The theme is one of the dependencies, so the colours may be stale.
+    _colors = null;
     _enableShowcase = showCaseWidgetState.enableShowcase;
     if (_enableShowcase) {
       position ??= GetPosition(
@@ -1060,6 +1087,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   void _removeOverlayEntry() {
     final entry = _overlayEntry;
     _overlayEntry = null;
+    _colors = null;
     if (entry != null && entry.mounted) entry.remove();
   }
 
@@ -1254,6 +1282,19 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     // Resolve the optional highlight border (per-Showcase wins, then the global
     // ShowcaseStyle). A null color means no border is drawn.
     final style = showcaseState.style;
+
+    // Anything the step and the tour-wide style leave unset follows the app's
+    // theme, so the tour matches the app in light and dark mode.
+    final colors = _colors ??= ShowcaseColors.of(context);
+    final scrimColor = widget.overlayColor ?? style.overlayColor ?? colors.scrim;
+    final onScrimColor = colors.onScrim(scrimColor);
+    final chosenTooltipBackground = widget.tooltipBackgroundColor ?? style.tooltipBackgroundColor;
+    final tooltipBackground = chosenTooltipBackground ?? colors.tooltipBackground;
+    final textColor =
+        widget.textColor ??
+        style.textColor ??
+        colors.textOn(tooltipBackground, isThemeBackground: chosenTooltipBackground == null);
+
     final highlightBorderColor = widget.highlightBorderColor ?? style.highlightBorderColor;
     final highlightBorderWidth = widget.highlightBorderWidth ?? style.highlightBorderWidth ?? 2.0;
 
@@ -1289,13 +1330,14 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     final scrim = SizedBox(
       width: screen.width,
       height: screen.height,
-      child: ColoredBox(color: widget.overlayColor.withValues(alpha: widget.overlayOpacity)),
+      child: ColoredBox(color: scrimColor.withValues(alpha: widget.overlayOpacity)),
     );
 
     final Widget overlay = Directionality(
       textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
       child: ShowcaseContextProvider(
         context: context,
+        labels: showcaseState.labels,
         child: Stack(
           children: [
             GestureDetector(
@@ -1334,7 +1376,14 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                 ),
               ),
             ),
-            if (_isScrollRunning) Center(child: widget.scrollLoadingWidget),
+            if (_isScrollRunning)
+              Center(
+                child:
+                    widget.scrollLoadingWidget ??
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation(style.loadingIndicatorColor ?? onScrimColor),
+                    ),
+              ),
             if (!_isScrollRunning) ...[
               if (widget.enablePulseAnimation)
                 _withCutOut(
@@ -1344,7 +1393,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                     targetRect: _paddedRect(cutOut),
                     isCircle: widget.targetShapeBorder is CircleBorder,
                     borderRadius: widget.targetBorderRadius,
-                    color: widget.pulseColor ?? showcaseState.style.pulseColor ?? Colors.white,
+                    color: widget.pulseColor ?? style.pulseColor ?? onScrimColor,
                     duration: widget.pulseDuration,
                   ),
                 ),
@@ -1385,9 +1434,13 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                 titleTextStyle: widget.titleTextStyle ?? showcaseState.style.titleTextStyle,
                 descTextStyle: widget.descTextStyle ?? showcaseState.style.descTextStyle,
                 container: widget.container,
-                tooltipBackgroundColor:
-                    widget.tooltipBackgroundColor ?? showcaseState.style.tooltipBackgroundColor ?? Colors.white,
-                textColor: widget.textColor ?? showcaseState.style.textColor ?? Colors.black,
+                tooltipBackgroundColor: tooltipBackground,
+                isThemeBackground: chosenTooltipBackground == null,
+                textColor: textColor,
+                colors: colors,
+                scrimColor: scrimColor,
+                actionTextColor: style.actionTextColor,
+                actionDividerColor: style.actionDividerColor,
                 showArrow: widget.showArrow,
                 arrowColor: widget.arrowColor ?? style.arrowColor,
                 arrowWidth: widget.arrowWidth ?? style.arrowWidth ?? 18.0,
@@ -1418,7 +1471,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                 showProgress: showcaseState.showProgress,
                 progressStyle: showcaseState.progressStyle,
                 showSkip: showcaseState.showSkip,
-                skipText: showcaseState.skipButtonText,
+                skipText: showcaseState.labels.skip,
                 currentStep: showcaseState.currentIndex ?? 0,
                 totalSteps: showcaseState.totalSteps,
                 onSkip: _dismissShowcaseTour,

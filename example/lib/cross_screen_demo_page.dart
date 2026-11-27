@@ -14,11 +14,9 @@ class CrossScreenDemoPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ShowCaseWidget(
-      builder: Builder(
-        builder: (context) => Navigator(
-          onGenerateRoute: (_) =>
-              MaterialPageRoute<void>(builder: (_) => const _InboxScreen()),
-        ),
+      builder: Navigator(
+        onGenerateRoute: (_) =>
+            MaterialPageRoute<void>(builder: (_) => const _InboxScreen()),
       ),
     );
   }

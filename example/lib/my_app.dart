@@ -13,7 +13,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter ShowCase',
-      theme: ThemeData(primaryColor: const Color(0xff0077b6)),
+      // The tour takes its colours from this theme: anything a step doesn't
+      // set itself (tooltip, text, buttons) follows the colour scheme.
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xff0077b6)),
+        primaryColor: const Color(0xff0077b6),
+      ),
       debugShowCheckedModeBanner: false,
       home: Scaffold(
         body: ShowCaseWidget(
@@ -32,7 +37,7 @@ class MyApp extends StatelessWidget {
             }
           },
           blurValue: 1,
-          builder: Builder(builder: (context) => const MailPage()),
+          builder: const MailPage(),
           autoPlayDelay: const Duration(seconds: 3),
         ),
       ),

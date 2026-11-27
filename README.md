@@ -38,9 +38,13 @@ Animated step transitions — the default instant cut (left) vs `enableStepTrans
 - **Tooltip & highlight styling** — custom arrow color/size, a colored border
   around the target, custom scrim color and opacity.
 - **Highlight multiple widgets in one step** (e.g. a multi-select control).
-- **Global tooltip styling** with `ShowcaseStyle` — set it once, not per step.
+- **Matches your app** — the tooltip, text, buttons and dimmed background take
+  their colours from your theme, in light and dark mode, with nothing to set.
+- **Global styling** with `ShowcaseStyle` — set any colour once, not per step.
 - Built-in **action buttons** (Next / Previous / Stop) with customizable text,
   icons, and layout.
+- **Translate the tour once** — give every button its text in one place with
+  `ShowcaseLabels`.
 - Built-in **progress indicator** (dots or a `1/6` counter) and a **Skip** button
   in the default tooltip.
 - **Floating action widget** — a screen-anchored control (e.g. a fixed Skip /
@@ -56,8 +60,8 @@ Animated step transitions — the default instant cut (left) vs `enableStepTrans
 - **Introspection** — register/unregister step listeners at runtime, track the
   highlighted target's bounds with `onTargetRectUpdate`, and check whether a
   step's target is on screen with `isTargetRendered`.
-- **Run the tour only once** for onboarding, and **auto-skip** steps whose target
-  isn't on screen.
+- **Run the tour only once** for onboarding, **resume it** where the user left
+  off, and **auto-skip** steps whose target isn't on screen.
 - **Accessibility** built in — keyboard navigation (Esc / arrows / Enter) and
   screen-reader announcements.
 - **Web / desktop polish** — a click cursor on the parts of the tour that react
@@ -65,19 +69,18 @@ Animated step transitions — the default instant cut (left) vs `enableStepTrans
 - **Target interaction callbacks**: tap, double-tap, long-press.
 - **Enable/disable** the whole tour with a single flag.
 
-## What's new in 1.14.0
-
-Everything below is additive and backward-compatible — each new option defaults
-to the previous behavior, so upgrading changes nothing until you opt in.
+## What's new in 2.0.0
 
 | Feature | What you get |
 | ------- | ------------ |
-| [Animated step transitions](#animated-step-transitions) | `enableStepTransition` glides the highlight from one target to the next instead of cutting, with `stepTransitionDuration` / `stepTransitionCurve`. |
-| [Pointer cursor](#pointer-cursor-web--desktop) | A click cursor on the parts of the tour that react to a click (web/desktop), with `enablePointerCursor` and per-step `targetMouseCursor` / `tooltipMouseCursor`. |
-| [Runtime step listeners](#listening-from-anywhere-in-the-tree) | `addOnStartCallback` / `addOnCompleteCallback` (and their `remove…` pairs) let a widget deep in the tree observe the tour and unregister when it goes away. |
-| [Target bounds](#following-the-highlighted-target) | `Showcase.onTargetRectUpdate` reports the highlight's global `Rect` as it moves, for anchoring your own UI to it. |
-| [Layout checks](#api-reference) | `isTargetRendered(key)` tells you whether a step's target is mounted **and** laid out; `previousTargetRect` exposes the step the tour just left. |
-| [Per-step barrier](#background-barrier-tap-behavior) | `Showcase.barrierInteraction` overrides the tour-wide background-tap behavior for a single step. |
+| [Colours from your theme](#colours-and-your-apps-theme) | The tooltip, text, buttons and dimmed background follow your app's colour scheme, in light and dark mode, with nothing to set. Every colour can still be set, once, in `ShowcaseStyle`. |
+| [Translating the tour](#translating-the-tour) | `ShowCaseWidget.labels` sets the text of the built-in Next / Previous / Stop / Skip buttons in one place. |
+| [Right-to-left buttons](#right-to-left-rtl) | The built-in buttons follow your app's direction, and their labels never break mid-word. |
+| [Resume where the user left off](#resume-where-the-user-left-off) | `startShowCase(keys, startAt: savedIndex)` opens the tour on a saved step. |
+
+2.0.0 changes how the tour looks and has a few small API changes. The
+[changelog](https://pub.dev/packages/showcase_tutorial/changelog) lists them,
+with the four lines that bring back the 1.x look.
 
 ## Table of contents
 
@@ -86,14 +89,17 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 - [Custom tooltip](#custom-tooltip-with-showcasewithwidget)
 - [Action buttons](#action-buttons-next--previous--stop)
 - [Progress indicator & Skip button](#progress-indicator--skip-button)
+- [Translating the tour](#translating-the-tour)
 - [Floating action widget](#floating-action-widget)
 - [Exact-shape highlight](#exact-shape-highlight)
 - [Pulsing highlight ring](#pulsing-highlight-ring)
 - [Animated step transitions](#animated-step-transitions)
 - [Tooltip & highlight styling](#tooltip--highlight-styling)
 - [Highlight multiple widgets in one step](#highlight-multiple-widgets-in-one-step)
+- [Colours and your app's theme](#colours-and-your-apps-theme)
 - [Global styling with `ShowcaseStyle`](#global-styling-with-showcasestyle)
 - [Run the tour only once](#run-the-tour-only-once)
+- [Resume where the user left off](#resume-where-the-user-left-off)
 - [Auto play](#auto-play)
 - [Programmatic control & progress](#programmatic-control--progress)
 - [Conditional / branching tours](#conditional--branching-tours)
@@ -119,7 +125,7 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^1.16.0
+     showcase_tutorial: ^2.0.0
    ```
 
    Or from the command line:
@@ -142,7 +148,10 @@ to the previous behavior, so upgrading changes nothing until you opt in.
 the tour works, but the tooltip can't see your app's theme. `material_ui` keeps
 its own `Theme`, separate from the old one, and the old one exposes nothing the
 package can read without importing the deprecated library. So the default
-title and description text uses the default Material fonts instead of yours.
+title and description text uses the default Material fonts instead of yours,
+and the tour uses fixed colours (a white tooltip with black text) instead of
+[following your theme](#colours-and-your-apps-theme). Set the colours you want
+through `ShowcaseStyle` too.
 
 The best fix is to migrate: `dart fix --apply --code=migrate_design_widgets`.
 Until then, pass your text styles once through `ShowcaseStyle`, from somewhere
@@ -163,10 +172,10 @@ ShowCaseWidget(
 
 These styles replace the default title and description styles, so `textColor`
 no longer colours that text (it still colours the progress indicator and the
-Skip label). Set the colour in the style itself: the tooltip is white by
-default, and a dark theme's text is usually white too. Once your app uses `material_ui`'s
-`MaterialApp`, you can delete these two lines: the tooltip then follows your
-theme by itself.
+Skip label). Set the colour in the style itself: without a `material_ui`
+theme the tooltip is white, and a dark theme's text is usually white too. Once
+your app uses `material_ui`'s `MaterialApp`, you can delete these two lines:
+the tooltip then follows your theme by itself.
 
 ## Getting started
 
@@ -176,7 +185,33 @@ A tour is three small steps: wrap the screen, wrap each target, then start.
 
 ```dart
 ShowCaseWidget(
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
+);
+```
+
+`builder` takes any widget. Widgets inside it, like `HomePage`, can call
+`ShowCaseWidget.of(context)` from their own `build`. If you build the screen
+inline and need `ShowCaseWidget.of(context)` right there, wrap it in a
+`Builder` so that `context` is below the `ShowCaseWidget`. Code that already
+passes a `Builder` keeps working.
+
+```dart
+ShowCaseWidget(
+  builder: Builder(
+    builder: (context) => Column(
+      children: [
+        Showcase(
+          key: _one,
+          description: 'Tap here to open the menu',
+          child: const Icon(Icons.menu),
+        ),
+        ElevatedButton(
+          onPressed: () => ShowCaseWidget.of(context).startShowCase([_one]),
+          child: const Text('Start tour'),
+        ),
+      ],
+    ),
+  ),
 );
 ```
 
@@ -266,18 +301,38 @@ Showcase(
     next: ActionButtonConfig(
       text: 'Next',
       icon: const Icon(Icons.arrow_forward, size: 16),
+      // In an LTR app, puts the arrow after the text. Leave it out to follow the app.
       textDirection: TextDirection.rtl,
     ),
     previous: const ActionButtonConfig(text: 'Back'),
     stop: const ActionButtonConfig(text: 'Skip'),
   ),
-  actionSettings: const ActionsSettings(
-    containerColor: Colors.white,
-    containerHeight: 40,
-  ),
+  actionSettings: const ActionsSettings(containerHeight: 40),
   child: const Icon(Icons.menu),
 );
 ```
+
+Each button puts its icon first. By default it follows your app's text
+direction, so the icon is on the left in an English app and on the right in an
+Arabic or Hebrew one, and the whole row mirrors too (Previous on the right).
+Set `textDirection` on one button to choose its order yourself. The value is
+the actual order, not relative to your app: `TextDirection.rtl` puts the icon
+on the right, after the text, in an English app, but in an Arabic app it is the
+same as leaving it out. There, `TextDirection.ltr` puts the arrow after the
+text.
+
+The tooltip is made wide enough for the buttons' labels. If a label still does
+not fit its button, for example a long translation on a narrow phone, it stays
+on one line instead of breaking in the middle of a word: it gets smaller, down
+to 70% of its size, and past that it ends with "…". The button itself keeps its
+size, so it is just as easy to tap. With `buttonTextVisible: false` the button shows
+only its icon, and screen readers still read its label.
+
+The buttons [follow your theme](#colours-and-your-apps-theme). To colour them
+yourself, set `ActionButtonConfig.textColor` on a button, or
+`ShowcaseStyle.actionTextColor` for the whole tour. With `ActionsSettings`,
+buttons outside the tooltip get a box in the tooltip's colour
+(`containerColor` changes it); without it they sit on the dimmed background.
 
 ### Set the buttons once for the whole tour
 
@@ -290,7 +345,7 @@ ShowCaseWidget(
   globalActionSettings: const ActionsSettings(containerHeight: 40),
   // Steps that should not offer the buttons, e.g. a final "you're done" step.
   hideActionsForShowcase: [_last],
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -309,7 +364,7 @@ they flow below the description and the tooltip grows to contain them:
 ShowCaseWidget(
   globalActions: (context) => const ShowCaseDefaultActions(),
   actionsPosition: TooltipActionPosition.inside,
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -339,8 +394,9 @@ ShowCaseWidget(
   // dots (default) or a "1/6" counter:
   progressStyle: ShowcaseProgressStyle.numeric,
   showSkip: true,               // a "Skip" button that ends the whole tour
-  skipButtonText: 'Skip tour',  // optional, defaults to 'Skip'
-  builder: Builder(builder: (context) => const HomePage()),
+  // optional, the button says 'Skip' by default:
+  labels: const ShowcaseLabels(skip: 'Skip tour'),
+  builder: const HomePage(),
 );
 ```
 
@@ -350,6 +406,43 @@ The indicator uses the tooltip's text color and reflects `currentIndex` /
 default) or `ShowcaseProgressStyle.numeric` (a compact `1/6` counter, handy for
 long tours). This affects the **default** tooltip only; a custom `container`
 tooltip is left untouched.
+
+## Translating the tour
+
+The built-in buttons say Next, Previous, Stop and Skip. To show them in your
+app's language, pass `labels` to `ShowCaseWidget` once. Every button in the
+tour uses them: the ones in `Showcase.actions`, the ones from `globalActions`,
+and the Skip button.
+
+```dart
+ShowCaseWidget(
+  labels: const ShowcaseLabels(
+    next: 'التالي',
+    previous: 'السابق',
+    stop: 'إنهاء',
+    skip: 'تخطي',
+  ),
+  showSkip: true,
+  globalActions: (context) => const ShowCaseDefaultActions(),
+  builder: const HomePage(),
+);
+```
+
+Any label you leave out stays in English. If you use Flutter's localizations,
+build the labels from them, e.g. `ShowcaseLabels(next: l10n.next, ...)`.
+When the app switches language, the buttons on screen change straight away.
+
+A button's own `ActionButtonConfig.text` wins over `labels`, so one step can
+still say something else, e.g. `next: ActionButtonConfig(text: 'Finish')` on
+the last step.
+
+In an Arabic or Hebrew app the buttons and the Skip / progress row also follow
+the right-to-left direction, with no extra setting (see
+[Right-to-left](#right-to-left-rtl)).
+
+`skipButtonText` still works, and when you set it, it wins over
+`labels.skip`. It is deprecated and will be removed in 3.0.0; use
+`labels: ShowcaseLabels(skip: ...)` instead.
 
 ## Floating action widget
 
@@ -373,7 +466,7 @@ ShowCaseWidget(
       ),
     ),
   ),
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -471,7 +564,7 @@ ShowCaseWidget(
   enableStepTransition: true,
   stepTransitionDuration: const Duration(milliseconds: 300), // default
   stepTransitionCurve: Curves.easeInOut,                     // default
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -520,8 +613,9 @@ The border follows the highlight's shape (`targetShapeBorder` /
 Set any of these once for the whole tour via `ShowcaseStyle`, e.g.
 `ShowCaseWidget(style: ShowcaseStyle(arrowColor: ..., highlightBorderColor: ...))`.
 
-> The per-step overlay (scrim) color is controlled by `Showcase.overlayColor`
-> and `overlayOpacity`.
+> The dimmed background's color is `Showcase.overlayColor` (or
+> `ShowcaseStyle.overlayColor` for the whole tour), and `overlayOpacity` sets
+> how see-through it is.
 
 ## Highlight multiple widgets in one step
 
@@ -553,12 +647,57 @@ MultiView(key: extraTwo, child: FloatingActionButton(onPressed: () {}));
 > the step starts so their keys resolve. A widget that is missing is simply
 > skipped — the remaining ones are still highlighted.
 
+## Colours and your app's theme
+
+A tour matches your app without any styling. Every colour you don't set comes
+from your app's theme (`ThemeData.colorScheme`), so the tour follows your
+brand colours and switches with light and dark mode:
+
+| Part of the tour                      | Colour it takes from your theme                  |
+| ------------------------------------- | ------------------------------------------------ |
+| Tooltip background (and its arrow)    | `surfaceContainerHigh`, the surface a dialog has |
+| Title, description, progress, Skip    | `onSurface`                                      |
+| Action button labels                  | `primary`                                        |
+| Divider between action buttons        | `outlineVariant`                                 |
+| Dimmed background                     | `scrim` (black unless your theme changes it)     |
+| Pulse ring, scroll spinner            | white or black, whichever shows on the dimmed background |
+
+A colour you set always wins, and the tour keeps your choice readable:
+
+- Set a tooltip background without a text colour, and the text is white or
+  black, whichever can be read on it.
+- Action buttons on a background you chose, or directly on the dimmed
+  background, are white or black the same way.
+
+To set colours yourself, use the step's own properties or, once for the whole
+tour, [`ShowcaseStyle`](#global-styling-with-showcasestyle).
+
+> **Upgrading from 1.16 or earlier?** The tooltip used to be white with black
+> text, and the action buttons light blue, whatever your theme. To keep that
+> look, set it once:
+>
+> ```dart
+> ShowCaseWidget(
+>   style: const ShowcaseStyle(
+>     tooltipBackgroundColor: Colors.white,
+>     textColor: Colors.black,
+>     actionTextColor: Color(0xff48cae4),
+>     actionDividerColor: Color(0xffcaf0f8),
+>   ),
+>   builder: ...,
+> );
+> ```
+
+The colours come from `material_ui`'s theme. An app without one (for example,
+one still on `MaterialApp` from `package:flutter/material.dart`) keeps the
+fixed colours above.
+
 ## Global styling with `ShowcaseStyle`
 
-Instead of repeating the same tooltip styling on every `Showcase`, set it once
-on the `ShowCaseWidget` with `ShowcaseStyle`. Each `Showcase` still overrides
-any value it provides; anything left unset falls back to the style, then to the
-built-in default.
+Instead of repeating the same styling on every `Showcase`, set it once on the
+`ShowCaseWidget` with `ShowcaseStyle`. Each `Showcase` still overrides any
+value it provides; anything left unset falls back to the style, then to
+[your app's theme](#colours-and-your-apps-theme).
 
 ```dart
 ShowCaseWidget(
@@ -567,11 +706,25 @@ ShowCaseWidget(
     textColor: Colors.white,
     tooltipBorderRadius: BorderRadius.all(Radius.circular(12)),
   ),
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
-Resolution order for each value: **`Showcase` → `ShowcaseStyle` → built-in default**.
+Every colour of a tour can be set here:
+
+| `ShowcaseStyle` property | What it colours                                        |
+| ------------------------ | ------------------------------------------------------ |
+| `tooltipBackgroundColor` | The default tooltip.                                   |
+| `textColor`              | Title, description, progress indicator and Skip label. |
+| `arrowColor`             | The tooltip's arrow (defaults to the tooltip's colour).|
+| `actionTextColor`        | Labels of the default action buttons.                  |
+| `actionDividerColor`     | The divider between the default action buttons.        |
+| `overlayColor`           | The dimmed background.                                 |
+| `pulseColor`             | The pulsing highlight ring.                            |
+| `highlightBorderColor`   | The border around the target (none by default).        |
+| `loadingIndicatorColor`  | The spinner shown while the tour scrolls to a target.  |
+
+Resolution order for each value: **`Showcase` → `ShowcaseStyle` → your app's theme**.
 
 ## Run the tour only once
 
@@ -587,7 +740,7 @@ ShowCaseWidget(
   onShouldStartShowcase: (id) async =>
       !(prefs.getBool(id!) ?? false),       // skip if already seen
   onFinish: () => prefs.setBool('home_v1', true),
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -599,6 +752,51 @@ returns `false`. The guard may be synchronous or asynchronous. To force a replay
 ShowCaseWidget.of(context).startShowCase([_one, _two], force: true);
 ```
 
+## Resume where the user left off
+
+If the user leaves the app in the middle of a tour, you can open the tour on
+the same step next time with `startAt`. Save the step index when each step
+starts, clear it when the tour ends, and pass it back to `startShowCase`. As
+with "only once", the package stores nothing: use any storage you like.
+
+```dart
+ShowCaseWidget(
+  // Remember the step the user is on.
+  onStart: (index, key) => prefs.setInt('home_tour_step', index ?? 0),
+  // The tour ended (finished or closed early): start from the top next time.
+  onFinish: () => prefs.remove('home_tour_step'),
+  onDismiss: (key) => prefs.remove('home_tour_step'),
+  builder: const HomePage(),
+);
+
+// Later, for example when HomePage opens:
+ShowCaseWidget.of(context).startShowCase(
+  [_one, _two, _three],
+  startAt: prefs.getInt('home_tour_step') ?? 0,
+);
+```
+
+A screen deeper in the tree can save the index with
+`ShowCaseWidget.of(context).addOnStartCallback(...)` instead of `onStart`.
+
+How a resumed tour behaves:
+
+- It opens directly on step `startAt`, with no glide from another target, and
+  `previous()` can still go back to the earlier steps.
+- `currentIndex`, the progress indicator and `onStart` report the real step: in
+  a five-step tour started at `2`, `currentIndex` is `2`, the numeric progress
+  counter shows `3/5` and `onStart` gets `2`.
+- `onShouldStartShowcase` still decides whether the tour starts, and
+  `force: true` still skips it.
+- `autoSkipUnmountedSteps` and `onShouldSkipUnmountedStep` work from `startAt`
+  forward, the same as from the first step. If every step from there on is
+  skipped, the tour finishes.
+- A `startAt` outside `0..keys.length - 1` is clamped, in debug and release
+  builds alike: below `0` opens the first step, past the end opens the last
+  step. A saved index can go out of range when an app update removes steps, so
+  you can pass it in without checking it, and the user stays in the tour
+  instead of it being marked finished.
+
 ## Auto play
 
 Advance through all steps automatically:
@@ -608,7 +806,7 @@ ShowCaseWidget(
   autoPlay: true,
   autoPlayDelay: const Duration(seconds: 3),
   enableAutoPlayLock: true, // block taps while auto-playing
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -656,7 +854,7 @@ ShowCaseWidget(
   // Fired only when the tour is closed early (barrier-dismiss, Esc, skip,
   // or dismiss()); `key` is the step the user left off on, or null.
   onDismiss: (key) => debugPrint('tour dismissed at $key'),
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -682,7 +880,7 @@ ShowCaseWidget(
     if (currentKey == cartKey && userHasItems) return checkoutKey;
     return null; // otherwise advance normally
   },
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -701,7 +899,7 @@ with `MaterialApp.builder`, so the steps on every page share it:
 ```dart
 MaterialApp(
   builder: (context, child) => ShowCaseWidget(
-    builder: Builder(builder: (context) => child!),
+    builder: child!,
   ),
   home: const HomePage(),
 );
@@ -834,12 +1032,12 @@ ShowCaseWidget(
   barrierInteraction: BarrierInteraction.dismiss, // tap background → end tour
   // BarrierInteraction.next    → advance (default)
   // BarrierInteraction.none    → ignore background taps
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
-> Shortcut: `disableBarrierInteraction: true` is equivalent to
-> `BarrierInteraction.none`.
+> `disableBarrierInteraction: true` is deprecated and will be removed in 3.0.0.
+> Use `barrierInteraction: BarrierInteraction.none` instead, which does the same.
 
 To run your own code on a background tap — a hint nudge, a sound, analytics — add
 `onBarrierClick`. It fires on every barrier tap **in addition to** the configured
@@ -849,7 +1047,7 @@ To run your own code on a background tap — a hint nudge, a sound, analytics �
 ShowCaseWidget(
   barrierInteraction: BarrierInteraction.none, // tap doesn't advance/dismiss…
   onBarrierClick: () => debugPrint('user tapped outside the highlight'), // …but you still hear about it
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -866,8 +1064,8 @@ Showcase(
 );
 ```
 
-The per-step value wins over the tour-wide `barrierInteraction` (and over
-`disableBarrierInteraction`). `onBarrierClick` still fires either way.
+The per-step value wins over the tour-wide `barrierInteraction`.
+`onBarrierClick` still fires either way.
 
 ## Accessibility & keyboard navigation
 
@@ -878,7 +1076,7 @@ box (both default to on):
 ShowCaseWidget(
   enableKeyboardNavigation: true,   // default
   enableAutoAnnouncements: true,    // default
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -919,7 +1117,7 @@ It's on by default and costs nothing on mobile. Turn it off tour-wide:
 ```dart
 ShowCaseWidget(
   enablePointerCursor: false, // keep the plain arrow everywhere
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -1002,7 +1200,7 @@ are skipped automatically instead of showing an empty overlay:
 ```dart
 ShowCaseWidget(
   autoSkipUnmountedSteps: true,
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -1021,7 +1219,7 @@ ShowCaseWidget(
     // sometimes hidden) is skipped.
     return true;
   },
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -1037,12 +1235,17 @@ The tooltip inherits the ambient text direction, so RTL text (e.g. Arabic) is
 measured and laid out correctly when your app is RTL — no extra configuration
 needed.
 
+The built-in buttons follow it too: Previous is on the right and Next on the
+left, each button's icon sits to the right of its label, and the progress
+indicator and Skip button swap sides. To translate the buttons' text, see
+[Translating the tour](#translating-the-tour).
+
 ## Enable or disable globally
 
 ```dart
 ShowCaseWidget(
   enableShowcase: false, // every Showcase just renders its child, no overlay
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -1072,7 +1275,7 @@ tour-wide on `ShowCaseWidget` (default `0.5`) and override it per step with
 ShowCaseWidget(
   enableAutoScroll: true,
   scrollAlignment: 0.1, // rest targets near the top of the viewport
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 
 // ...and per step:
@@ -1100,7 +1303,7 @@ ShowCaseWidget(
       });
     }
   },
-  builder: Builder(builder: (context) => const HomePage()),
+  builder: const HomePage(),
 );
 ```
 
@@ -1110,7 +1313,7 @@ ShowCaseWidget(
 
 | Member                                       | Description                                                              |
 | -------------------------------------------- | ------------------------------------------------------------------------ |
-| `startShowCase(List<GlobalKey> keys, {bool force})` | Start the tour in key order. `force: true` bypasses `onShouldStartShowcase`. |
+| `startShowCase(List<GlobalKey> keys, {bool force, int startAt})` | Start the tour in key order. `force: true` bypasses `onShouldStartShowcase`; `startAt` opens it on that zero-based step (default `0`). |
 | `next()`                                     | Advance to the next step.                                                |
 | `previous()`                                 | Go back one step.                                                        |
 | `goTo(int index)`                            | Jump to a step by its zero-based index.                                  |
@@ -1119,6 +1322,7 @@ ShowCaseWidget(
 | `currentIndex`                               | Zero-based index of the active step, or `null` when no tour is running.  |
 | `totalSteps`                                 | Number of steps in the running tour (0 when none).                       |
 | `isShowcaseRunning`                          | Whether a tour is currently active.                                      |
+| `labels`                                     | The `ShowcaseLabels` the built-in buttons show.                          |
 | `isTargetRendered(GlobalKey key)`            | Whether that step's target is mounted **and** laid out on screen.        |
 | `previousTargetRect`                         | Global bounds of the step the tour just left (`null` outside a transition). |
 | `addOnStartCallback(cb)` / `removeOnStartCallback(cb)` | Register/unregister a step-start listener at runtime.          |
@@ -1128,7 +1332,7 @@ ShowCaseWidget(
 
 | Name                      | Type                       | Default                        | Description                                                                      |
 | ------------------------- | -------------------------- | ------------------------------ | -------------------------------------------------------------------------------- |
-| builder                   | Builder                    | required                       | Builds the subtree that contains the `Showcase` widgets.                         |
+| builder                   | Widget                     | required                       | The subtree that contains the `Showcase` widgets (a `Builder` also works).       |
 | style                     | ShowcaseStyle              | `const ShowcaseStyle()`        | Default tooltip styling for every `Showcase` in the tree.                        |
 | blurValue                 | double                     | 0                              | Gaussian blur applied to the overlay.                                            |
 | autoPlay                  | bool                       | false                          | Automatically advance to the next step.                                          |
@@ -1138,14 +1342,14 @@ ShowCaseWidget(
 | scrollDuration            | Duration                   | `Duration(milliseconds: 300)`  | Duration of the auto-scroll animation.                                           |
 | scrollAlignment           | double                     | `0.5`                          | Where an auto-scrolled target rests (0 = leading, 0.5 = center, 1 = trailing).   |
 | barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`      | What a background tap does: `next` (advance), `dismiss` (end tour), `none`.      |
-| disableBarrierInteraction | bool                       | false                          | Shortcut; `true` makes the barrier inert (same as `BarrierInteraction.none`).    |
+| disableBarrierInteraction | bool                       | false                          | **Deprecated** (removed in 3.0.0): use `barrierInteraction: BarrierInteraction.none`. |
 | onBarrierClick            | VoidCallback?              |                                | Called on every barrier tap (even when `barrierInteraction` is `none`).          |
 | globalFloatingActionWidget | WidgetBuilder?            |                                | Screen-anchored widget shown above the overlay on every step (you position it).  |
 | hideFloatingActionWidgetForShowcase | `List<GlobalKey>` | `const []`                    | Steps on which the global floating widget is hidden.                             |
 | disableScaleAnimation     | bool                       | false                          | Disable the tooltip scale transition for all steps.                              |
 | disableMovingAnimation    | bool                       | false                          | Disable the bouncing/moving transition for all steps.                            |
-| onStart                   | Function(int?, GlobalKey)? |                                | Called on the start of each step.                                                |
-| onComplete                | Function(int?, GlobalKey)? |                                | Called on the completion of each step.                                           |
+| onStart                   | ShowcaseStepCallback?      |                                | Called on the start of each step with `(int? index, GlobalKey key)`.             |
+| onComplete                | ShowcaseStepCallback?      |                                | Called on the completion of each step with `(int? index, GlobalKey key)`.        |
 | onFinish                  | VoidCallback?              |                                | Called when all steps are completed (normal finish).                             |
 | onDismiss                  | `void Function(GlobalKey?)?` |                              | Called when the tour is closed early; receives the step it was dismissed at.     |
 | enableShowcase            | bool                       | true                           | Enable or disable showcasing globally.                                           |
@@ -1160,10 +1364,35 @@ ShowCaseWidget(
 | showProgress              | bool                       | false                          | Show the built-in step indicator in the default tooltip.                         |
 | progressStyle             | ShowcaseProgressStyle      | `ShowcaseProgressStyle.dots`   | Indicator style: dots or a `1/6` numeric counter.                                |
 | showSkip                  | bool                       | false                          | Show a "Skip" button in the default tooltip that ends the tour.                  |
-| skipButtonText            | String                     | 'Skip'                         | Label for the skip button.                                                       |
+| labels                    | ShowcaseLabels             | `const ShowcaseLabels()`       | Text of the built-in Next / Previous / Stop / Skip buttons (see [Translating the tour](#translating-the-tour)). |
+| skipButtonText            | String?                    |                                | **Deprecated**, removed in 3.0.0: use `labels: ShowcaseLabels(skip: ...)`. When set, wins over `labels.skip`. |
 | showcaseId                | String?                    |                                | Identifier passed to `onShouldStartShowcase`.                                    |
 | onShouldStartShowcase     | `FutureOr<bool> Function(String?)?` |                         | Guard run before a tour starts; return `false` to skip it.                       |
 | onResolveNextStep         | GlobalKey? Function(int, GlobalKey)? |                     | Decide the next step at runtime: return a step key to branch, or `null`.         |
+
+### `ShowcaseLabels` properties
+
+| Name     | Type   | Default      | Description                                              |
+| -------- | ------ | ------------ | -------------------------------------------------------- |
+| next     | String | `'Next'`     | Text of the Next button.                                 |
+| previous | String | `'Previous'` | Text of the Previous button.                             |
+| stop     | String | `'Stop'`     | Text of the Stop button, which ends the tour.            |
+| skip     | String | `'Skip'`     | Text of the Skip button shown by `showSkip`.             |
+
+`copyWith` returns a copy with some labels replaced.
+
+### `ActionButtonConfig` properties
+
+| Name              | Type           | Default                     | Description                                                                       |
+| ----------------- | -------------- | --------------------------- | --------------------------------------------------------------------------------- |
+| text              | String?        | `ShowCaseWidget.labels`     | Text of the button; wins over the tour's `labels`.                                |
+| icon              | Widget?        |                             | Icon or image shown before the text.                                              |
+| textColor         | Color?         | `ShowcaseStyle` → app theme | Color of the text.                                                                |
+| textButtonBgColor | Color          | `Colors.transparent`        | Background color of the button.                                                   |
+| callback          | VoidCallback?  |                             | Called on tap instead of the default action.                                      |
+| buttonVisible     | bool           | true                        | Show the button.                                                                  |
+| buttonTextVisible | bool           | true                        | Show the text; when `false` only the icon shows and screen readers read the text. |
+| textDirection     | TextDirection? | the app's direction         | Order of icon and text inside the button.                                         |
 
 ### `Showcase` and `Showcase.withWidget` properties
 
@@ -1181,8 +1410,8 @@ ShowCaseWidget(
 | descTextStyle                | TextStyle?             | `ShowcaseStyle`                                    | Text style of the description.                                                              |     ✅     |                       |
 | titleAlignment               | TextAlign              | `TextAlign.start`                                  | Alignment of the title.                                                                     |     ✅     |                       |
 | descriptionAlignment         | TextAlign              | `TextAlign.start`                                  | Alignment of the description.                                                               |     ✅     |                       |
-| tooltipBackgroundColor       | Color?                 | `ShowcaseStyle` → `Colors.white`                   | Background color of the default tooltip.                                                    |     ✅     |                       |
-| textColor                    | Color?                 | `ShowcaseStyle` → `Colors.black`                   | Text color of the default tooltip.                                                          |     ✅     |                       |
+| tooltipBackgroundColor       | Color?                 | `ShowcaseStyle` → app theme                        | Background color of the default tooltip.                                                    |     ✅     |                       |
+| textColor                    | Color?                 | `ShowcaseStyle` → app theme                        | Text color of the default tooltip.                                                          |     ✅     |                       |
 | tooltipBorderRadius          | BorderRadius?          | `ShowcaseStyle` → `BorderRadius.circular(8)`       | Border radius of the default tooltip.                                                       |     ✅     |                       |
 | tooltipPadding               | EdgeInsets             | `EdgeInsets.symmetric(vertical: 8, horizontal: 8)` | Padding inside the tooltip.                                                                 |     ✅     |                       |
 | titlePadding                 | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the title.                                                                   |     ✅     |                       |
@@ -1202,7 +1431,7 @@ ShowCaseWidget(
 | highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
 | targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlight.                                                             |     ✅     |          ✅           |
 | enablePulseAnimation         | bool                   | false                                              | Draw an animated ring that pulses outward around the highlight.                             |     ✅     |          ✅           |
-| pulseColor                   | Color?                 | `ShowcaseStyle` → `Colors.white`                   | Color of the pulsing ring.                                                                  |     ✅     |          ✅           |
+| pulseColor                   | Color?                 | `ShowcaseStyle` → white or black                   | Color of the pulsing ring.                                                                  |     ✅     |          ✅           |
 | pulseDuration                | Duration               | `Duration(milliseconds: 1500)`                     | Length of one full pulse cycle (smaller is faster).                                         |     ✅     |          ✅           |
 | highlightBorderColor         | Color?                 |                                                    | Color of a border drawn around the highlight (off when null).                               |     ✅     |          ✅           |
 | highlightBorderWidth         | double?                | `2`                                                | Width of the highlight border.                                                              |     ✅     |          ✅           |
@@ -1210,7 +1439,7 @@ ShowCaseWidget(
 | arrowWidth                   | double?                | `18`                                               | Width (base) of the default tooltip arrow.                                                  |     ✅     |                       |
 | arrowHeight                  | double?                | `9`                                                | Height (depth) of the default tooltip arrow.                                                |     ✅     |                       |
 | targetPadding                | EdgeInsets             | `EdgeInsets.zero`                                  | Padding around the highlight.                                                               |     ✅     |          ✅           |
-| overlayColor                 | Color                  | `Colors.black45`                                   | Color of the overlay scrim.                                                                 |     ✅     |          ✅           |
+| overlayColor                 | Color?                 | `ShowcaseStyle` → app theme                        | Color of the overlay scrim.                                                                 |     ✅     |          ✅           |
 | overlayOpacity               | double                 | 0.75                                               | Opacity of the overlay scrim.                                                               |     ✅     |          ✅           |
 | blurValue                    | double?                | `ShowCaseWidget.blurValue`                         | Gaussian blur on the overlay.                                                               |     ✅     |          ✅           |
 | disableDefaultTargetGestures | bool                   | false                                              | Disable the default gestures on the target.                                                 |     ✅     |          ✅           |
@@ -1231,7 +1460,7 @@ ShowCaseWidget(
 | scaleAnimationDuration       | Duration               | `Duration(milliseconds: 300)`                      | Duration of the scale animation.                                                            |     ✅     |                       |
 | scaleAnimationCurve          | Curve                  | `Curves.easeIn`                                    | Curve of the scale animation.                                                               |     ✅     |                       |
 | scaleAnimationAlignment      | Alignment?             |                                                    | Origin of the scale animation.                                                              |     ✅     |                       |
-| scrollLoadingWidget          | Widget                 | `CircularProgressIndicator(...)`                   | Loading widget shown while auto-scrolling to the target.                                    |     ✅     |          ✅           |
+| scrollLoadingWidget          | Widget?                | a `CircularProgressIndicator`                      | Loading widget shown while auto-scrolling to the target.                                    |     ✅     |          ✅           |
 
 ## Example
 

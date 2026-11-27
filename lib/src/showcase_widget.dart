@@ -27,12 +27,12 @@ import 'package:flutter/widgets.dart';
 
 import '../showcase_tutorial.dart';
 
-/// Signature for the step listeners registered dynamically on the controller
-/// with [ShowCaseWidgetState.addOnStartCallback] and
+/// Signature of [ShowCaseWidget.onStart] and [ShowCaseWidget.onComplete], and
+/// of the step listeners registered dynamically on the controller with
+/// [ShowCaseWidgetState.addOnStartCallback] and
 /// [ShowCaseWidgetState.addOnCompleteCallback].
 ///
-/// Receives the zero-based index of the step and the [GlobalKey] of its target,
-/// matching [ShowCaseWidget.onStart] / [ShowCaseWidget.onComplete].
+/// Receives the zero-based index of the step and the [GlobalKey] of its target.
 typedef ShowcaseStepCallback = void Function(int? index, GlobalKey key);
 
 /// Hosts a showcase tour for the [Showcase] widgets in its subtree.
@@ -43,17 +43,52 @@ typedef ShowcaseStepCallback = void Function(int? index, GlobalKey key);
 /// [autoPlay], [barrierInteraction], [style], and the accessibility flags are
 /// configured here and shared by every [Showcase] in the tree.
 class ShowCaseWidget extends StatefulWidget {
-  /// Builds the subtree that contains the [Showcase] widgets.
-  final Builder builder;
+  /// The subtree that contains the [Showcase] widgets — usually your screen,
+  /// for example `builder: const HomePage()`.
+  ///
+  /// Any widget works. Widgets inside it can call `ShowCaseWidget.of(context)`
+  /// from their own `build` methods, because their context is below this
+  /// [ShowCaseWidget]. The context of the code that *creates* this
+  /// [ShowCaseWidget] is not below it, so when the subtree is built inline and
+  /// needs `ShowCaseWidget.of(context)` right there, wrap it in a [Builder]:
+  ///
+  /// ```dart
+  /// ShowCaseWidget(
+  ///   builder: Builder(
+  ///     builder: (context) => Column(
+  ///       children: [
+  ///         Showcase(key: one, description: 'Menu', child: const Icon(Icons.menu)),
+  ///         TextButton(
+  ///           onPressed: () => ShowCaseWidget.of(context).startShowCase([one]),
+  ///           child: const Text('Start tour'),
+  ///         ),
+  ///       ],
+  ///     ),
+  ///   ),
+  /// )
+  /// ```
+  ///
+  /// Before 2.0.0 this had to be a [Builder]; existing [Builder] values still
+  /// work unchanged.
+  final Widget builder;
 
   /// Triggered when all the showcases are completed.
   final VoidCallback? onFinish;
 
-  /// Triggered every time on start of each showcase.
-  final Function(int?, GlobalKey)? onStart;
+  /// Triggered every time a step starts, with the step's zero-based index in
+  /// the running tour and its target key.
+  ///
+  /// Also fires for the first step a tour opens on, including one chosen with
+  /// `startAt` in [ShowCaseWidgetState.startShowCase]. To add listeners at
+  /// runtime, see [ShowCaseWidgetState.addOnStartCallback].
+  final ShowcaseStepCallback? onStart;
 
-  /// Triggered every time on completion of each showcase
-  final Function(int?, GlobalKey)? onComplete;
+  /// Triggered every time a step completes (the tour leaves it to go to another
+  /// step or to finish), with the step's zero-based index and its target key.
+  ///
+  /// To add listeners at runtime, see
+  /// [ShowCaseWidgetState.addOnCompleteCallback].
+  final ShowcaseStepCallback? onComplete;
 
   /// Triggered when the tour is dismissed early via [ShowCaseWidgetState.dismiss]
   /// — for example a barrier tap with [BarrierInteraction.dismiss], the
@@ -161,9 +196,14 @@ class ShowCaseWidget extends StatefulWidget {
 
   /// Whether disabling barrier interaction.
   ///
-  /// Superseded by [barrierInteraction]; kept for backward compatibility. When
-  /// `true` it takes precedence and the barrier is inert
+  /// Deprecated: use `barrierInteraction: BarrierInteraction.none` instead,
+  /// which does the same thing. Still honoured until it is removed in 3.0.0:
+  /// when `true` it takes precedence and the barrier is inert
   /// ([BarrierInteraction.none]).
+  @Deprecated(
+    'Use barrierInteraction: BarrierInteraction.none instead. '
+    'disableBarrierInteraction will be removed in 3.0.0.',
+  )
   final bool disableBarrierInteraction;
 
   /// What tapping the dimmed background (the barrier) does during a step.
@@ -172,7 +212,8 @@ class ShowCaseWidget extends StatefulWidget {
   /// [BarrierInteraction.dismiss] to close the whole tour on a background tap,
   /// or [BarrierInteraction.none] to ignore barrier taps.
   ///
-  /// Note: [disableBarrierInteraction] wins when set to `true`.
+  /// Note: the deprecated `disableBarrierInteraction` flag wins when set to
+  /// `true`.
   final BarrierInteraction barrierInteraction;
 
   /// Provides time duration for auto scrolling when [enableAutoScroll] is true
@@ -243,7 +284,7 @@ class ShowCaseWidget extends StatefulWidget {
   /// ShowCaseWidget(
   ///   // Wait for the details page, skip anything else that isn't on screen.
   ///   onShouldSkipUnmountedStep: (index, key) => key != detailsKey,
-  ///   builder: Builder(builder: (context) => const HomePage()),
+  ///   builder: const HomePage(),
   /// )
   /// ```
   ///
@@ -372,8 +413,21 @@ class ShowCaseWidget extends StatefulWidget {
   /// explicit navigation. Defaults to `null` (no branching).
   final GlobalKey? Function(int currentIndex, GlobalKey currentKey)? onResolveNextStep;
 
-  /// Label for the skip button (see [showSkip]). Defaults to `'Skip'`.
-  final String skipButtonText;
+  /// The text of the tour's built-in buttons: Next, Previous and Stop in every
+  /// [ShowCaseDefaultActions], and the Skip button of [showSkip].
+  ///
+  /// Set it once to translate the tour, e.g.
+  /// `labels: const ShowcaseLabels(next: 'التالي', previous: 'السابق')`. A
+  /// button's own [ActionButtonConfig.text] still wins for that button.
+  /// Defaults to the English labels of `const ShowcaseLabels()`.
+  final ShowcaseLabels labels;
+
+  /// Label for the skip button (see [showSkip]).
+  ///
+  /// When set, it wins over `labels.skip`, so existing apps keep their text.
+  /// Defaults to `null`, which uses [labels].
+  @Deprecated('Use labels: ShowcaseLabels(skip: ...) instead. Will be removed in 3.0.0.')
+  final String? skipButtonText;
 
   /// Creates a [ShowCaseWidget] that hosts the showcase tour for the
   /// [Showcase] widgets built by [builder].
@@ -401,6 +455,10 @@ class ShowCaseWidget extends StatefulWidget {
     this.disableMovingAnimation = false,
     this.disableScaleAnimation = false,
     this.enableAutoScroll = false,
+    @Deprecated(
+      'Use barrierInteraction: BarrierInteraction.none instead. '
+      'disableBarrierInteraction will be removed in 3.0.0.',
+    )
     this.disableBarrierInteraction = false,
     this.barrierInteraction = BarrierInteraction.next,
     this.enableShowcase = true,
@@ -418,7 +476,8 @@ class ShowCaseWidget extends StatefulWidget {
     this.showProgress = false,
     this.progressStyle = ShowcaseProgressStyle.dots,
     this.showSkip = false,
-    this.skipButtonText = 'Skip',
+    this.labels = const ShowcaseLabels(),
+    @Deprecated('Use labels: ShowcaseLabels(skip: ...) instead. Will be removed in 3.0.0.') this.skipButtonText,
     this.onResolveNextStep,
   });
 
@@ -493,14 +552,22 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Value of [ShowCaseWidget.scrollAlignment].
   double get scrollAlignment => widget.scrollAlignment;
 
-  /// Value of the legacy [ShowCaseWidget.disableBarrierInteraction] flag.
+  /// Value of the legacy `ShowCaseWidget.disableBarrierInteraction` flag.
   ///
-  /// Prefer [barrierInteraction] for the resolved barrier behaviour.
+  /// Deprecated with that flag: read [barrierInteraction] instead, which
+  /// already accounts for it.
+  @Deprecated(
+    'Use barrierInteraction instead. '
+    'disableBarrierInteraction will be removed in 3.0.0.',
+  )
   bool get disableBarrierInteraction => widget.disableBarrierInteraction;
 
-  /// Resolved barrier behaviour. The legacy [ShowCaseWidget.disableBarrierInteraction]
-  /// flag wins when `true`, mapping to [BarrierInteraction.none].
+  /// Resolved barrier behaviour. The deprecated
+  /// `ShowCaseWidget.disableBarrierInteraction` flag wins when `true`, mapping
+  /// to [BarrierInteraction.none].
   BarrierInteraction get barrierInteraction =>
+      // The legacy flag is still honoured until it is removed in 3.0.0.
+      // ignore: deprecated_member_use_from_same_package
       widget.disableBarrierInteraction ? BarrierInteraction.none : widget.barrierInteraction;
 
   /// Value of [ShowCaseWidget.onBarrierClick].
@@ -566,8 +633,18 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Value of [ShowCaseWidget.showSkip].
   bool get showSkip => widget.showSkip;
 
-  /// Value of [ShowCaseWidget.skipButtonText].
-  String get skipButtonText => widget.skipButtonText;
+  /// The labels the tour's built-in buttons show: [ShowCaseWidget.labels],
+  /// with its Skip label replaced by the deprecated
+  /// [ShowCaseWidget.skipButtonText] when that is set.
+  ShowcaseLabels get labels {
+    // ignore: deprecated_member_use_from_same_package
+    final legacySkip = widget.skipButtonText;
+    return legacySkip == null ? widget.labels : widget.labels.copyWith(skip: legacySkip);
+  }
+
+  /// The Skip button's label.
+  @Deprecated('Use labels.skip instead. Will be removed in 3.0.0.')
+  String get skipButtonText => labels.skip;
 
   /// Default tooltip styling for showcases in this tree.
   ShowcaseStyle get style => widget.style;
@@ -650,15 +727,42 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// same callback was added more than once.
   bool removeOnCompleteCallback(ShowcaseStepCallback callback) => _onCompleteCallbacks.remove(callback);
 
-  /// Starts Showcase view from the beginning of specified list of widget ids.
-  /// If this function is used when showcase has been disabled then it will
-  /// throw an exception.
+  /// Starts the tour over [widgetIds], in that order. If this function is used
+  /// when showcase has been disabled then it will throw an exception.
   ///
   /// When [ShowCaseWidget.onShouldStartShowcase] is provided it is consulted
   /// first, and the showcase only starts if it resolves to `true` (useful for
   /// "show the tour only once"). Pass `force: true` to bypass that guard — for
   /// example from a "show tutorial again" button.
-  void startShowCase(List<GlobalKey> widgetIds, {bool force = false}) {
+  ///
+  /// [startAt] is the zero-based index of the step the tour opens on; it
+  /// defaults to `0`, the first step. Use it to resume a tour where the user
+  /// left off: save the index passed to [ShowCaseWidget.onStart] (or to an
+  /// [addOnStartCallback] listener) as the tour runs, clear it in
+  /// [ShowCaseWidget.onFinish] and [ShowCaseWidget.onDismiss], and pass the
+  /// saved value back here. The package stores nothing itself. A tour started
+  /// at [startAt] behaves like a tour started at `0`:
+  ///
+  /// * the guard above and `force` work the same way,
+  /// * [ShowCaseWidget.autoSkipUnmountedSteps] and
+  ///   [ShowCaseWidget.onShouldSkipUnmountedStep] are applied from [startAt]
+  ///   forward, exactly as they are from the first step, and the tour
+  ///   finishes if every step from there on is skipped,
+  /// * [currentIndex], the progress indicator and [ShowCaseWidget.onStart]
+  ///   report the real step index (a tour started at `2` reports `2`),
+  /// * the tour opens directly on that step — with
+  ///   [ShowCaseWidget.enableStepTransition] there is no glide from another
+  ///   target — and [previous] can still go back to the earlier steps.
+  ///
+  /// An out-of-range [startAt] is clamped, in every build mode: a negative
+  /// value opens the first step and a value past the end opens the last step.
+  /// A saved index that no longer fits usually means the tour got shorter in
+  /// an app update, so it is treated as data, not a programming error.
+  /// Clamping keeps that user in the tour instead of finishing it for them,
+  /// which would fire [ShowCaseWidget.onFinish] and could mark a tour they
+  /// never saw as done. An empty [widgetIds] list finishes the tour straight
+  /// away, whatever [startAt] is.
+  void startShowCase(List<GlobalKey> widgetIds, {bool force = false, int startAt = 0}) {
     if (!enableShowcase) {
       throw Exception(
         "You are trying to start Showcase while it has been disabled with "
@@ -669,23 +773,26 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
     final guard = widget.onShouldStartShowcase;
     if (force || guard == null) {
-      _startShowCaseNow(widgetIds);
+      _startShowCaseNow(widgetIds, startAt);
       return;
     }
     // The guard may be synchronous or asynchronous; wrapping in Future.value
     // handles both without forcing callers to await.
     Future<bool>.value(guard(widget.showcaseId)).then((shouldStart) {
-      if (shouldStart && mounted) _startShowCaseNow(widgetIds);
+      if (shouldStart && mounted) _startShowCaseNow(widgetIds, startAt);
     });
   }
 
-  void _startShowCaseNow(List<GlobalKey> widgetIds) {
+  void _startShowCaseNow(List<GlobalKey> widgetIds, int startAt) {
     setState(() {
-      // A tour always opens on its first step rather than gliding into it, even
-      // when this call restarts a running tour.
+      // A tour always opens on its starting step rather than gliding into it,
+      // even when this call restarts a running tour.
       _previousTargetRect = null;
       ids = widgetIds;
-      activeWidgetId = _nextMountedIndex(0, 1);
+      // A stale startAt is clamped into range (see startShowCase). An empty
+      // tour stays at 0, which finishes it below as before.
+      final start = widgetIds.isEmpty ? 0 : startAt.clamp(0, widgetIds.length - 1);
+      activeWidgetId = _nextMountedIndex(start, 1);
       if (activeWidgetId! >= ids!.length) {
         _cleanupAfterSteps();
         widget.onFinish?.call();
@@ -886,8 +993,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     }
   }
 
-  /// Exposes the active step's target key to descendants and builds the
-  /// configured [ShowCaseWidget.builder] subtree.
+  /// Exposes the active step's target key to descendants and places the
+  /// configured [ShowCaseWidget.builder] subtree below it.
   @override
   Widget build(BuildContext context) {
     return _InheritedShowCaseView(

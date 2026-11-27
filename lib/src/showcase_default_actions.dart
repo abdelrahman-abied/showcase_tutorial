@@ -1,6 +1,10 @@
+import 'dart:math';
+
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../showcase_tutorial.dart';
+import 'utilities/_showcase_colors.dart';
 import 'utilities/_showcase_context_provider.dart';
 
 /// Default action buttons widget for a [Showcase] tooltip.
@@ -8,6 +12,15 @@ import 'utilities/_showcase_context_provider.dart';
 /// Lays out the Previous, Stop and Next buttons in a [Row], each configurable
 /// through an [ActionButtonConfig]. Pass it to the `actions` property of a
 /// [Showcase] and style its container with [ActionsSettings].
+///
+/// The buttons' text comes from [ShowCaseWidget.labels] unless a button sets
+/// its own [ActionButtonConfig.text]. The row and each button follow the
+/// app's text direction, so in a right-to-left app Previous sits on the
+/// right. The default tooltip is made wide enough for the buttons' labels. A
+/// label that still does not fit its button (for example a long translation
+/// on a narrow screen) stays on one line: it is scaled down to no less than
+/// 70% of its size, and past that it ends with an ellipsis instead of
+/// wrapping.
 class ShowCaseDefaultActions extends StatelessWidget {
   /// How the buttons are placed along the main (horizontal) axis of the [Row].
   final MainAxisAlignment mainAxisAlignment;
@@ -33,7 +46,11 @@ class ShowCaseDefaultActions extends StatelessWidget {
   final double? dividerThickness;
 
   /// Color of the vertical divider drawn between buttons.
-  final Color verticalDividerColor;
+  ///
+  /// When `null` (the default) it is [ShowcaseStyle.actionDividerColor], or
+  /// else follows the app's theme (`colorScheme.outlineVariant` on the
+  /// default tooltip).
+  final Color? verticalDividerColor;
 
   /// Configuration for the Next button.
   final ActionButtonConfig next;
@@ -57,13 +74,22 @@ class ShowCaseDefaultActions extends StatelessWidget {
     this.verticalDirection = VerticalDirection.down,
     this.textBaseline,
     this.dividerThickness = 1.0,
-    this.verticalDividerColor = const Color(0xffcaf0f8),
+    this.verticalDividerColor,
   });
 
   /// Builds the [Row] of Previous, Stop and Next buttons for the tooltip.
   @override
   Widget build(BuildContext context) {
-    final showcaseContext = ShowcaseContextProvider.of(context)?.context;
+    final provider = ShowcaseContextProvider.of(context);
+    final showcaseContext = provider?.context;
+    // The tour's labels, published by the overlay the buttons are in. Used
+    // outside one, the buttons keep their English text.
+    final labels = provider?.labels ?? const ShowcaseLabels();
+    // Provided by the tooltip the buttons are in. Used outside one, the
+    // buttons keep the colours they had before they followed the theme.
+    final defaults = ShowcaseActionColors.maybeOf(context);
+    final foreground = defaults?.foreground ?? ShowcaseColors.fallback.accent;
+    final divider = verticalDividerColor ?? defaults?.divider ?? ShowcaseColors.fallback.outline;
 
     return Row(
       mainAxisSize: mainAxisSize,
@@ -76,8 +102,8 @@ class ShowCaseDefaultActions extends StatelessWidget {
         if (previous.buttonVisible)
           _getButtonWidget(
             previous,
-            showcaseContext,
-            previous.text ?? 'Previous',
+            foreground,
+            previous.text ?? labels.previous,
             previous.callback ??
                 () {
                   if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
@@ -86,12 +112,12 @@ class ShowCaseDefaultActions extends StatelessWidget {
                 },
           ),
         if (previous.buttonVisible && stop.buttonVisible || previous.buttonVisible && next.buttonVisible)
-          _getVerticalDivider(),
+          _getVerticalDivider(divider),
         if (stop.buttonVisible)
           _getButtonWidget(
             stop,
-            showcaseContext,
-            stop.text ?? 'Stop',
+            foreground,
+            stop.text ?? labels.stop,
             stop.callback ??
                 () {
                   if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
@@ -99,12 +125,12 @@ class ShowCaseDefaultActions extends StatelessWidget {
                   }
                 },
           ),
-        if (stop.buttonVisible && next.buttonVisible) _getVerticalDivider(),
+        if (stop.buttonVisible && next.buttonVisible) _getVerticalDivider(divider),
         if (next.buttonVisible)
           _getButtonWidget(
             next,
-            showcaseContext,
-            next.text ?? 'Next',
+            foreground,
+            next.text ?? labels.next,
             next.callback ??
                 () {
                   if (showcaseContext != null && ShowCaseWidget.of(showcaseContext).ids != null) {
@@ -118,43 +144,196 @@ class ShowCaseDefaultActions extends StatelessWidget {
     );
   }
 
-  Widget _getVerticalDivider() {
-    return VerticalDivider(width: 1.0, thickness: dividerThickness, color: verticalDividerColor);
+  Widget _getVerticalDivider(Color color) {
+    return VerticalDivider(width: 1.0, thickness: dividerThickness, color: color);
   }
 
   Widget _getButtonWidget(
     ActionButtonConfig actionConfig,
-    BuildContext? showcaseContext,
+    Color defaultTextColor,
     String buttonText,
     VoidCallback onClick,
   ) {
-    return Expanded(
-      child: Directionality(
-        textDirection: actionConfig.textDirection,
-        child: TextButton.icon(
-          label: actionConfig.buttonTextVisible
-              ? Text(buttonText, style: TextStyle(color: actionConfig.textColor))
-              : const SizedBox.shrink(),
-          icon: actionConfig.icon ?? const SizedBox.shrink(),
-          style: ButtonStyle(backgroundColor: WidgetStateProperty.all<Color>(actionConfig.textButtonBgColor)),
-          onPressed: onClick,
-        ),
+    final icon = actionConfig.icon;
+    final foreground = actionConfig.textColor ?? defaultTextColor;
+    final label = actionConfig.buttonTextVisible
+        ? Text(
+            buttonText,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: foreground),
+          )
+        : null;
+    // The icon leads, so it follows the text direction: left of the label in
+    // a left-to-right app, right of it in a right-to-left one.
+    final Widget content = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ?icon,
+        if (icon != null && label != null) const SizedBox(width: 8),
+        // Flexible, so that past the smallest scale the label is ellipsized
+        // rather than pushing the row out of the button.
+        if (label != null) Flexible(child: label),
+      ],
+    );
+    final button = TextButton(
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.all<Color>(actionConfig.textButtonBgColor),
+        // The icon takes the label's colour, so both stay readable on
+        // whatever the buttons are drawn on. An icon with its own colour
+        // keeps it.
+        foregroundColor: WidgetStatePropertyAll(foreground),
+      ),
+      onPressed: onClick,
+      // A label that does not fit (e.g. a long translation on a narrow
+      // screen) stays on one line and is scaled down with its icon, instead
+      // of breaking mid-word. Only the content scales: the button keeps its
+      // size, and so its tap target.
+      child: _ScaleDownToWidth(
+        // With the text hidden, the label is still what screen readers announce.
+        child: label == null ? Semantics(label: buttonText, child: content) : content,
       ),
     );
+
+    final textDirection = actionConfig.textDirection;
+    return Expanded(
+      child: textDirection == null ? button : Directionality(textDirection: textDirection, child: button),
+    );
   }
+}
+
+/// Lays [child] out at its natural width, on one line, and scales it down
+/// uniformly when that is wider than the space available.
+///
+/// The scale never goes below [_RenderScaleDownToWidth.minScale], so the text
+/// stays readable. Below that the child is laid out narrower than its natural
+/// width, and the label (a [Flexible] with [TextOverflow.ellipsis]) is
+/// ellipsized.
+///
+/// Unlike a [FittedBox], the child keeps the incoming height limit, so an
+/// icon such as an unsized [Image] is sized the way a button would size it
+/// rather than at its full resolution (which would then shrink the label
+/// next to it too).
+class _ScaleDownToWidth extends SingleChildRenderObjectWidget {
+  const _ScaleDownToWidth({required Widget super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderScaleDownToWidth();
+}
+
+class _RenderScaleDownToWidth extends RenderProxyBox {
+  /// The smallest scale the content is drawn at.
+  static const double minScale = 0.7;
+
+  double _scale = 1.0;
+
+  /// The scale [child] is drawn at under [constraints], and the constraints
+  /// it is laid out with.
+  ({double scale, BoxConstraints childConstraints}) _fit(BoxConstraints constraints, RenderBox child) {
+    final natural = child.getMaxIntrinsicWidth(constraints.maxHeight);
+    final available = constraints.hasBoundedWidth ? constraints.maxWidth : natural;
+    final scale = natural <= available || natural == 0 ? 1.0 : max(available / natural, minScale);
+    // At the smallest scale the child gets only the room that is left, and
+    // its label is ellipsized. Otherwise it fits at its natural width; the
+    // slack keeps rounding from ellipsizing the last letter.
+    final maxWidth = scale == minScale ? available / minScale : natural + 0.5;
+    return (scale: scale, childConstraints: BoxConstraints(maxWidth: maxWidth, maxHeight: constraints.maxHeight));
+  }
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) {
+    final child = this.child;
+    if (child == null) return constraints.smallest;
+    final fit = _fit(constraints, child);
+    return constraints.constrain(child.getDryLayout(fit.childConstraints) * fit.scale);
+  }
+
+  @override
+  double? computeDryBaseline(BoxConstraints constraints, TextBaseline baseline) {
+    final child = this.child;
+    if (child == null) return null;
+    final fit = _fit(constraints, child);
+    final distance = child.getDryBaseline(fit.childConstraints, baseline);
+    return distance == null ? null : distance * fit.scale;
+  }
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      _scale = 1.0;
+      size = constraints.smallest;
+      return;
+    }
+    final fit = _fit(constraints, child);
+    child.layout(fit.childConstraints, parentUsesSize: true);
+    _scale = fit.scale;
+    size = constraints.constrain(child.size * _scale);
+  }
+
+  // The child is drawn scaled, so its baseline is too.
+  @override
+  double? computeDistanceToActualBaseline(TextBaseline baseline) {
+    final distance = child?.getDistanceToActualBaseline(baseline);
+    return distance == null ? null : distance * _scale;
+  }
+
+  Matrix4 get _transform => Matrix4.diagonal3Values(_scale, _scale, 1.0);
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child == null) return;
+    if (_scale == 1.0) {
+      layer = null;
+      context.paintChild(child, offset);
+      return;
+    }
+    layer = context.pushTransform(
+      needsCompositing,
+      offset,
+      _transform,
+      (context, offset) => context.paintChild(child, offset),
+      oldLayer: layer is TransformLayer ? layer as TransformLayer? : null,
+    );
+  }
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    final child = this.child;
+    if (child == null) return false;
+    return result.addWithPaintTransform(
+      transform: _transform,
+      position: position,
+      hitTest: (result, position) => child.hitTest(result, position: position),
+    );
+  }
+
+  @override
+  void applyPaintTransform(RenderBox child, Matrix4 transform) => transform.multiply(_transform);
 }
 
 /// Styling and behavior configuration for a single action button rendered by
 /// [ShowCaseDefaultActions], such as Next, Previous or Stop.
 class ActionButtonConfig {
-  /// button text
+  /// Button text.
+  ///
+  /// When `null` (the default) it is the matching [ShowCaseWidget.labels]
+  /// entry: `'Next'`, `'Previous'` or `'Stop'` unless the tour translates them.
+  /// Also announced by screen readers when [buttonTextVisible] is `false`.
   final String? text;
 
   /// button icon or image
   final Widget? icon;
 
-  /// Color of button text.
-  final Color textColor;
+  /// Color of the button's text, and of its [icon] unless the icon sets its
+  /// own color.
+  ///
+  /// When `null` (the default) it is [ShowcaseStyle.actionTextColor], or else
+  /// follows the app's theme: `colorScheme.primary` on the default tooltip,
+  /// and white or black, whichever is readable, on a background you chose.
+  final Color? textColor;
 
   /// Color of button background.
   final Color textButtonBgColor;
@@ -167,21 +346,27 @@ class ActionButtonConfig {
   /// Defines visibility of button.
   final bool buttonVisible;
 
-  /// Defines visibility of button.
+  /// Whether the button shows its text. When `false` only [icon] is shown,
+  /// and the text is still announced by screen readers.
   final bool buttonTextVisible;
 
-  /// Defines icon and text direction.
-  final TextDirection textDirection;
+  /// The order of [icon] and text inside the button.
+  ///
+  /// When `null` (the default) the button follows the app's text direction:
+  /// the icon comes first, which is on the left in a left-to-right app and on
+  /// the right in a right-to-left one. Set [TextDirection.rtl] in a
+  /// left-to-right app to put the icon after the text, e.g. a Next arrow.
+  final TextDirection? textDirection;
 
   /// Creates a configuration for a single tooltip action button.
   const ActionButtonConfig({
     this.text,
     this.icon,
-    this.textColor = const Color(0xff48cae4),
+    this.textColor,
     this.textButtonBgColor = Colors.transparent,
     this.callback,
     this.buttonVisible = true,
     this.buttonTextVisible = true,
-    this.textDirection = TextDirection.ltr,
+    this.textDirection,
   });
 }
