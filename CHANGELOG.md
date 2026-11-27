@@ -2,8 +2,8 @@
 
 ## 1.16.0
 
-Skip or wait for missing steps one by one, and a fix for apps still on the old
-`MaterialApp`. Nothing to change in your code.
+Skip or wait for missing steps one by one, and theming help for apps still on
+the old `MaterialApp`. Nothing to change in your code.
 
 * **New: `ShowCaseWidget.onShouldSkipUnmountedStep`.** `autoSkipUnmountedSteps`
   applies to the whole tour, so a tour couldn't both wait for a step on a page
