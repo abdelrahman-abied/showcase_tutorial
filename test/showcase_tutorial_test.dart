@@ -655,6 +655,52 @@ void main() {
       });
     }
 
+    testWidgets('moving between steps keeps focus in the overlay', (tester) async {
+      final keys = List.generate(3, (_) => GlobalKey());
+      await tester.pumpWidget(manySteps(keys));
+      final context = tester.element(find.byType(Scaffold));
+      final state = ShowCaseWidget.of(context);
+      state.startShowCase(keys);
+      await tester.pumpAndSettle();
+      final focused = FocusManager.instance.primaryFocus;
+
+      var focusChanges = 0;
+      void onFocusChange() => focusChanges++;
+      FocusManager.instance.addListener(onFocusChange);
+      addTearDown(() => FocusManager.instance.removeListener(onFocusChange));
+
+      // Every step used to own its focus node. The step being left gave focus
+      // back to the page as its overlay went, and the step being entered took
+      // it again: two focus changes, ~20 focus widgets rebuilt on the way.
+      final counts = await rebuildsDuring(() async {
+        state.next();
+        await tester.pumpAndSettle();
+      });
+      expect(focusChanges, 0);
+      expect(FocusManager.instance.primaryFocus, same(focused));
+      // Only the entering overlay's own Focus is built, nothing above it.
+      expect(Map.fromEntries(counts.entries.where((e) => e.key.contains('Focus'))), {
+        'Focus': 1,
+        '_FocusInheritedScope': 1,
+      });
+
+      // The keys still reach the step that is showing now.
+      Future<void> press(LogicalKeyboardKey key) async {
+        await tester.sendKeyEvent(key);
+        // Through the reverse animation, then the next step in.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(milliseconds: 400));
+      }
+
+      await press(LogicalKeyboardKey.arrowRight);
+      expect(state.currentIndex, 2);
+      await press(LogicalKeyboardKey.arrowLeft);
+      expect(state.currentIndex, 1);
+      await press(LogicalKeyboardKey.escape);
+      expect(state.isShowcaseRunning, isFalse);
+    });
+
     for (final variant in ['vertical', 'right', 'container']) {
       testWidgets('the animated tooltip repaints on its own layer ($variant)', (tester) async {
         final key = GlobalKey();

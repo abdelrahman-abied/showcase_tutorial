@@ -31,6 +31,7 @@ import 'package:flutter/services.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../showcase_tutorial.dart';
+import 'showcase_widget.dart' show ShowcaseTourFocus;
 import 'get_position.dart';
 import 'shape_clipper.dart';
 import 'tooltip_widget.dart';
@@ -660,10 +661,6 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   /// this step should simply appear.
   Rect? _transitionFrom;
 
-  /// Focus node for the active overlay so a hardware keyboard can drive the
-  /// tour **only while the showcase holds focus** (never app-wide).
-  final FocusNode _focusNode = FocusNode(debugLabel: 'Showcase');
-
   /// Wraps the child when [Showcase.highlightExactShape] is enabled so it can
   /// be captured with [RenderRepaintBoundary.toImage].
   final GlobalKey _childBoundaryKey = GlobalKey();
@@ -711,7 +708,6 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     _unwatchRoute();
     _removeOverlayEntry();
     _releaseSnapshots();
-    _focusNode.dispose();
     _transitionController?.dispose();
     timer?.cancel();
     super.dispose();
@@ -827,7 +823,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
       // Take focus so keyboard navigation works without the user tapping first.
       if (showcaseState.enableKeyboardNavigation) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _focusNode.requestFocus();
+          if (mounted) showCaseWidgetState.overlayFocusNode.requestFocus();
         });
       }
     } else if (!isActiveNow && wasActive) {
@@ -1488,7 +1484,15 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     if (!showcaseState.enableKeyboardNavigation) return overlay;
     // Focus-scoped: keys are handled only while this overlay holds focus, so
     // navigation never hijacks keys from the rest of the app.
-    return Focus(focusNode: _focusNode, autofocus: true, onKeyEvent: _handleKeyEvent, child: overlay);
+    // The node belongs to the tour, not to this step, so focus stays put when
+    // the tour moves from one step to the next (see
+    // [ShowcaseTourFocus.overlayFocusNode]).
+    return Focus(
+      focusNode: showcaseState.overlayFocusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyEvent,
+      child: overlay,
+    );
   }
 }
 
