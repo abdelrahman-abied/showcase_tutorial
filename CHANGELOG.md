@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.2
+
+Fixes the pub.dev score. Nothing changes in the package or your code.
+
+* **Fixed:** 2.0.1 scored 150 of 160 on pub.dev, because the preview's
+  description in `pubspec.yaml` was longer than the 160 characters pub.dev
+  allows. It is shorter now, and a test checks the length and that each
+  listed screenshot exists.
+* The example and benchmark apps build for Android with current Flutter
+  without workarounds: Android Gradle Plugin 9.3.1, Kotlin 2.4.20 and Gradle
+  9.5.0, up from 9.1.0, 2.4.0 and 9.3.1.
+
 ## 2.0.1
 
 A faster tour, a migration guide, and one demo that shows the whole package.
