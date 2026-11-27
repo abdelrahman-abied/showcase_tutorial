@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'harness.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:showcase_benchmark/scenes.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart' as ours;
+
+import 'harness.dart';
 
 class OursDriver extends Driver {
   late BuildContext ctx;

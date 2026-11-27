@@ -3,7 +3,7 @@
 //
 // Everything outside the showcase wrapper is byte-for-byte the same so any
 // measured difference is attributable to the package.
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:showcase_tutorial/showcase_tutorial.dart' as ours;
 import 'package:showcaseview/showcaseview.dart' as theirs;
 

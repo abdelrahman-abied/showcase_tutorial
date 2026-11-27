@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../mail_model.dart';
 import 'sample_avatar_widget.dart';

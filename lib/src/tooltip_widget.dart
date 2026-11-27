@@ -23,7 +23,7 @@
 
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../showcase_tutorial.dart';
 import 'get_position.dart';
@@ -777,9 +777,8 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
                                               textAlign: widget.titleAlignment,
                                               style:
                                                   widget.titleTextStyle ??
-                                                  Theme.of(
-                                                    context,
-                                                  ).textTheme.titleLarge!.merge(TextStyle(color: widget.textColor)),
+                                                  Theme.of(context).textTheme.titleLarge!
+                                                      .merge(TextStyle(color: widget.textColor)),
                                             ),
                                           ),
                                         if (widget.description != null)
@@ -790,9 +789,8 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
                                               textAlign: widget.descriptionAlignment,
                                               style:
                                                   widget.descTextStyle ??
-                                                  Theme.of(
-                                                    context,
-                                                  ).textTheme.titleSmall!.merge(TextStyle(color: widget.textColor)),
+                                                  Theme.of(context).textTheme.titleSmall!
+                                                      .merge(TextStyle(color: widget.textColor)),
                                             ),
                                           ),
                                         if (_hasFooter) _buildProgressFooter()!,

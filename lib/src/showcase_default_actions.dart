@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../showcase_tutorial.dart';
 import 'utilities/_showcase_context_provider.dart';

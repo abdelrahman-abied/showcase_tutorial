@@ -7,8 +7,8 @@
 // step change costs, whichever frame it happens on.
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// A step change is measured over a fixed wall-clock window, identical for
 /// both packages, long enough for the slower one to finish: showcaseview

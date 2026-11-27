@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// Wraps an extra target widget so it can be highlighted in the same showcase
 /// step as the primary [Showcase].

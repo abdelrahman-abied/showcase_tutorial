@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.15.2
+
+Moves to Flutter's new standalone Material library. No API changes.
+
+* **Requires Flutter 3.47 or newer (Dart 3.13).** Flutter 3.47 deprecated
+  `package:flutter/material.dart` in favour of the separate
+  [`material_ui`](https://pub.dev/packages/material_ui) package, which this
+  release now depends on. On an older Flutter, pub keeps you on 1.15.1
+  automatically.
+* **Migrate your app too.** `material_ui` keeps its own `Theme`, separate from
+  the one in `package:flutter/material.dart`. In an app that still uses the old
+  `MaterialApp`, the tooltip's default title and description text, and the
+  font and press highlight of `ShowCaseDefaultActions` buttons, use the default
+  Material theme instead of your app's. Run the official fix
+  to move your app over:
+
+  ```sh
+  dart fix --apply --code=migrate_design_widgets
+  ```
+
+  If you can't migrate yet, set `titleTextStyle` and `descTextStyle` on your
+  steps. Those are used exactly as before.
+* Files that don't need Material now import only `package:flutter/widgets.dart`.
+
 ## 1.15.1
 
 Performance and layout fixes. Nothing to change in your code.

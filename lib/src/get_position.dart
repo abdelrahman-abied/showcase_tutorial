@@ -21,7 +21,7 @@
  * SOFTWARE.
  */
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// One measurement of the target's render box, taken once and reused by every
 /// accessor on [GetPosition].
