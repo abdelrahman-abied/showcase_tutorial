@@ -937,7 +937,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     if (isActiveNow) {
       // Lets the tour attach its back-button handling to this step's page
       // (see [ShowCaseWidget.backButtonInteraction]).
-      _shownOnTour = showcaseState..didShowStep(this, _route, _dismissShowcaseTour);
+      _shownOnTour = showcaseState..didShowStep(this, _route, _dismissFromBackButton);
       // A per-step [Showcase.enableAutoScroll] wins over the tour-wide flag.
       if (widget.enableAutoScroll ?? showcaseState.enableAutoScroll) {
         _scrollIntoView();
@@ -1353,6 +1353,23 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     await _reverseAnimateTooltip();
     if (!mounted) return;
     _dismissIfStillActive();
+  }
+
+  /// Dismisses the tour for the back button
+  /// ([ShowCaseWidget.backButtonInteraction]).
+  ///
+  /// Normally it animates the tooltip out first, as <kbd>Esc</kbd> does. When
+  /// the tooltip is already animating out, for a Next tap or another
+  /// dismissal, the tour is dismissed at once instead: waiting for that
+  /// animation would let [_dismissIfStillActive] drop this dismissal once the
+  /// tap had moved the tour on, and back would do nothing. A dismissal that
+  /// is still animating then finds the tour gone and reports nothing more.
+  void _dismissFromBackButton() {
+    if (_isTooltipDismissed) {
+      showCaseWidgetState.dismiss();
+      return;
+    }
+    _dismissShowcaseTour();
   }
 
   /// Dismisses the tour once the reverse animation a tap started is over,

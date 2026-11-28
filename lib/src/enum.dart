@@ -117,6 +117,10 @@ enum BackButtonInteraction {
 
   /// Back dismisses the whole tour, as <kbd>Esc</kbd> does, and the page
   /// stays open. A second press, once the tour is gone, closes the page.
+  ///
+  /// The tooltip animates out first, unless it already is, for example just
+  /// after a Next tap: the tour then ends at once, so a press is never lost to
+  /// the step change.
   dismiss,
 
   /// Back goes to the previous step, as [ShowCaseWidgetState.previous] does.

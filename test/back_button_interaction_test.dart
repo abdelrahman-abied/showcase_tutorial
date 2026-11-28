@@ -665,4 +665,77 @@ void main() {
       await backIntoDetails(tester);
     });
   });
+
+  group('backButtonInteraction.dismiss while the tooltip animates out', () {
+    // A tooltip that animates out, unlike the others in this file.
+    Future<void> openAnimated(WidgetTester tester, {BarrierInteraction barrier = BarrierInteraction.next}) async {
+      usePhone(tester);
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          home: ShowCaseWidget(
+            backButtonInteraction: BackButtonInteraction.dismiss,
+            barrierInteraction: barrier,
+            disableMovingAnimation: true,
+            onDismiss: dismissedAt.add,
+            builder: stepsPage(),
+          ),
+        ),
+      );
+      controller().startShowCase([first, second]);
+      await pumpFrames(tester);
+      expect(find.text('First step'), findsOneWidget);
+    }
+
+    // The dimmed background, away from both targets.
+    const background = Offset(20, 850);
+
+    testWidgets('back just after a Next tap still ends the tour', (tester) async {
+      final previousWarning = WidgetController.hitTestWarningShouldBeFatal;
+      WidgetController.hitTestWarningShouldBeFatal = true;
+      addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = previousWarning);
+      await openAnimated(tester);
+      await tester.tapAt(background);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.binding.handlePopRoute();
+      await pumpFrames(tester);
+      expect(controller().isShowcaseRunning, isFalse);
+      expect(dismissedAt, [first]);
+      expect(find.text('Second step'), findsNothing);
+    });
+
+    testWidgets('back during a dismissing tap reports one dismissal', (tester) async {
+      final previousWarning = WidgetController.hitTestWarningShouldBeFatal;
+      WidgetController.hitTestWarningShouldBeFatal = true;
+      addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = previousWarning);
+      await openAnimated(tester, barrier: BarrierInteraction.dismiss);
+      await tester.tapAt(background);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.binding.handlePopRoute();
+      await pumpFrames(tester);
+      expect(dismissedAt, [first]);
+    });
+
+    testWidgets('two dismissing taps still report one dismissal', (tester) async {
+      final previousWarning = WidgetController.hitTestWarningShouldBeFatal;
+      WidgetController.hitTestWarningShouldBeFatal = true;
+      addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = previousWarning);
+      await openAnimated(tester, barrier: BarrierInteraction.dismiss);
+      await tester.tapAt(background);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(background);
+      await pumpFrames(tester);
+      expect(dismissedAt, [first]);
+    });
+
+    testWidgets('two quick back presses report one dismissal', (tester) async {
+      await openAnimated(tester);
+      await tester.binding.handlePopRoute();
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.binding.handlePopRoute();
+      await pumpFrames(tester);
+      expect(dismissedAt, [first]);
+      expect(navigator.currentState!.canPop(), isFalse);
+    });
+  });
 }
