@@ -1265,8 +1265,11 @@ A tooltip that does not fit on its side moves to the opposite one when it fits
 there: `top` and `bottom` swap, as do `left` and `right` (a side fits when the
 tooltip is on screen there and clear of the target). With no position set, a
 tooltip that fits neither above nor below the target, such as next to a tall
-target, goes to its left or right instead. A tooltip that fits stays exactly
-where it was, and one that fits nowhere is placed as before.
+target, goes to its left or right instead. It only moves where all of it,
+buttons included, fits on the screen above the keyboard. A tooltip that fits
+stays exactly where it was, and one that fits nowhere is placed as before. A
+`Showcase.withWidget` container moves only when it is measured; with a `height`
+it stays on the side you ask for.
 
 Add extra space between the target and the tooltip with `targetTooltipGap`
 (logical pixels, default `0`). It applies to every side:

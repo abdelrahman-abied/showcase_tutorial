@@ -18,11 +18,15 @@
   the opposite side when it fits there: `top` and `bottom` swap, as do `left`
   and `right`. With no position set, a default tooltip that fits neither
   above nor below its target, such as next to a tall one, goes to its left or
-  right. A tooltip that fits stays exactly where it was (a test checks this
-  across several thousand placements), and one that fits nowhere is placed as
-  before. Buttons inside the tooltip count toward its height only with
-  `ActionsSettings.containerHeight` set, so without it a tooltip that misses
-  by less than its button row may stay where it is.
+  right. It only moves to a side where all of it, buttons included, fits on
+  the screen above the keyboard. A tooltip that fits stays exactly where it
+  was (a test checks this across thousands of placements, on small screens,
+  with large text and with the keyboard open), and one that fits nowhere is
+  placed as before. A `Showcase.withWidget` container moves only when it is
+  measured: with a `height` it stays on the side you ask for, as before.
+  Buttons inside the tooltip count toward whether it fits where it is only
+  with `ActionsSettings.containerHeight` set, so without it a tooltip that
+  misses by less than its button row may stay where it is.
 
 ## 2.0.2
 

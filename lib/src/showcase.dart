@@ -398,8 +398,9 @@ class Showcase extends StatefulWidget {
   /// A tooltip that does not fit on screen on this side, or would cover the
   /// target, goes on the opposite side instead when it fits there
   /// ([TooltipPosition.top] and [TooltipPosition.bottom],
-  /// [TooltipPosition.left] and [TooltipPosition.right]). Where neither fits,
-  /// it stays on this side.
+  /// [TooltipPosition.left] and [TooltipPosition.right]), buttons included.
+  /// Where neither fits, it stays on this side. A [container] with a
+  /// [height] always stays on this side, as it is placed by that height.
   ///
   /// Defaults to `null`: below or above the target, whichever has room. A
   /// default tooltip that fits neither above nor below goes to its left or

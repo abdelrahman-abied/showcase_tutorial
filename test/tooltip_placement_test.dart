@@ -449,16 +449,16 @@ void main() {
     }
   });
 
-  testWidgets('a custom container that does not fit above goes below, and its button works', (tester) async {
+  testWidgets('a measured custom container that does not fit on its side moves, and its button works', (tester) async {
+    // Only a measured container moves: one with a declared height stays on
+    // the side asked for, as it always did (see the regression tests).
     _usePhoneScreen(tester);
     final previousWarning = WidgetController.hitTestWarningShouldBeFatal;
     WidgetController.hitTestWarningShouldBeFatal = true;
     addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = previousWarning);
-    for (final (declared, position, alignment) in [
-      (true, TooltipPosition.top, Alignment.topCenter),
-      (false, TooltipPosition.top, Alignment.topCenter),
-      (true, TooltipPosition.bottom, Alignment.bottomCenter),
-      (false, TooltipPosition.bottom, Alignment.bottomCenter),
+    for (final (position, alignment) in [
+      (TooltipPosition.top, Alignment.topCenter),
+      (TooltipPosition.bottom, Alignment.bottomCenter),
     ]) {
       final key = GlobalKey();
       var taps = 0;
@@ -477,8 +477,6 @@ void main() {
                     alignment: alignment,
                     child: Showcase.withWidget(
                       key: key,
-                      width: declared ? 200 : null,
-                      height: declared ? 120 : null,
                       tooltipPosition: position,
                       container: SizedBox(
                         width: 200,
