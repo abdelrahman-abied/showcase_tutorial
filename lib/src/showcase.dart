@@ -1132,7 +1132,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     if (widget.disposeOnTap == true) {
       await _reverseAnimateTooltip();
       showCaseWidgetState.dismiss();
-      widget.onTargetClick!();
+      widget.onTargetClick?.call();
     } else {
       (widget.onTargetClick ?? _nextIfAny).call();
     }

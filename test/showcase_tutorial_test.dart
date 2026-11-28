@@ -4435,6 +4435,53 @@ void main() {
     });
   });
 
+  testWidgets('disposeOnTap without onTargetClick ends the tour instead of throwing', (tester) async {
+    // Showcase.withWidget has no assert for this combination, so it reached
+    // `onTargetClick!()` and threw when the target was tapped. The default
+    // constructor asserts in debug only, so release builds threw there too.
+    final key = GlobalKey();
+    var dismissed = false;
+    late BuildContext pageContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          onDismiss: (_) => dismissed = true,
+          builder: Builder(
+            builder: (context) {
+              pageContext = context;
+              return Scaffold(
+                body: Center(
+                  child: Showcase.withWidget(
+                    key: key,
+                    width: 120,
+                    height: 40,
+                    disposeOnTap: true,
+                    container: const Text('Custom tip'),
+                    child: const SizedBox(width: 80, height: 40, child: Text('target')),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    ShowCaseWidget.of(pageContext).startShowCase([key]);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Custom tip'), findsOneWidget);
+
+    await tester.tap(find.text('target'), warnIfMissed: false);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(tester.takeException(), isNull);
+    expect(dismissed, isTrue);
+    expect(find.text('Custom tip'), findsNothing);
+  });
+
   group('built-in buttons respond to taps', () {
     // Taps land on the buttons themselves, inside and outside the tooltip,
     // with the tooltip animations on, on a phone-sized screen.

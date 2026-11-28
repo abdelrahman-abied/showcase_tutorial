@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+* **Fixed:** tapping the target of a step with `disposeOnTap: true` and no
+  `onTargetClick` threw a null-check error. It happened with
+  `Showcase.withWidget` in every build, and with `Showcase` in release builds
+  (debug builds stopped it earlier with an assert). The tap now ends the tour,
+  as `disposeOnTap` describes. This bug dates back to the package's origins.
+
 ## 2.0.2
 
 Fixes the pub.dev score. Nothing changes in the package or your code.
