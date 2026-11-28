@@ -78,6 +78,10 @@ class ToolTipWidget extends StatefulWidget {
 
   /// Minimum margin between the tooltip and the screen edges.
   final EdgeInsets toolTipMargin;
+
+  /// The [container]'s height and width as the developer declared them
+  /// ([Showcase.height] and [Showcase.width]). When either is `null` the
+  /// container is measured, and positioned once its size is known.
   final double? contentHeight;
   final double? contentWidth;
   final VoidCallback? onTooltipTap;
@@ -208,7 +212,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
 
   TooltipPosition findPositionForContent(Offset position) {
     var height = 120.0;
-    height = widget.contentHeight ?? height;
+    height = _containerHeight ?? height;
     final bottomPosition = position.dy + ((widget.position?.getHeight() ?? 0) / 2);
     final topPosition = position.dy - ((widget.position?.getHeight() ?? 0) / 2);
     final hasSpaceInTop = topPosition >= height;
@@ -518,10 +522,12 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
 
   double _getSpace() {
     final screenWidth = widget.screenSize!.width;
-    var space = widget.position!.getCenter() - (widget.contentWidth! / 2);
+    // Only null while the container is hidden, waiting to be measured.
+    final contentWidth = _containerWidth ?? 0;
+    var space = widget.position!.getCenter() - (contentWidth / 2);
     // Keep the custom container (Showcase.withWidget) within the screen-edge
     // margins, mirroring how the default tooltip clamps to toolTipMargin.
-    final maxLeft = max(widget.toolTipMargin.left, screenWidth - widget.contentWidth! - widget.toolTipMargin.right);
+    final maxLeft = max(widget.toolTipMargin.left, screenWidth - contentWidth - widget.toolTipMargin.right);
     space = space.clamp(widget.toolTipMargin.left, maxLeft);
     return space;
   }
@@ -552,6 +558,25 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
 
   final GlobalKey _customContainerKey = GlobalKey();
   final ValueNotifier<double> _customContainerWidth = ValueNotifier<double>(1);
+
+  /// The custom container's laid-out size, as [MeasureSize] last reported it.
+  Size? _measuredContainerSize;
+
+  /// Whether the container's size is measured rather than declared: one of
+  /// [ToolTipWidget.contentHeight] and [ToolTipWidget.contentWidth] is `null`.
+  bool get _measuresContainer =>
+      widget.container != null && (widget.contentHeight == null || widget.contentWidth == null);
+
+  /// The container's height for placement: declared, or else measured.
+  double? get _containerHeight => widget.contentHeight ?? _measuredContainerSize?.height;
+
+  /// The container's width for placement: declared, or else measured.
+  double? get _containerWidth => widget.contentWidth ?? _measuredContainerSize?.width;
+
+  /// Whether the container is laid out but not yet measured. Its position
+  /// depends on its size, so until then it is kept off stage: neither painted
+  /// nor tappable, rather than drawn for a frame in the wrong place.
+  bool get _awaitsContainerSize => _measuresContainer && _measuredContainerSize == null;
 
   @override
   void initState() {
@@ -947,6 +972,27 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
         ],
       );
     }
+    // Same reason as the default tooltip: the custom container slides every
+    // frame, so keep it on its own layer.
+    Widget container = RepaintBoundary(
+      child: Material(
+        color: Colors.transparent,
+        child: _tappable(
+          child: Container(
+            padding: EdgeInsets.only(top: paddingTop),
+            color: Colors.transparent,
+            child: Center(
+              child: MeasureSize(onSizeChange: onSizeChange, child: widget.container),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (_measuresContainer) {
+      // Below the translations, which hit-test outside their box: Offstage
+      // only hit-tests inside its own, as a RepaintBoundary does.
+      container = Offstage(offstage: _awaitsContainerSize, child: container);
+    }
     return Stack(
       children: <Widget>[
         Positioned(
@@ -961,27 +1007,13 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
                   begin: Offset(0.0, contentFractionalOffset / 10),
                   end: !widget.showArrow && !isArrowUp ? const Offset(0.0, 0.0) : const Offset(0.0, 0.100),
                 ).animate(_movingAnimation),
-                // Same reason as the default tooltip: the custom container slides
-                // every frame, so keep it on its own layer.
-                child: RepaintBoundary(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: _tappable(
-                      child: Container(
-                        padding: EdgeInsets.only(top: paddingTop),
-                        color: Colors.transparent,
-                        child: Center(
-                          child: MeasureSize(onSizeChange: onSizeChange, child: widget.container),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                child: container,
               ),
             ),
           ),
         ),
-        if (widget.actions != null && !widget.actionsPosition.isInside)
+        // Placed from the container's position, so held back with it.
+        if (widget.actions != null && !widget.actionsPosition.isInside && !_awaitsContainerSize)
           Positioned(
             top: widget.actionButtonsPosition?.top ?? actionTopPosWithContainer,
             left: widget.actionButtonsPosition?.left ?? _getSpace(),
@@ -1002,9 +1034,14 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
   }
 
   void onSizeChange(Size? size) {
+    // Reported after the frame, by which time the step may have closed.
+    if (!mounted) return;
     var tempPos = position;
     tempPos = Offset(position!.dx, position!.dy + size!.height);
-    setState(() => position = tempPos);
+    setState(() {
+      position = tempPos;
+      _measuredContainerSize = size;
+    });
   }
 
   Size _textSize(String text, TextStyle style) {

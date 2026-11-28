@@ -240,10 +240,19 @@ class Showcase extends StatefulWidget {
   /// Default to `true`
   final bool showArrow;
 
-  /// Height of [container]
+  /// Height of [container], used to choose whether it goes above or below
+  /// the target.
+  ///
+  /// Optional. When `null`, the container's laid-out height is used instead:
+  /// it is measured before it is shown, so it never appears in the wrong
+  /// place. Set it to place the container by a height of your choosing.
   final double? height;
 
-  /// Width of [container]
+  /// Width of [container], used to centre it on the target and keep it within
+  /// [toolTipMargin].
+  ///
+  /// Optional. When `null`, the container's laid-out width is used instead,
+  /// as for [height].
   final double? width;
 
   /// The duration of time the bouncing animation of tooltip should last.
@@ -566,15 +575,16 @@ class Showcase extends StatefulWidget {
   /// Creates a showcase step with a fully custom tooltip widget.
   ///
   /// Unlike the default [Showcase] constructor, the tooltip is the supplied
-  /// [container] sized by [height] and [width]; [title]/[description] and the
-  /// default tooltip styling do not apply.
+  /// [container]; [title]/[description] and the default tooltip styling do
+  /// not apply. It is placed by its own laid-out size, or by [height] and
+  /// [width] when they are given.
   const Showcase.withWidget({
     required this.key,
     this.keys,
     required this.child,
     required this.container,
-    required this.height,
-    required this.width,
+    this.height,
+    this.width,
     this.targetShapeBorder = const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
     this.highlightExactShape = false,
     this.overlayColor,

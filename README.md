@@ -357,8 +357,6 @@ When the default title/description tooltip isn't enough, build your own with
 ```dart
 Showcase.withWidget(
   key: _three,
-  height: 80,
-  width: 140,
   targetShapeBorder: const CircleBorder(),
   container: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,6 +369,11 @@ Showcase.withWidget(
   child: const Icon(Icons.star),
 );
 ```
+
+The container is placed by its own laid-out size: it goes above or below the
+target by its height, and is kept within `toolTipMargin` by its width. It is
+measured before it is shown, so it never appears in the wrong place first.
+Pass `height` and `width` to place it by sizes of your own instead.
 
 ## Action buttons (Next / Previous / Stop)
 
@@ -1497,8 +1500,8 @@ ShowCaseWidget(
 | title                        | String?                |                                                    | Title of the default tooltip.                                                               |     ✅     |                       |
 | description                  | String?                |                                                    | Description of the default tooltip (optional).                                              |     ✅     |                       |
 | container                    | Widget?                |                                                    | A fully custom tooltip widget.                                                              |            |          ✅           |
-| height                       | double?                |                                                    | Height of the custom tooltip.                                                               |            |          ✅           |
-| width                        | double?                |                                                    | Width of the custom tooltip.                                                                |            |          ✅           |
+| height                       | double?                | its laid-out height                                | Height of the custom tooltip, for placing it. Measured when unset.                          |            |          ✅           |
+| width                        | double?                | its laid-out width                                 | Width of the custom tooltip, for placing it. Measured when unset.                           |            |          ✅           |
 | titleTextStyle               | TextStyle?             | `ShowcaseStyle`                                    | Text style of the title.                                                                    |     ✅     |                       |
 | descTextStyle                | TextStyle?             | `ShowcaseStyle`                                    | Text style of the description.                                                              |     ✅     |                       |
 | titleAlignment               | TextAlign              | `TextAlign.start`                                  | Alignment of the title.                                                                     |     ✅     |                       |

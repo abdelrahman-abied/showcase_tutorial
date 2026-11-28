@@ -7,6 +7,12 @@
   `Showcase.withWidget` in every build, and with `Showcase` in release builds
   (debug builds stopped it earlier with an assert). The tap now ends the tour,
   as `disposeOnTap` describes. This bug dates back to the package's origins.
+* **`Showcase.withWidget` no longer needs `height` and `width`.** Leave them
+  out and the container is placed by its own laid-out size: above or below
+  the target by its height, within `toolTipMargin` by its width. It is
+  measured before it is shown, so it never appears in the wrong place first.
+  Code that passes them works as before, and the container lands exactly
+  where it did.
 
 ## 2.0.2
 
