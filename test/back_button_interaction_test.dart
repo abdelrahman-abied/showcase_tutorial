@@ -520,4 +520,149 @@ void main() {
       }, variant: TargetPlatformVariant.only(TargetPlatform.android));
     }
   });
+
+  group('backButtonInteraction: a back press that moves a page', () {
+    // A back press runs every entry the page has registered, in one loop. A
+    // step that leaves the screen during that loop must not change the list.
+
+    for (final interaction in [
+      BackButtonInteraction.dismiss,
+      BackButtonInteraction.previous,
+      BackButtonInteraction.block,
+    ]) {
+      for (final placement in _Placement.values) {
+        testWidgets('the page\'s own PopScope closes it (${interaction.name}, ${placement.name})', (tester) async {
+          usePhone(tester);
+          final above = placement == _Placement.aboveNavigator;
+          Widget guardedPage() => Builder(
+            builder: (context) => PopScope<Object?>(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) Navigator.pop(context);
+              },
+              child: stepsPage(),
+            ),
+          );
+          await tester.pumpWidget(
+            MaterialApp(
+              navigatorKey: navigator,
+              builder: above ? (context, child) => tour(interaction, child!) : null,
+              home: const Scaffold(body: Text('home page')),
+            ),
+          );
+          navigator.currentState!.push(
+            MaterialPageRoute<void>(builder: (_) => above ? guardedPage() : tour(interaction, guardedPage())),
+          );
+          await pumpFrames(tester);
+          controller().startShowCase([first, second]);
+          await pumpFrames(tester);
+          expect(find.text('First step'), findsOneWidget);
+
+          await pressBack(tester);
+          expect(tester.takeException(), isNull);
+          expect(stepsPageOpen(), isFalse, reason: "the page's own handler closed it");
+        });
+      }
+    }
+
+    late BuildContext homeContext;
+    late GlobalKey homeStep;
+    late GlobalKey detailsStep;
+
+    Route<void> detailsRoute() => MaterialPageRoute<void>(
+      builder: (_) => Scaffold(
+        body: Showcase(key: detailsStep, title: 'Details step', description: 'd', child: const Text('details')),
+      ),
+    );
+
+    // A tour across screens: one step on the home page, one on a details page.
+    Future<void> openHome(
+      WidgetTester tester, {
+      ShowcaseStepCallback? onStart,
+      ShowcaseBeforeStepCallback? onBeforeStep,
+    }) async {
+      usePhone(tester);
+      homeStep = GlobalKey();
+      detailsStep = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          builder: (context, child) => ShowCaseWidget(
+            backButtonInteraction: BackButtonInteraction.previous,
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            onStart: onStart,
+            onBeforeStep: onBeforeStep,
+            onDismiss: dismissedAt.add,
+            builder: child!,
+          ),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) {
+                homeContext = context;
+                return Showcase(key: homeStep, title: 'Home step', description: 'd', child: const Text('home'));
+              },
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('previous, where onStart closes the page to reach the earlier step', (tester) async {
+      await openHome(
+        tester,
+        onStart: (index, key) {
+          if (key == homeStep && navigator.currentState!.canPop()) navigator.currentState!.pop();
+        },
+      );
+      ShowCaseWidget.of(homeContext).startShowCase([homeStep, detailsStep]);
+      await pumpFrames(tester);
+      navigator.currentState!.push(detailsRoute());
+      ShowCaseWidget.of(homeContext).next();
+      await pumpFrames(tester);
+      expect(find.text('Details step'), findsOneWidget);
+
+      await pressBack(tester);
+      expect(tester.takeException(), isNull);
+      expect(find.text('details'), findsNothing);
+      expect(find.text('Home step'), findsOneWidget);
+      expect(dismissedAt, isEmpty);
+    });
+
+    // The earlier step is on a page the callback opens: the tour starts on
+    // the home step, the second of the two.
+    Future<void> backIntoDetails(WidgetTester tester) async {
+      ShowCaseWidget.of(homeContext).startShowCase([detailsStep, homeStep], startAt: 1);
+      await pumpFrames(tester);
+      expect(find.text('Home step'), findsOneWidget);
+
+      await pressBack(tester);
+      expect(tester.takeException(), isNull);
+      expect(find.text('Details step'), findsOneWidget);
+      expect(dismissedAt, isEmpty);
+    }
+
+    testWidgets('previous, where a synchronous onBeforeStep opens the earlier step\'s page', (tester) async {
+      await openHome(
+        tester,
+        onBeforeStep: (index, key) {
+          if (key == detailsStep) navigator.currentState!.push(detailsRoute());
+        },
+      );
+      await backIntoDetails(tester);
+    });
+
+    testWidgets('previous, where an async onBeforeStep opens the page before its first await', (tester) async {
+      await openHome(
+        tester,
+        onBeforeStep: (index, key) async {
+          if (key != detailsStep) return;
+          final opened = navigator.currentState!.push(detailsRoute());
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          opened.ignore();
+        },
+      );
+      await backIntoDetails(tester);
+    });
+  });
 }

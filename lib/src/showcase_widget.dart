@@ -864,8 +864,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   VoidCallback? _dismissShownStep;
 
   /// Handles the back button for [ShowCaseWidget.backButtonInteraction] while
-  /// it is registered on [_popEntryRoute].
-  late final _TourPopEntry _popEntry = _TourPopEntry(_handleBackButton);
+  /// it is registered on [_popEntryRoute]. A fresh one for every
+  /// registration: see [_syncPopEntry].
+  _TourPopEntry? _popEntry;
 
   /// The page [_popEntry] is registered on, or `null` when it is not.
   ModalRoute<Object?>? _popEntryRoute;
@@ -1541,12 +1542,31 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Registers [_popEntry] on the page of the step on screen, or takes it
   /// off, to match [ShowCaseWidget.backButtonInteraction].
+  ///
+  /// The entry taken off stops blocking back at once, but leaves the page's
+  /// list of entries a microtask later. A back press can take the step off
+  /// the screen while the page is still calling its entries, for example
+  /// through an app's own `PopScope` that pops the page, or a step change
+  /// that pushes or pops a page: changing that list then would break the
+  /// page's loop over it. An entry that no longer blocks ignores the press.
   void _syncPopEntry() {
     final route = (mounted && backButtonInteraction != BackButtonInteraction.passThrough) ? _shownStepRoute : null;
     if (identical(route, _popEntryRoute)) return;
-    _popEntryRoute?.unregisterPopEntry(_popEntry);
+    final oldRoute = _popEntryRoute;
+    final oldEntry = _popEntry;
+    if (oldRoute != null && oldEntry != null) {
+      oldEntry.canPopNotifier.value = true;
+      scheduleMicrotask(() {
+        oldRoute.unregisterPopEntry(oldEntry);
+        oldEntry.dispose();
+      });
+    }
     _popEntryRoute = route;
-    route?.registerPopEntry(_popEntry);
+    _popEntry = null;
+    if (route != null) {
+      final entry = _popEntry = _TourPopEntry(_handleBackButton);
+      route.registerPopEntry(entry);
+    }
   }
 
   @override
@@ -1554,9 +1574,13 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     _shownStep = null;
     _shownStepRoute = null;
     _dismissShownStep = null;
-    _popEntryRoute?.unregisterPopEntry(_popEntry);
+    final entry = _popEntry;
+    if (entry != null) {
+      _popEntryRoute?.unregisterPopEntry(entry);
+      entry.dispose();
+    }
     _popEntryRoute = null;
-    _popEntry.dispose();
+    _popEntry = null;
     _cancelPendingStart();
     _stepGeneration++;
     _onStartCallbacks.clear();
@@ -1654,17 +1678,19 @@ class _TourPopEntry extends PopEntry<Object?> {
 
   final VoidCallback _onBack;
 
-  /// Always `false` while registered: the page does not pop on back, and
+  /// `false` while the entry is in use: the page does not pop on back, and
   /// reports that it handles back, which also keeps Android's predictive back
-  /// from previewing a pop.
+  /// from previewing a pop. Set to `true` when the step leaves the screen, just
+  /// before the entry is taken off the page.
   @override
   final ValueNotifier<bool> canPopNotifier = ValueNotifier<bool>(false);
 
   @override
   void onPopInvokedWithResult(bool didPop, Object? result) {
     // `didPop` is true when the page closed anyway, through `Navigator.pop`:
-    // that is not a back press for the tour.
-    if (!didPop) _onBack();
+    // that is not a back press for the tour. Nor is a press that reaches an
+    // entry already taken off with its step.
+    if (!didPop && !canPopNotifier.value) _onBack();
   }
 
   void dispose() => canPopNotifier.dispose();
