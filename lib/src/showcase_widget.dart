@@ -692,6 +692,15 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// The start [startShowCase] scheduled with a `delay`, while it waits.
   Timer? _delayedStart;
 
+  /// Whether a start is waiting on an asynchronous
+  /// [ShowCaseWidget.onShouldStartShowcase].
+  bool _awaitingGuard = false;
+
+  /// Counts the starts asked for and called off. A guard that answers after
+  /// its start was called off, or replaced, finds a newer generation and does
+  /// nothing.
+  int _startGeneration = 0;
+
   /// Whether the target widget for [key] is currently laid out on screen.
   ///
   /// Returns `true` only when the target is mounted **and** has been through
@@ -840,12 +849,28 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   ///   delay, not before. It sees the app as it is when the tour would start:
   ///   a tour the user completed elsewhere in the meantime does not start.
   ///   An asynchronous guard adds its own wait to the delay,
-  /// * the waiting start is cancelled, and never fires, when [dismiss] is
-  ///   called, when [startShowCase] is called again (the new call replaces
-  ///   it), when [ShowCaseWidget.enableShowcase] turns `false`, or when this
-  ///   [ShowCaseWidget] is disposed,
   /// * a tour already running keeps running until the delayed start replaces
   ///   it.
+  ///
+  /// The delay's timer belongs to this [ShowCaseWidget], not to the screen
+  /// that called [startShowCase]. When a page schedules a delayed start and
+  /// the [ShowCaseWidget] sits above the [Navigator], popping the page does
+  /// not call the start off: it still fires, and the tour then waits for the
+  /// page's steps to mount again (or, with
+  /// [ShowCaseWidget.autoSkipUnmountedSteps], skips them and finishes). A
+  /// screen that schedules a delayed start should call [cancelDelayedStart] in
+  /// its `dispose`, through a [ShowCaseWidgetState] it kept from
+  /// `didChangeDependencies` (an ancestor lookup is not allowed in `dispose`).
+  /// A start whose steps are not mounted when it fires is not dropped, as a
+  /// tour can wait for a page the user has yet to open.
+  ///
+  /// **Calling a start off.** A start waiting on its [delay], or on an
+  /// asynchronous guard, never fires once it is called off. That happens
+  /// when [cancelDelayedStart] or [dismiss] is called, when [startShowCase]
+  /// is called again (the new call replaces it), when
+  /// [ShowCaseWidget.enableShowcase] turns `false`, or when this
+  /// [ShowCaseWidget] is disposed. [cancelDelayedStart] does it silently;
+  /// [dismiss] also reports a dismissal, as it always does (see [dismiss]).
   ///
   /// The throw for a disabled showcase (see above) happens at the call, not
   /// after the delay.
@@ -858,8 +883,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     }
     if (!mounted) return;
 
-    // A start still waiting on its delay is replaced by this one.
-    _cancelDelayedStart();
+    // A start still waiting, on its delay or on the guard, is replaced by
+    // this one.
+    _cancelPendingStart();
     if (delay > Duration.zero) {
       _delayedStart = Timer(delay, () {
         _delayedStart = null;
@@ -870,6 +896,43 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     _startShowCaseGuarded(widgetIds, force, startAt);
   }
 
+  /// Whether a start asked for with [startShowCase] has yet to happen: one
+  /// waiting on its `delay`, or on an asynchronous
+  /// [ShowCaseWidget.onShouldStartShowcase].
+  ///
+  /// [isShowcaseRunning] stays as it was while a start is pending: a tour
+  /// already running keeps running until the start replaces it.
+  bool get isStartPending => _delayedStart != null || _awaitingGuard;
+
+  /// Calls off a start that [startShowCase] has yet to make, without firing
+  /// any callback, and returns whether one was pending (see [isStartPending]).
+  ///
+  /// It is the silent way to cancel a start that waits on its `delay` or on an
+  /// asynchronous [ShowCaseWidget.onShouldStartShowcase]: unlike [dismiss], it
+  /// leaves a running tour alone and calls neither [ShowCaseWidget.onDismiss]
+  /// nor the [addOnDismissCallback] listeners.
+  ///
+  /// Call it from the `dispose` of a screen that scheduled a delayed start,
+  /// so the start does not outlive the screen. Keep the [ShowCaseWidgetState]
+  /// from `didChangeDependencies`: `dispose` cannot look up ancestors.
+  ///
+  /// ```dart
+  /// late ShowCaseWidgetState _tour;
+  ///
+  /// @override
+  /// void didChangeDependencies() {
+  ///   super.didChangeDependencies();
+  ///   _tour = ShowCaseWidget.of(context);
+  /// }
+  ///
+  /// @override
+  /// void dispose() {
+  ///   _tour.cancelDelayedStart();
+  ///   super.dispose();
+  /// }
+  /// ```
+  bool cancelDelayedStart() => _cancelPendingStart();
+
   /// Starts the tour now, unless [ShowCaseWidget.onShouldStartShowcase] says
   /// otherwise (or [force] bypasses it).
   void _startShowCaseGuarded(List<GlobalKey> widgetIds, bool force, int startAt) {
@@ -879,16 +942,27 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
       return;
     }
     // The guard may be synchronous or asynchronous; wrapping in Future.value
-    // handles both without forcing callers to await.
+    // handles both without forcing callers to await. Its answer only counts
+    // while no newer start, dismissal or cancellation came in the meantime,
+    // and while the showcase is still enabled.
+    final generation = _startGeneration;
+    _awaitingGuard = true;
     Future<bool>.value(guard(widget.showcaseId)).then((shouldStart) {
-      if (shouldStart && mounted) _startShowCaseNow(widgetIds, startAt);
+      if (generation != _startGeneration) return;
+      _awaitingGuard = false;
+      if (shouldStart && mounted && enableShowcase) _startShowCaseNow(widgetIds, startAt);
     });
   }
 
-  /// Cancels the start [startShowCase] scheduled with a `delay`, if any.
-  void _cancelDelayedStart() {
+  /// Calls off a start that waits on its `delay` or on the guard, and returns
+  /// whether there was one.
+  bool _cancelPendingStart() {
+    final wasPending = isStartPending;
     _delayedStart?.cancel();
     _delayedStart = null;
+    _awaitingGuard = false;
+    _startGeneration++;
+    return wasPending;
   }
 
   void _startShowCaseNow(List<GlobalKey> widgetIds, int startAt) {
@@ -1032,16 +1106,17 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Dismiss entire showcase view
   ///
-  /// Also cancels a start that [startShowCase] scheduled with a `delay` and
-  /// that is still waiting.
+  /// Calls [ShowCaseWidget.onDismiss] and the [addOnDismissCallback]
+  /// listeners with the step that was active, or with `null` when no tour is
+  /// running, as it always has. It also calls off a start that [startShowCase]
+  /// has yet to make (see [isStartPending]). To call off a pending start
+  /// without reporting a dismissal, use [cancelDelayedStart] instead.
   void dismiss() {
     if (!mounted) return;
-    _cancelDelayedStart();
+    _cancelPendingStart();
     // Capture the active step before clearing state so [ShowCaseWidget.onDismiss]
     // can report where the user left off.
-    final dismissedAt = (ids != null && activeWidgetId != null && activeWidgetId! >= 0 && activeWidgetId! < ids!.length)
-        ? ids![activeWidgetId!]
-        : null;
+    final dismissedAt = activeStepKey;
     setState(_cleanupAfterSteps);
     widget.onDismiss?.call(dismissedAt);
     if (_onDismissCallbacks.isNotEmpty) {
@@ -1099,7 +1174,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   @override
   void dispose() {
-    _cancelDelayedStart();
+    _cancelPendingStart();
     _onStartCallbacks.clear();
     _onCompleteCallbacks.clear();
     _onFinishCallbacks.clear();
@@ -1113,7 +1188,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     super.didUpdateWidget(oldWidget);
     // A start still waiting on its `delay` is called off too: the tour is not
     // to start while the showcase is disabled.
-    if (!widget.enableShowcase) _cancelDelayedStart();
+    if (!widget.enableShowcase) _cancelPendingStart();
     // A running tour cannot survive being disabled: [startShowCase] refuses to
     // run at all while [ShowCaseWidget.enableShowcase] is false, so leaving the
     // tour half-alive would be a state the API cannot otherwise reach. Ending it
@@ -1189,4 +1264,16 @@ extension ShowcaseTourFocus on ShowCaseWidgetState {
   /// one being left gave focus back to the page and the next one took it
   /// again, rebuilding every focus widget on the way in between.
   FocusNode get overlayFocusNode => _overlayFocusNode;
+
+  /// The target key of the step the tour is on right now, or `null` when no
+  /// tour is running.
+  ///
+  /// Read from the tour itself rather than from the inherited value a step
+  /// last rebuilt with, so it is current even between frames.
+  GlobalKey? get activeStepKey {
+    final steps = ids;
+    final index = activeWidgetId;
+    if (steps == null || index == null || index < 0 || index >= steps.length) return null;
+    return steps[index];
+  }
 }

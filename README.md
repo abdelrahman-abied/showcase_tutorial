@@ -1099,10 +1099,44 @@ ShowCaseWidget.of(context).startShowCase(
 );
 ```
 
-The call returns at once and the tour starts when the delay ends. The waiting
-start is called off if `dismiss()` or another `startShowCase` is called first,
-if `enableShowcase` turns `false`, or if the `ShowCaseWidget` goes away. A
-`delay` of zero (the default) starts the tour within the call, as before.
+The call returns at once and the tour starts when the delay ends. A `delay` of
+zero (the default) starts the tour within the call, as before. While the start
+waits, on its delay or on an asynchronous `onShouldStartShowcase`,
+`isStartPending` is `true`, and the start is called off when:
+
+- `cancelDelayedStart()` is called, which does it silently and returns
+  whether a start was pending,
+- `dismiss()` is called, which also reports a dismissal as it always does
+  (`onDismiss` gets `null` when no tour is running),
+- another `startShowCase` is called (the newer one wins),
+- `enableShowcase` turns `false`, or the `ShowCaseWidget` goes away.
+
+The timer belongs to the `ShowCaseWidget`, not to the screen that asked for
+the start. When `ShowCaseWidget` sits above the `Navigator` and a page
+schedules a delayed start, popping the page does not cancel it: the tour still
+starts and waits for the page's steps (or skips them all and finishes, with
+`autoSkipUnmountedSteps`). Cancel it in the page's `dispose`, through the
+controller kept from `didChangeDependencies`, since `dispose` cannot look up
+ancestors:
+
+```dart
+late ShowCaseWidgetState _tour;
+
+@override
+void didChangeDependencies() {
+  super.didChangeDependencies();
+  _tour = ShowCaseWidget.of(context);
+}
+
+@override
+void dispose() {
+  _tour.cancelDelayedStart();
+  super.dispose();
+}
+```
+
+A start whose steps aren't on screen when it fires is not dropped: a tour can
+wait for a page the user opens later.
 
 Jump to a specific step and read progress — useful for a "Step 2 of 5" indicator
 or a skip-to control:
@@ -1642,7 +1676,9 @@ ShowCaseWidget(
 | `previous()`                                 | Go back one step.                                                        |
 | `goTo(int index)`                            | Jump to a step by its zero-based index.                                  |
 | `goToKey(GlobalKey key)`                     | Jump to a step by its `GlobalKey`.                                       |
-| `dismiss()`                                  | End the whole tour.                                                      |
+| `dismiss()`                                  | End the whole tour (and call off a pending start).                       |
+| `cancelDelayedStart()`                       | Silently call off a start still waiting on its `delay` or the guard; returns whether one was pending. |
+| `isStartPending`                             | Whether a `startShowCase` call has yet to start its tour.                |
 | `currentIndex`                               | Zero-based index of the active step, or `null` when no tour is running.  |
 | `totalSteps`                                 | Number of steps in the running tour (0 when none).                       |
 | `isShowcaseRunning`                          | Whether a tour is currently active.                                      |

@@ -11,10 +11,14 @@
   call returns at once and the tour starts when the delay ends, for example
   once a screen's entrance animation is done. An `onShouldStartShowcase`
   guard is asked when the delay ends, so it sees whether the tour was
-  completed in the meantime. The waiting start is called off by `dismiss()`,
-  by another `startShowCase`, by turning `enableShowcase` off, or when the
-  `ShowCaseWidget` goes away. Without a delay the tour starts at once, as
-  before.
+  completed in the meantime. Without a delay the tour starts at once, as
+  before. `isStartPending` tells whether a start is still waiting, and
+  `cancelDelayedStart()` calls it off without firing any callback. A waiting
+  start is also called off by `dismiss()`, by another `startShowCase`, by
+  turning `enableShowcase` off, or when the `ShowCaseWidget` goes away. The
+  delay belongs to the `ShowCaseWidget`, not to the screen that asked for it:
+  a page that schedules a delayed start should call `cancelDelayedStart()` in
+  its `dispose`, or the tour still starts after the page is closed.
 * **Listen for the end of a tour from anywhere:** `addOnFinishCallback` /
   `removeOnFinishCallback` and `addOnDismissCallback` /
   `removeOnDismissCallback` on `ShowCaseWidget.of(context)`. They work like
@@ -37,6 +41,14 @@
   text follows the app, as before.
 * These cover the showcaseview 5.x features the "Coming from showcaseview"
   table listed as missing, under the same names.
+
+**Fixed:**
+
+* An asynchronous `onShouldStartShowcase` could start a tour that had been
+  called off while it was deciding: after `dismiss()`, after
+  `enableShowcase` was turned off (the tour then ran while disabled), or
+  after a newer `startShowCase`, whose tour it then replaced. Its answer now
+  only counts for the latest start, while the showcase is enabled.
 
 **Types:** `Showcase.overlayOpacity` is now a `double?` (it was a `double`
 that defaulted to 0.75), so that a step that doesn't set it can use

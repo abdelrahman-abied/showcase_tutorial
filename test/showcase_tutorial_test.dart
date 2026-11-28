@@ -6826,6 +6826,225 @@ void main() {
       }
     });
   });
+
+  group('a pending start is called off', () {
+    // A two-step tour whose guard answers only when the test completes it.
+    Widget guardedApp(
+      List<GlobalKey> keys, {
+      required List<Completer<bool>> answers,
+      bool enableShowcase = true,
+      ShowcaseStepCallback? onStart,
+      void Function(GlobalKey?)? onDismiss,
+    }) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          enableShowcase: enableShowcase,
+          onStart: onStart,
+          onDismiss: onDismiss,
+          onShouldStartShowcase: (_) {
+            final answer = Completer<bool>();
+            answers.add(answer);
+            return answer.future;
+          },
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Column(
+                children: [
+                  for (var i = 0; i < keys.length; i++)
+                    Showcase(key: keys[i], title: 'Step $i', description: 'd', child: Text('t$i')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    for (final delay in [Duration.zero, const Duration(milliseconds: 300)]) {
+      final label = delay == Duration.zero ? 'without a delay' : 'after a delay';
+
+      testWidgets('dismiss() while the guard decides calls the start off ($label)', (tester) async {
+        usePhone(tester);
+        final keys = [GlobalKey(), GlobalKey()];
+        final answers = <Completer<bool>>[];
+        final started = <int?>[];
+        await tester.pumpWidget(guardedApp(keys, answers: answers, onStart: (index, _) => started.add(index)));
+        final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+        state.startShowCase(keys, delay: delay);
+        await tester.pump(delay + const Duration(milliseconds: 1));
+        expect(answers, hasLength(1));
+        expect(state.isStartPending, isTrue);
+
+        state.dismiss();
+        expect(state.isStartPending, isFalse);
+        answers.single.complete(true);
+        await pumpFrames(tester);
+        expect(state.isShowcaseRunning, isFalse);
+        expect(started, isEmpty);
+      });
+
+      testWidgets('turning enableShowcase off while the guard decides calls the start off ($label)', (tester) async {
+        usePhone(tester);
+        final keys = [GlobalKey(), GlobalKey()];
+        final answers = <Completer<bool>>[];
+        var enabled = true;
+        late StateSetter setOuter;
+        await tester.pumpWidget(
+          StatefulBuilder(
+            builder: (context, setState) {
+              setOuter = setState;
+              return guardedApp(keys, answers: answers, enableShowcase: enabled);
+            },
+          ),
+        );
+        final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+        state.startShowCase(keys, delay: delay);
+        await tester.pump(delay + const Duration(milliseconds: 1));
+        expect(answers, hasLength(1));
+
+        setOuter(() => enabled = false);
+        await tester.pump();
+        answers.single.complete(true);
+        await tester.pump();
+        expect(state.isShowcaseRunning, isFalse, reason: 'never while disabled');
+
+        // Switched back on before the guard answered: still called off.
+        setOuter(() => enabled = true);
+        await pumpFrames(tester);
+        expect(state.isShowcaseRunning, isFalse);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('a newer startShowCase wins over a guard that answers late ($label)', (tester) async {
+        usePhone(tester);
+        final keys = [GlobalKey(), GlobalKey()];
+        final answers = <Completer<bool>>[];
+        final started = <GlobalKey>[];
+        await tester.pumpWidget(guardedApp(keys, answers: answers, onStart: (_, key) => started.add(key)));
+        final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+        state.startShowCase([keys[0]], delay: delay);
+        await tester.pump(delay + const Duration(milliseconds: 1));
+        state.startShowCase([keys[1]]);
+        await tester.pump();
+        expect(answers, hasLength(2));
+
+        answers[1].complete(true);
+        await tester.pump();
+        expect(state.ids, [keys[1]]);
+        answers[0].complete(true); // the first tour's guard, too late
+        await pumpFrames(tester);
+        expect(state.ids, [keys[1]]);
+        expect(started, [keys[1]]);
+      });
+    }
+
+    testWidgets('cancelDelayedStart is silent and leaves a running tour alone; dismiss() reports', (tester) async {
+      usePhone(tester);
+      final keys = [GlobalKey(), GlobalKey()];
+      final dismissed = <GlobalKey?>[];
+      final listened = <GlobalKey?>[];
+      await tester.pumpWidget(guardedApp(keys, answers: [], onDismiss: dismissed.add));
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+      state.addOnDismissCallback(listened.add);
+
+      expect(state.isStartPending, isFalse);
+      expect(state.cancelDelayedStart(), isFalse, reason: 'nothing to call off');
+
+      state.startShowCase([keys[0]], force: true);
+      await pumpFrames(tester, 3);
+      state.startShowCase([keys[1]], force: true, delay: const Duration(milliseconds: 300));
+      expect(state.isStartPending, isTrue);
+      expect(state.cancelDelayedStart(), isTrue);
+      expect(state.isStartPending, isFalse);
+      await tester.pump(const Duration(seconds: 1));
+      expect(state.ids, [keys[0]], reason: 'the running tour goes on');
+      expect(dismissed, isEmpty);
+      expect(listened, isEmpty);
+
+      // dismiss() calls a pending start off too, and reports a dismissal as it
+      // always has: here of the running tour's step.
+      state.startShowCase([keys[1]], force: true, delay: const Duration(milliseconds: 300));
+      state.dismiss();
+      await tester.pump(const Duration(seconds: 1));
+      expect(state.isShowcaseRunning, isFalse);
+      expect(dismissed, [keys[0]]);
+
+      // With no tour running it reports `null`, as before.
+      state.startShowCase([keys[1]], force: true, delay: const Duration(milliseconds: 300));
+      state.dismiss();
+      await tester.pump(const Duration(seconds: 1));
+      expect(state.isShowcaseRunning, isFalse);
+      expect(dismissed, [keys[0], null]);
+      expect(listened, [keys[0], null]);
+    });
+  });
+
+  group('a delayed start scheduled by a page', () {
+    late GlobalKey<NavigatorState> navigator;
+    late ShowCaseWidgetState tour;
+
+    Widget app({required bool autoSkip, VoidCallback? onFinish}) {
+      return MaterialApp(
+        navigatorKey: navigator,
+        builder: (context, child) => ShowCaseWidget(
+          autoSkipUnmountedSteps: autoSkip,
+          onFinish: onFinish,
+          builder: Builder(builder: (_) => child!),
+        ),
+        home: Builder(
+          builder: (context) {
+            tour = ShowCaseWidget.of(context);
+            return const Scaffold(body: Text('home'));
+          },
+        ),
+      );
+    }
+
+    setUp(() => navigator = GlobalKey<NavigatorState>());
+
+    for (final autoSkip in [true, false]) {
+      testWidgets('is called off by cancelDelayedStart when the page is popped '
+          '(autoSkipUnmountedSteps: $autoSkip)', (tester) async {
+        usePhone(tester);
+        final keys = [GlobalKey(), GlobalKey()];
+        var finished = false;
+        await tester.pumpWidget(app(autoSkip: autoSkip, onFinish: () => finished = true));
+
+        navigator.currentState!.push(
+          MaterialPageRoute<void>(builder: (_) => _DelayedTourPage(keys: keys, cancelOnDispose: true)),
+        );
+        await pumpFrames(tester);
+        expect(tour.isStartPending, isTrue);
+
+        navigator.currentState!.pop();
+        await pumpFrames(tester);
+        expect(tour.isStartPending, isFalse);
+        await tester.pump(const Duration(seconds: 4)); // past the delay
+        expect(tour.isShowcaseRunning, isFalse);
+        expect(finished, isFalse, reason: 'a tour the user never saw did not finish');
+      });
+    }
+
+    testWidgets('is not dropped because its steps are not mounted yet', (tester) async {
+      usePhone(tester);
+      final keys = [GlobalKey(), GlobalKey()];
+      await tester.pumpWidget(app(autoSkip: false));
+
+      // Started from home for steps on a page the user has yet to open.
+      tour.startShowCase(keys, delay: const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(tour.isShowcaseRunning, isTrue, reason: 'the tour waits for its first step');
+
+      navigator.currentState!.push(
+        MaterialPageRoute<void>(builder: (_) => _DelayedTourPage(keys: keys, startOnOpen: false)),
+      );
+      await pumpFrames(tester, 8);
+      expect(find.text('Page step 0'), findsOneWidget);
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this
@@ -6934,6 +7153,58 @@ class _PlainHome extends StatelessWidget {
           Text('steps: ${show.totalSteps}'),
           Showcase(key: stepKey, title: 'Plain', description: 'd', child: const Text('target')),
           TextButton(onPressed: () => ShowCaseWidget.of(context).startShowCase([stepKey]), child: const Text('start')),
+        ],
+      ),
+    );
+  }
+}
+
+/// A page that, once open, schedules a delayed start of a tour over its own
+/// steps, and can call it off when it is disposed.
+class _DelayedTourPage extends StatefulWidget {
+  const _DelayedTourPage({required this.keys, this.cancelOnDispose = false, this.startOnOpen = true});
+
+  final List<GlobalKey> keys;
+  final bool cancelOnDispose;
+  final bool startOnOpen;
+
+  @override
+  State<_DelayedTourPage> createState() => _DelayedTourPageState();
+}
+
+class _DelayedTourPageState extends State<_DelayedTourPage> {
+  // Kept from didChangeDependencies: dispose cannot look up ancestors.
+  late ShowCaseWidgetState _tour;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.startOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _tour.startShowCase(widget.keys, delay: const Duration(seconds: 3));
+      });
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tour = ShowCaseWidget.of(context);
+  }
+
+  @override
+  void dispose() {
+    if (widget.cancelOnDispose) _tour.cancelDelayedStart();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          for (var i = 0; i < widget.keys.length; i++)
+            Showcase(key: widget.keys[i], title: 'Page step $i', description: 'd', child: Text('page $i')),
         ],
       ),
     );
