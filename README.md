@@ -1259,7 +1259,14 @@ Showcase(
 ```
 
 > `left` / `right` use the default title/description tooltip; custom `container`
-> tooltips and action buttons keep top/bottom placement.
+> tooltips and action buttons outside the tooltip keep top/bottom placement.
+
+A tooltip that does not fit on its side moves to the opposite one when it fits
+there: `top` and `bottom` swap, as do `left` and `right` (a side fits when the
+tooltip is on screen there and clear of the target). With no position set, a
+tooltip that fits neither above nor below the target, such as next to a tall
+target, goes to its left or right instead. A tooltip that fits stays exactly
+where it was, and one that fits nowhere is placed as before.
 
 Add extra space between the target and the tooltip with `targetTooltipGap`
 (logical pixels, default `0`). It applies to every side:
@@ -1513,7 +1520,7 @@ ShowCaseWidget(
 | titlePadding                 | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the title.                                                                   |     ✅     |                       |
 | descriptionPadding           | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the description.                                                             |     ✅     |                       |
 | showArrow                    | bool                   | true                                               | Show the tooltip arrow pointing at the target.                                              |     ✅     |                       |
-| tooltipPosition              | TooltipPosition?       |                                                    | Force the tooltip to a side (`top` / `bottom` / `left` / `right`).                          |     ✅     |          ✅           |
+| tooltipPosition              | TooltipPosition?       |                                                    | Side of the tooltip (`top` / `bottom` / `left` / `right`), swapped if it does not fit.      |     ✅     |          ✅           |
 | actions                      | Widget?                |                                                    | Action buttons widget (e.g. `ShowCaseDefaultActions`).                                      |     ✅     |          ✅           |
 | actionSettings               | ActionsSettings?       | `const ActionsSettings()`                          | Container styling for the action buttons.                                                   |     ✅     |          ✅           |
 | actionButtonsPosition        | ActionButtonsPosition? |                                                    | Manual position for the action buttons.                                                     |     ✅     |          ✅           |

@@ -393,9 +393,21 @@ class Showcase extends StatefulWidget {
   /// `null` (use the tour-wide value).
   final TooltipActionPosition? actionsPosition;
 
-  /// Defines vertical position of tooltip respective to Target widget
+  /// The side of the target the tooltip goes on.
   ///
-  /// Defaults to adaptive into available space.
+  /// A tooltip that does not fit on screen on this side, or would cover the
+  /// target, goes on the opposite side instead when it fits there
+  /// ([TooltipPosition.top] and [TooltipPosition.bottom],
+  /// [TooltipPosition.left] and [TooltipPosition.right]). Where neither fits,
+  /// it stays on this side.
+  ///
+  /// Defaults to `null`: below or above the target, whichever has room. A
+  /// default tooltip that fits neither above nor below goes to its left or
+  /// right instead, where it fits.
+  ///
+  /// [TooltipPosition.left] and [TooltipPosition.right] apply to the default
+  /// tooltip; a [container] and [actions] placed outside the tooltip keep
+  /// it above or below.
   final TooltipPosition? tooltipPosition;
 
   /// Provides padding around the title. Default padding is zero.

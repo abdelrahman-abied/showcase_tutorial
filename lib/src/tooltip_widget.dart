@@ -216,15 +216,210 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     final bottomPosition = position.dy + ((widget.position?.getHeight() ?? 0) / 2);
     final topPosition = position.dy - ((widget.position?.getHeight() ?? 0) / 2);
     final hasSpaceInTop = topPosition >= height;
-    final EdgeInsets viewInsets = EdgeInsets.fromViewPadding(
-      View.of(context).viewInsets,
-      View.of(context).devicePixelRatio,
-    );
-    final double actualVisibleScreenHeight =
-        (widget.screenSize?.height ?? MediaQuery.sizeOf(context).height) - viewInsets.bottom;
-    final hasSpaceInBottom = (actualVisibleScreenHeight - bottomPosition) >= height;
+    final hasSpaceInBottom = (_visibleScreenHeight - bottomPosition) >= height;
     return widget.tooltipPosition ??
         (hasSpaceInTop && !hasSpaceInBottom ? TooltipPosition.top : TooltipPosition.bottom);
+  }
+
+  /// The height of the screen above the keyboard, if one is open.
+  double get _visibleScreenHeight {
+    final view = View.of(context);
+    final viewInsets = EdgeInsets.fromViewPadding(view.viewInsets, view.devicePixelRatio);
+    return (widget.screenSize?.height ?? MediaQuery.sizeOf(context).height) - viewInsets.bottom;
+  }
+
+  /// Leeway for the fit checks below, so rounding never moves a tooltip.
+  static const _fitTolerance = 0.5;
+
+  /// Whether the tooltip can take the left/right layout. A custom container
+  /// and *outside* actions keep the vertical one (see [build]).
+  bool get _canGoBeside =>
+      widget.container == null &&
+      (widget.actions == null || widget.actionsPosition.isInside) &&
+      widget.position != null;
+
+  /// The side of the target the tooltip goes on.
+  ///
+  /// A tooltip that fits where it has always gone stays there. Only one that
+  /// does not moves, and only to a side where it does fit:
+  ///
+  /// * a requested side it does not fit on gives way to the opposite side
+  ///   (top and bottom, left and right);
+  /// * with no side requested, a tooltip that fits neither above nor below
+  ///   the target goes beside it, on whichever of left and right it fits.
+  ///
+  /// Where nothing fits, the tooltip is placed as it always was.
+  TooltipPosition _resolvePosition() {
+    final requested = widget.tooltipPosition;
+    if (widget.position == null) return findPositionForContent(position!);
+    switch (requested) {
+      case null:
+        final usual = findPositionForContent(position!);
+        if (!_canGoBeside) return usual;
+        // Judged first by the estimate the tooltip is sized with, which is
+        // cheap and rarely short of its real height; only a tooltip that
+        // misses on both sides by it is measured.
+        if (_fitsVertically(above: true, estimate: true) || _fitsVertically(above: false, estimate: true)) {
+          return usual;
+        }
+        if (_fitsVertically(above: true) || _fitsVertically(above: false)) return usual;
+        final fitsLeft = _fitsBeside(isLeft: true);
+        final fitsRight = _fitsBeside(isLeft: false);
+        if (fitsLeft && fitsRight) {
+          // Physical sides: the one with more room, whatever the direction.
+          final rect = widget.position!.getRect();
+          final roomLeft = rect.left;
+          final roomRight = MediaQuery.sizeOf(context).width - rect.right;
+          return roomLeft > roomRight ? TooltipPosition.left : TooltipPosition.right;
+        }
+        if (fitsLeft) return TooltipPosition.left;
+        if (fitsRight) return TooltipPosition.right;
+        return usual;
+      case TooltipPosition.top || TooltipPosition.bottom:
+        final above = requested == TooltipPosition.top;
+        if (!_fitsVertically(above: above) && _fitsVertically(above: !above)) {
+          return above ? TooltipPosition.bottom : TooltipPosition.top;
+        }
+        return requested;
+      case TooltipPosition.left || TooltipPosition.right:
+        // Without the left/right layout it is placed above, as it always was.
+        if (!_canGoBeside) return requested;
+        final isLeft = requested == TooltipPosition.left;
+        if (!_fitsBeside(isLeft: isLeft) && _fitsBeside(isLeft: !isLeft)) {
+          return isLeft ? TooltipPosition.right : TooltipPosition.left;
+        }
+        return requested;
+    }
+  }
+
+  /// Whether the tooltip, placed [above] or below the target by the vertical
+  /// layout in [build], lies within the visible screen.
+  ///
+  /// It is judged where it rests before it starts to bob (where it stays
+  /// when the moving animation is off), and by a height it is at least as
+  /// tall as, so one judged not to fit really does not. With [estimate], the
+  /// default tooltip is judged by [tooltipHeight] instead, which is no such
+  /// promise.
+  bool _fitsVertically({required bool above, bool estimate = false}) {
+    final custom = widget.container != null;
+    // A container that is not measured yet is not shown either; it is judged
+    // once it is.
+    final height = custom
+        ? _containerHeight
+        : _verticalHeight(above: above, boxHeight: estimate ? tooltipHeight : _minBoxHeight);
+    if (height == null) return true;
+    final targetOffset = 3 + widget.targetTooltipGap;
+    if (above) {
+      final contentY = widget.position!.getTop() - targetOffset;
+      // Translated up by its own height, then a tenth more by the moving
+      // animation's starting point. A container sits in a 10px padding and
+      // is placed 10px higher.
+      final top = custom ? contentY - 11 - 1.1 * height : contentY - 1.1 * height;
+      return top >= -_fitTolerance;
+    }
+    final contentY = widget.position!.getBottom() + targetOffset;
+    return contentY + height <= _visibleScreenHeight + _fitTolerance;
+  }
+
+  /// The height the default tooltip takes in the vertical layout, placed
+  /// [above] or below the target, around a box [boxHeight] tall.
+  double _verticalHeight({required bool above, required double boxHeight}) {
+    // The arrow's room, kept even without the arrow, and the margin around it.
+    var height = max(0.0, widget.arrowHeight - 1) + boxHeight;
+    if (widget.showArrow) height += above ? 18 : 13;
+    return height;
+  }
+
+  /// The least height of the default tooltip's box: its text wrapped to the
+  /// box's width, the footer and inside actions. Inside actions count only
+  /// the height the caller declared, as nothing more is known about them.
+  ///
+  /// Text is laid out as the [Text] widgets in the box are, under the
+  /// [Material] that sets their default style. Measured when first needed,
+  /// which a tooltip that fits where it always went seldom does.
+  double get _minBoxHeight => _minBoxHeightCache ??= _measureMinBoxHeight();
+  double? _minBoxHeightCache;
+
+  double _measureMinBoxHeight() {
+    final theme = Theme.of(context);
+    final base = theme.textTheme.bodyMedium ?? const TextStyle();
+    final padding = widget.tooltipPadding ?? EdgeInsets.zero;
+    final contentWidth = max(0.0, tooltipWidth - padding.horizontal);
+    double textHeight(String text, TextStyle style, EdgeInsets? textPadding) {
+      final painter = TextPainter(
+        text: TextSpan(text: text, style: base.merge(style)),
+        textScaler: MediaQuery.textScalerOf(context),
+        textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      )..layout(maxWidth: max(0.0, contentWidth - (textPadding?.horizontal ?? 0)));
+      final height = painter.height;
+      painter.dispose();
+      return height + (textPadding?.vertical ?? 0);
+    }
+
+    var height = padding.vertical;
+    if (widget.title != null) {
+      final style = widget.titleTextStyle ?? theme.textTheme.titleLarge!.merge(TextStyle(color: widget.textColor));
+      height += textHeight(widget.title!, style, widget.titlePadding);
+    }
+    if (widget.description != null) {
+      final style = widget.descTextStyle ?? theme.textTheme.titleSmall!.merge(TextStyle(color: widget.textColor));
+      height += textHeight(widget.description!, style, widget.descriptionPadding);
+    }
+    // The footer's top padding; its row is at least as tall as nothing.
+    if (_hasFooter) height += 8;
+    if (_hasInsideActions) {
+      height +=
+          (widget.actionSettings?.containerPadding ?? const EdgeInsets.only(top: 8)).vertical +
+          (widget.actionSettings?.containerHeight ?? 0);
+    }
+    return height;
+  }
+
+  /// The left edge of the tooltip in the left/right layout, [isLeft] or right
+  /// of the target: beside it, then held within [ToolTipWidget.toolTipMargin].
+  double _besideLeft({required bool isLeft}) {
+    final gap = 6.0 + widget.targetTooltipGap;
+    // Use getRect() for the target's edges: GetPosition.getLeft()/getRight()
+    // are unreliable, only getRect() (and getCenter()) are computed correctly.
+    final rect = widget.position!.getRect();
+    final screenW = MediaQuery.sizeOf(context).width;
+    final totalWidth = _besideWidth;
+    final left = isLeft ? rect.left - gap - totalWidth : rect.right + gap;
+    final maxLeft = max(widget.toolTipMargin.left, screenW - totalWidth - widget.toolTipMargin.right);
+    return left.clamp(widget.toolTipMargin.left, maxLeft);
+  }
+
+  /// The width of the tooltip in the left/right layout, arrow included.
+  double get _besideWidth => tooltipWidth + (widget.showArrow ? widget.arrowHeight : 0.0);
+
+  /// The top edge of the tooltip in the left/right layout: centred on the
+  /// target, then held within [ToolTipWidget.toolTipMargin].
+  double get _besideTop {
+    final targetCenterY = widget.position!.getRect().center.dy;
+    final screenH = MediaQuery.sizeOf(context).height;
+    final maxTop = max(widget.toolTipMargin.top, screenH - tooltipHeight - widget.toolTipMargin.bottom);
+    return (targetCenterY - tooltipHeight / 2).clamp(widget.toolTipMargin.top, maxTop);
+  }
+
+  /// Whether the tooltip's box, placed [isLeft] or right of the target, lies
+  /// on screen without covering the target. Held within the margins, it would
+  /// cover a target too near that edge.
+  ///
+  /// The box is taken at the least height it can have, and without the
+  /// arrow, so one judged not to fit really does not.
+  bool _fitsBeside({required bool isLeft}) {
+    final target = widget.position!.getRect();
+    final screen = MediaQuery.sizeOf(context);
+    final arrow = widget.showArrow && !isLeft ? widget.arrowHeight : 0.0;
+    final box = Rect.fromLTWH(_besideLeft(isLeft: isLeft) + arrow, _besideTop, tooltipWidth, _minBoxHeight);
+    final onScreen =
+        box.left >= -_fitTolerance &&
+        box.top >= -_fitTolerance &&
+        box.right <= screen.width + _fitTolerance &&
+        box.bottom <= screen.height + _fitTolerance;
+    final overlap = box.intersect(target);
+    final clear = overlap.width <= _fitTolerance || overlap.height <= _fitTolerance;
+    return onScreen && clear;
   }
 
   void _getTooltipWidth() {
@@ -631,6 +826,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
   void didChangeDependencies() {
     _getTooltipWidth();
     _getTooltipHeight();
+    _minBoxHeightCache = null;
     super.didChangeDependencies();
   }
 
@@ -647,25 +843,10 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
   Widget _buildHorizontalTooltip({required bool isLeft}) {
     final arrowShort = widget.arrowHeight; // arrow depth toward the target
     final arrowLong = widget.arrowWidth; // arrow span along the tooltip edge
-    final gap = 6.0 + widget.targetTooltipGap;
     final showArrow = widget.showArrow;
 
-    // Use getRect() for the target's edges: GetPosition.getLeft()/getRight()
-    // are unreliable, only getRect() (and getCenter()) are computed correctly.
-    final rect = widget.position!.getRect();
-    final targetCenterY = rect.center.dy;
-    final screenW = MediaQuery.sizeOf(context).width;
-    final screenH = MediaQuery.sizeOf(context).height;
-
-    final arrowSpace = showArrow ? arrowShort : 0.0;
-    final totalWidth = tooltipWidth + arrowSpace;
-
-    double left = isLeft ? rect.left - gap - totalWidth : rect.right + gap;
-    final maxLeft = max(widget.toolTipMargin.left, screenW - totalWidth - widget.toolTipMargin.right);
-    left = left.clamp(widget.toolTipMargin.left, maxLeft);
-
-    final maxTop = max(widget.toolTipMargin.top, screenH - tooltipHeight - widget.toolTipMargin.bottom);
-    final top = (targetCenterY - tooltipHeight / 2).clamp(widget.toolTipMargin.top, maxTop);
+    final left = _besideLeft(isLeft: isLeft);
+    final top = _besideTop;
 
     if (!widget.disableScaleAnimation && widget.isTooltipDismissed) {
       _scaleAnimationController.reverse();
@@ -781,15 +962,14 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     // left/right step back on the vertical path, where the tooltip is placed
     // from the target with no top clamp and lands off screen for a target near
     // the top edge. Reachable on every step once `globalActions` is set.
-    final tp = widget.tooltipPosition;
-    if (widget.container == null &&
-        (widget.actions == null || widget.actionsPosition.isInside) &&
-        widget.position != null &&
-        (tp == TooltipPosition.left || tp == TooltipPosition.right)) {
-      return _buildHorizontalTooltip(isLeft: tp == TooltipPosition.left);
+    //
+    // A tooltip that does not fit on its side may change sides first; see
+    // _resolvePosition.
+    final contentOrientation = _resolvePosition();
+    if (_canGoBeside && contentOrientation.isHorizontal) {
+      return _buildHorizontalTooltip(isLeft: contentOrientation == TooltipPosition.left);
     }
 
-    final contentOrientation = findPositionForContent(position!);
     final contentOffsetMultiplier = contentOrientation == TooltipPosition.bottom ? 1.0 : -1.0;
     isArrowUp = contentOffsetMultiplier == 1.0;
 

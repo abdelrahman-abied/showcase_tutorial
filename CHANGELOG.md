@@ -13,6 +13,16 @@
   measured before it is shown, so it never appears in the wrong place first.
   Code that passes them works as before, and the container lands exactly
   where it did.
+* **A tooltip that does not fit moves to where it does.** A `tooltipPosition`
+  the tooltip does not fit on, off screen or over the target, gives way to
+  the opposite side when it fits there: `top` and `bottom` swap, as do `left`
+  and `right`. With no position set, a default tooltip that fits neither
+  above nor below its target, such as next to a tall one, goes to its left or
+  right. A tooltip that fits stays exactly where it was (a test checks this
+  across several thousand placements), and one that fits nowhere is placed as
+  before. Buttons inside the tooltip count toward its height only with
+  `ActionsSettings.containerHeight` set, so without it a tooltip that misses
+  by less than its button row may stay where it is.
 
 ## 2.0.2
 
