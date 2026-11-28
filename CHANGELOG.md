@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2.1.0
+
+Easier switching from showcaseview and tutorial_coach_mark, control over the
+back button, a hook before each step, and a few fixes. Every new option is
+off by default, so apps that don't use them behave as before, apart from the
+fixes listed under **Fixed**. One type changed; see **Types**.
 
 * **Docs fix:** the "Listening from anywhere in the tree" example called
   `ShowCaseWidget.of(context)` in `dispose`, which throws in debug builds, and

@@ -88,6 +88,16 @@ and you can run it on its own with
 - **Target interaction callbacks**: tap, double-tap, long-press.
 - **Enable/disable** the whole tour with a single flag.
 
+## What's new in 2.1.0
+
+| Feature | What you get |
+| ------- | ------------ |
+| [Coming from showcaseview](#coming-from-showcaseview) / [tutorial_coach_mark](#coming-from-tutorial_coach_mark) | Guides that map each of their APIs to this package, with before/after code. |
+| [Back button](#back-button) | `backButtonInteraction` decides what the system back button does while a step shows: leave it alone, end the tour, go back a step, or block it. |
+| [Prepare a step before it shows](#prepare-a-step-before-it-shows) | `onBeforeStep` is awaited before each step, to scroll, load or open a page first. |
+| [Programmatic control](#programmatic-control--progress) | `startShowCase(keys, delay: ...)` with `cancelDelayedStart()`, and listeners for a tour that finishes or is dismissed. |
+| Per-step and tour-wide options | `Showcase.enableAutoScroll`, `Showcase.onBarrierClick`, `ShowcaseStyle.overlayOpacity`, and a text direction for the title and the description. |
+
 ## What's new in 2.0.0
 
 | Feature | What you get |
@@ -669,7 +679,7 @@ ShowCaseWidget(
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^2.0.3
+     showcase_tutorial: ^2.1.0
    ```
 
    Or from the command line:
