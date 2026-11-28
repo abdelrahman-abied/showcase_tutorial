@@ -384,6 +384,7 @@ Showcase(
   key: menuKey,
   description: 'Open the menu',
   tooltipPosition: TooltipPosition.bottom,
+  targetShapeBorder: const CircleBorder(), // tutorial_coach_mark's default shape
   child: IconButton(icon: const Icon(Icons.menu), onPressed: openMenu),
 );
 Showcase(
@@ -487,7 +488,11 @@ ShowCaseWidget(
 );
 ```
 
-See [Prepare a step before it shows](#prepare-a-step-before-it-shows) and
+`block` acts only while a step is on screen. tutorial_coach_mark's
+`disableBackButton` blocks back for the whole tutorial, `beforeFocus`
+included; here back stays live while `onBeforeStep` runs, while the tour
+waits for a step's page, and while a dialog covers the step. See
+[Prepare a step before it shows](#prepare-a-step-before-it-shows) and
 [Back button](#back-button).
 
 **5. The Skip button: opt in.**
@@ -527,11 +532,11 @@ ShowCaseWidget(
 | `TargetContent(align: ContentAlign.top / bottom / left / right)` | `tooltipPosition: TooltipPosition.top / bottom / left / right` |
 | `ContentAlign.custom` with `customPosition` | `floatingActionWidget: Positioned(...)` (placed on the screen, not by the target) |
 | `TargetContent(padding: ...)` | `targetTooltipGap` (from the target) and `toolTipMargin` (from the screen edges) |
-| `shape: ShapeLightFocus.Circle` | `targetShapeBorder: const CircleBorder()` |
+| `shape: ShapeLightFocus.Circle`, or `shape` left unset (a circle) | `targetShapeBorder: const CircleBorder()` (the default here is a rounded rectangle) |
 | `shape: ShapeLightFocus.RRect`, `radius` | `targetBorderRadius: BorderRadius.circular(radius)` |
 | `borderSide` | `highlightBorderColor` and `highlightBorderWidth` |
 | `TargetFocus(color: ...)` | `Showcase.overlayColor` |
-| `paddingFocus` (tour-wide or per target, default 10) | `Showcase.targetPadding: EdgeInsets.all(10)` (per step, default zero) |
+| `paddingFocus` (tour-wide or per target, default 10) | `Showcase.targetPadding`, per step, default zero. A rounded-rectangle hole there grows by half of `paddingFocus` on each side, so `EdgeInsets.all(5)` gives a similar look |
 | `enableOverlayTab: false` (the default) | `barrierInteraction: BarrierInteraction.none`, tour-wide or per step |
 | `enableOverlayTab: true` | the default here: `BarrierInteraction.next` |
 | `enableTargetTab: false` | `disposeOnTap: false, onTargetClick: () {}` (a target tap then does nothing) |
@@ -539,7 +544,7 @@ ShowCaseWidget(
 | `onClickTargetWithTapPosition` | not available: `onTargetClick` gets no position |
 | `onClickOverlay` (only with `enableOverlayTab: true`) | `onBarrierClick` tour-wide, `Showcase.onBarrierClick` per step; both fire on every background tap |
 | `beforeFocus` | `onBeforeStep: (index, key) async { ... }` |
-| `disableBackButton: true` | `backButtonInteraction: BackButtonInteraction.block`; also `.dismiss` and `.previous` |
+| `disableBackButton: true` | `backButtonInteraction: BackButtonInteraction.block`, which blocks back only while a step is on screen (see Behaviour that differs); also `.dismiss` and `.previous` |
 | `initialFocus` | `startShowCase(keys, startAt: index)` |
 | `onFinish` | `onFinish` |
 | `onSkip` | `onDismiss` |
@@ -548,7 +553,7 @@ ShowCaseWidget(
 | `textSkip` | `labels: ShowcaseLabels(skip: ...)` |
 | `alignSkip`, `skipWidget`, `textStyleSkip` | your own button in `globalFloatingActionWidget`, placed with `Align` |
 | `TargetFocus(alignSkip: ...)` | `Showcase.floatingActionWidget` for that step |
-| `showSkipInLastTarget: false` | `hideFloatingActionWidgetForShowcase: [lastKey]` |
+| `showSkipInLastTarget: false` | no direct equivalent: the built-in `showSkip` button shows on every step. Closest: your own skip button in `globalFloatingActionWidget`, hidden on the last step with `hideFloatingActionWidgetForShowcase: [lastKey]` |
 | `useSafeArea` | wrap your floating widget in a `SafeArea` |
 | `colorShadow` | `style: ShowcaseStyle(overlayColor: ...)` |
 | `opacityShadow` (default 0.8) | `style: ShowcaseStyle(overlayOpacity: ...)` (default 0.75) |
@@ -556,7 +561,7 @@ ShowCaseWidget(
 | `focusAnimationDuration`, `unFocusAnimationDuration` | `enableStepTransition: true` with `stepTransitionDuration` for the highlight; `scaleAnimationDuration` for the tooltip |
 | `pulseEnable` (default `true`) | `Showcase.enablePulseAnimation: true`, per step (off by default) |
 | `pulseAnimationDuration` | `Showcase.pulseDuration` |
-| `pulseVariation` | not available: `pulseColor` and `pulseDuration` set the ring |
+| `TargetFocus(pulseVariation: ...)` | not available: `pulseColor` and `pulseDuration` set the ring |
 | `backgroundSemanticLabel` | not available. Each step is announced to screen readers; `Showcase.semanticLabel` sets the text |
 | `next()`, `previous()`, `goTo(index)` | same, on `ShowCaseWidget.of(context)` |
 | `skip()`, `removeOverlayEntry()` | `dismiss()` |
@@ -599,9 +604,18 @@ ShowCaseWidget(
   your app's theme (see [Colours and your app's
   theme](#colours-and-your-apps-theme)). Use `Showcase.withWidget` for content
   of your own.
-- **Spacing.** tutorial_coach_mark pads the highlight by 10 by default; here
-  `targetPadding` is zero. Set `targetPadding: EdgeInsets.all(10)` for the
-  same look.
+- **The default shape.** tutorial_coach_mark draws a circle around a target
+  whose `shape` is unset. Here the default is a rounded rectangle; set
+  `targetShapeBorder: const CircleBorder()` for a circle.
+- **Spacing.** tutorial_coach_mark's `paddingFocus` defaults to 10, which
+  grows a rounded-rectangle hole by 5 on each side (a circle's radius is
+  sized from the target instead). Here `targetPadding` is zero; set
+  `targetPadding: EdgeInsets.all(5)` for a similar look.
+- **The back button.** `disableBackButton: true` pushes a blocking route for
+  the whole tutorial, `beforeFocus` included. `backButtonInteraction:
+  BackButtonInteraction.block` acts only while a step is on screen: back
+  stays live while `onBeforeStep` runs, while the tour waits for a step's
+  page, and while a dialog or another page covers the step.
 - **Requirements.** This package needs Flutter 3.47 or newer and
   [`material_ui`](https://pub.dev/packages/material_ui). tutorial_coach_mark
   is built on `package:flutter/material.dart` and supports older Flutter
@@ -1793,6 +1807,12 @@ ShowCaseWidget(
   attached to the page of the step that shows. With `previous`, going back to
   a step on the page below leaves the current page with no step, so the next
   back closes it and the earlier step appears.
+- **Not inside a nested `Navigator` on its own.** A step on a page of a
+  nested navigator (one per tab, say) never sees back: like a `PopScope`
+  there, it only hears presses that reach that navigator, and by default the
+  root navigator takes them and closes the page around it. Forward back to
+  the nested navigator, with a `NavigatorPopHandler` around it or a router
+  that does so, and the tour handles it there.
 - **Anything but `passThrough` works like `PopScope(canPop: false)` on the
   step's page:** the iOS swipe that closes the page is off while the step
   shows, and `Navigator.maybePop` counts as back. `Navigator.pop` still closes

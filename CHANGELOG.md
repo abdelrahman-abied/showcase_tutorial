@@ -65,7 +65,10 @@
   only acts while a step is on screen, not while the tour waits for a page
   or a step is hidden under another page or a dialog, and it works with
   `ShowCaseWidget` on a page or in `MaterialApp.builder`. Esc still
-  dismisses the tour through keyboard navigation.
+  dismisses the tour through keyboard navigation. Like a `PopScope`, it only
+  hears back presses that reach the step's own navigator: a step in a nested
+  `Navigator` needs back forwarded to it, for example with
+  `NavigatorPopHandler`.
 * **Prepare a step before it shows:** `ShowCaseWidget.onBeforeStep`, an
   `(index, key)` callback that runs before each step is shown. Return a
   `Future` and the tour waits for it, to scroll, load data or open the

@@ -348,6 +348,14 @@ class ShowCaseWidget extends StatefulWidget {
   /// attach to, and back is left alone for it. <kbd>Esc</kbd> keeps
   /// dismissing the tour through [enableKeyboardNavigation], whatever this is.
   ///
+  /// **Nested navigators.** The handling sits on the step's own page, so it
+  /// sees only the back presses that reach that page's [Navigator], the same
+  /// limit as a `PopScope` there. A step on a page of a nested [Navigator]
+  /// (for example one per tab) is never asked: the root [Navigator] handles
+  /// back and closes the page around it. Forward back to the nested
+  /// navigator, with a [NavigatorPopHandler] around it or a router whose
+  /// back-button dispatcher does so, and the tour handles it there.
+  ///
   /// See [BackButtonInteraction] for each value.
   final BackButtonInteraction backButtonInteraction;
 
