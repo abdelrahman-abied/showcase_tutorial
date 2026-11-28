@@ -290,7 +290,7 @@ To translate the built-in labels once instead of per button, use
 | `hideActionWidgetForShowcase` (per button) | `hideActionsForShowcase` (the whole row) |
 | `FloatingActionWidget(...)` | any widget, positioned with `Align` / `Positioned` |
 | `titleTextAlign` / `descriptionTextAlign` | `titleAlignment` / `descriptionAlignment` |
-| `titleTextDirection` / `descriptionTextDirection` | not available; the text follows `Directionality` |
+| `titleTextDirection` / `descriptionTextDirection` | same |
 | `Showcase.enableAutoScroll` (per step) | same; `ShowCaseWidget.enableAutoScroll` tour-wide |
 | `Showcase.onBarrierClick` (per step) | same; runs after the tour-wide `ShowCaseWidget.onBarrierClick` |
 | `toolTipMargin: 14` | `toolTipMargin: EdgeInsets.all(14)` |
@@ -1541,6 +1541,24 @@ left, each button's icon sits to the right of its label, and the progress
 indicator and Skip button swap sides. To translate the buttons' text, see
 [Translating the tour](#translating-the-tour).
 
+When a step's text runs in the other direction from the app, such as an Arabic
+title in an English app, give the title or description its own direction:
+
+```dart
+Showcase(
+  key: _one,
+  title: 'القائمة',
+  titleTextDirection: TextDirection.rtl,
+  description: 'Open the menu', // follows the app
+  child: const Icon(Icons.menu),
+);
+```
+
+`titleTextDirection` and `descriptionTextDirection` order that text's words
+and punctuation, and set which side `titleAlignment` / `descriptionAlignment`
+start from when it wraps. The tooltip is measured with the same direction.
+Left `null` (the default), the text follows the app.
+
 ## Enable or disable globally
 
 ```dart
@@ -1718,6 +1736,8 @@ ShowCaseWidget(
 | descTextStyle                | TextStyle?             | `ShowcaseStyle`                                    | Text style of the description.                                                              |     ✅     |                       |
 | titleAlignment               | TextAlign              | `TextAlign.start`                                  | Alignment of the title.                                                                     |     ✅     |                       |
 | descriptionAlignment         | TextAlign              | `TextAlign.start`                                  | Alignment of the description.                                                               |     ✅     |                       |
+| titleTextDirection           | TextDirection?         | the app's direction                                | Text direction of the title, when it differs from the app's.                                |     ✅     |                       |
+| descriptionTextDirection     | TextDirection?         | the app's direction                                | Text direction of the description, when it differs from the app's.                          |     ✅     |                       |
 | tooltipBackgroundColor       | Color?                 | `ShowcaseStyle` → app theme                        | Background color of the default tooltip.                                                    |     ✅     |                       |
 | textColor                    | Color?                 | `ShowcaseStyle` → app theme                        | Text color of the default tooltip.                                                          |     ✅     |                       |
 | tooltipBorderRadius          | BorderRadius?          | `ShowcaseStyle` → `BorderRadius.circular(8)`       | Border radius of the default tooltip.                                                       |     ✅     |                       |

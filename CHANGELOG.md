@@ -31,6 +31,12 @@
 * **Set the dimmed background's opacity once:**
   `ShowcaseStyle(overlayOpacity: ...)`. A step's own `overlayOpacity` still
   wins, and with neither set it is 0.75, as before.
+* **Text in the other direction:** `Showcase.titleTextDirection` and
+  `Showcase.descriptionTextDirection`, for example an Arabic title in an
+  English app. The tooltip is measured with the same direction. Unset, the
+  text follows the app, as before.
+* These cover the showcaseview 5.x features the "Coming from showcaseview"
+  table listed as missing, under the same names.
 
 **Types:** `Showcase.overlayOpacity` is now a `double?` (it was a `double`
 that defaulted to 0.75), so that a step that doesn't set it can use

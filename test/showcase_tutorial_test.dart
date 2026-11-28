@@ -6726,6 +6726,106 @@ void main() {
       );
     });
   });
+
+  group('titleTextDirection / descriptionTextDirection', () {
+    const title = 'عنوان الخطوة';
+
+    Widget directionApp(
+      GlobalKey key, {
+      TextDirection appDirection = TextDirection.ltr,
+      TextDirection? titleDirection,
+      TextDirection? descriptionDirection,
+      TooltipPosition? tooltipPosition,
+    }) {
+      return MaterialApp(
+        builder: (context, child) => Directionality(textDirection: appDirection, child: child!),
+        home: ShowCaseWidget(
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Align(
+                alignment: tooltipPosition == null ? Alignment.topCenter : Alignment.centerLeft,
+                child: Showcase(
+                  key: key,
+                  title: title,
+                  titleTextDirection: titleDirection,
+                  description: 'Description',
+                  descriptionTextDirection: descriptionDirection,
+                  tooltipPosition: tooltipPosition,
+                  child: const SizedBox(width: 40, height: 40, child: Text('target')),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Future<void> start(WidgetTester tester, GlobalKey key) async {
+      ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([key]);
+      await pumpFrames(tester);
+    }
+
+    TextDirection? ownDirection(WidgetTester tester, String text) => tester.widget<Text>(find.text(text)).textDirection;
+
+    TextDirection laidOutDirection(WidgetTester tester, String text) =>
+        tester.renderObject<RenderParagraph>(find.text(text)).textDirection;
+
+    testWidgets('unset, both follow the app', (tester) async {
+      usePhone(tester);
+      for (final appDirection in TextDirection.values) {
+        final key = GlobalKey();
+        await tester.pumpWidget(directionApp(key, appDirection: appDirection));
+        await start(tester, key);
+        expect(ownDirection(tester, title), isNull);
+        expect(ownDirection(tester, 'Description'), isNull);
+        expect(laidOutDirection(tester, title), appDirection);
+        expect(laidOutDirection(tester, 'Description'), appDirection);
+      }
+    });
+
+    for (final position in [null, TooltipPosition.right]) {
+      final where = position == null ? 'below the target' : 'beside the target';
+      testWidgets('each text takes its own direction ($where)', (tester) async {
+        usePhone(tester);
+        final key = GlobalKey();
+        await tester.pumpWidget(directionApp(key, titleDirection: TextDirection.rtl, tooltipPosition: position));
+        await start(tester, key);
+        expect(laidOutDirection(tester, title), TextDirection.rtl);
+        expect(laidOutDirection(tester, 'Description'), TextDirection.ltr, reason: 'independent of the title');
+        if (position != null) {
+          // The left/right layout builds its own copy of the texts.
+          expect(tester.getTopLeft(find.text(title)).dx, greaterThan(tester.getTopRight(find.text('target')).dx));
+        }
+
+        final rtlKey = GlobalKey();
+        await tester.pumpWidget(
+          directionApp(
+            rtlKey,
+            appDirection: TextDirection.rtl,
+            descriptionDirection: TextDirection.ltr,
+            tooltipPosition: position,
+          ),
+        );
+        await start(tester, rtlKey);
+        expect(laidOutDirection(tester, title), TextDirection.rtl);
+        expect(laidOutDirection(tester, 'Description'), TextDirection.ltr);
+      });
+    }
+
+    testWidgets('the texts fit the tooltip measured for them', (tester) async {
+      usePhone(tester);
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        directionApp(key, titleDirection: TextDirection.rtl, descriptionDirection: TextDirection.rtl),
+      );
+      await start(tester, key);
+      for (final text in [title, 'Description']) {
+        final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+        // Each fits on the one line the tooltip's width was measured for.
+        expect(paragraph.size.width, closeTo(paragraph.getMaxIntrinsicWidth(double.infinity), 0.01), reason: text);
+      }
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

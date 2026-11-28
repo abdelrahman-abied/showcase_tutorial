@@ -82,8 +82,29 @@ class Showcase extends StatefulWidget {
   /// Defaults to [TextAlign.start]
   final TextAlign titleAlignment;
 
+  /// Text direction of the default tooltip's [title].
+  ///
+  /// When `null` (the default) the title follows the ambient [Directionality],
+  /// as before. Set it for a title written in another direction than the
+  /// app, such as an Arabic title in an English app: it orders the title's
+  /// words and punctuation for that direction, and [titleAlignment]'s
+  /// [TextAlign.start] and [TextAlign.end] are read against it when the title
+  /// wraps. Where the title sits in the tooltip still follows the app's
+  /// direction. The tooltip is measured with the same direction, so it is
+  /// sized and placed for the text it shows. Does not apply to
+  /// [Showcase.withWidget].
+  final TextDirection? titleTextDirection;
+
   /// Represents summary description of target widget
   final String? description;
+
+  /// Text direction of the default tooltip's [description].
+  ///
+  /// When `null` (the default) the description follows the ambient
+  /// [Directionality], as before. See [titleTextDirection], which works the
+  /// same way for the title; the two are independent. Does not apply to
+  /// [Showcase.withWidget].
+  final TextDirection? descriptionTextDirection;
 
   /// ShapeBorder of the highlighted box when target widget will be showcased.
   ///
@@ -546,8 +567,10 @@ class Showcase extends StatefulWidget {
     required this.child,
     this.title,
     this.titleAlignment = TextAlign.start,
+    this.titleTextDirection,
     this.description,
     this.descriptionAlignment = TextAlign.start,
+    this.descriptionTextDirection,
     this.targetShapeBorder = const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
     this.highlightExactShape = false,
     this.overlayColor,
@@ -683,6 +706,8 @@ class Showcase extends StatefulWidget {
        description = null,
        titleAlignment = TextAlign.start,
        descriptionAlignment = TextAlign.start,
+       titleTextDirection = null,
+       descriptionTextDirection = null,
        titleTextStyle = null,
        descTextStyle = null,
        tooltipBackgroundColor = null,
@@ -1491,8 +1516,10 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                 screenSize: screenSize,
                 title: widget.title,
                 titleAlignment: widget.titleAlignment,
+                titleTextDirection: widget.titleTextDirection,
                 description: widget.description,
                 descriptionAlignment: widget.descriptionAlignment,
+                descriptionTextDirection: widget.descriptionTextDirection,
                 titleTextStyle: widget.titleTextStyle ?? showcaseState.style.titleTextStyle,
                 descTextStyle: widget.descTextStyle ?? showcaseState.style.descTextStyle,
                 container: widget.container,
