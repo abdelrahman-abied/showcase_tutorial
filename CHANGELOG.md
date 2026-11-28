@@ -1,5 +1,113 @@
 # Changelog
 
+## 2.1.0
+
+Easier switching from showcaseview and tutorial_coach_mark, control over the
+back button, a hook before each step, and a few fixes. Every new option is
+off by default, so apps that don't use them behave as before, apart from the
+fixes listed under **Fixed**. One type changed; see **Types**.
+
+* **Docs fix:** the "Listening from anywhere in the tree" example called
+  `ShowCaseWidget.of(context)` in `dispose`, which throws in debug builds, and
+  registered its listener again on every dependency change. It now keeps the
+  controller from `initState` and uses it in `dispose`. The listener methods'
+  docs say the same.
+* **Docs: [Coming from showcaseview](https://github.com/abdelrahman-abied/showcase_tutorial#coming-from-showcaseview).**
+  A new README section for apps switching from showcaseview 5.x. It covers
+  setup (`ShowcaseView.register` becomes `ShowCaseWidget`), controlling the
+  tour, action buttons, a table that maps each showcaseview API to its
+  equivalent here, and the behaviour that differs.
+* **Docs: [Coming from tutorial_coach_mark](https://github.com/abdelrahman-abied/showcase_tutorial#coming-from-tutorial_coach_mark).**
+  A README section for apps switching from tutorial_coach_mark 1.3.4:
+  setup (a `Showcase` around each target instead of a `TargetFocus` list),
+  starting and advancing the tour, custom content (`TargetContent` becomes
+  `Showcase.withWidget`), `beforeFocus` and `disableBackButton`, the Skip
+  button, a table that maps each tutorial_coach_mark API to its equivalent
+  here (or says it is not available, with the closest workaround), and the
+  behaviour that differs.
+* **Start the tour after a delay:** `startShowCase(keys, delay: ...)`. The
+  call returns at once and the tour starts when the delay ends, for example
+  once a screen's entrance animation is done. An `onShouldStartShowcase`
+  guard is asked when the delay ends, so it sees whether the tour was
+  completed in the meantime. Without a delay the tour starts at once, as
+  before. `isStartPending` tells whether a start is still waiting, and
+  `cancelDelayedStart()` calls it off without firing any callback. A waiting
+  start is also called off by `dismiss()`, by another `startShowCase`, by
+  turning `enableShowcase` off, or when the `ShowCaseWidget` goes away. The
+  delay belongs to the `ShowCaseWidget`, not to the screen that asked for it:
+  a page that schedules a delayed start should call `cancelDelayedStart()` in
+  its `dispose`, or the tour still starts after the page is closed.
+* **Listen for the end of a tour from anywhere:** `addOnFinishCallback` /
+  `removeOnFinishCallback` and `addOnDismissCallback` /
+  `removeOnDismissCallback` on `ShowCaseWidget.of(context)`. They work like
+  `addOnStartCallback`: they run after `onFinish` / `onDismiss`, in the order
+  they were added, and a listener can remove itself while it runs.
+* **Auto-scroll per step:** `Showcase.enableAutoScroll`. `true` scrolls to
+  that step's target even when the tour doesn't auto-scroll, `false` leaves
+  the page where it is for that step. Unset, it follows
+  `ShowCaseWidget.enableAutoScroll`, as before.
+* **Background taps per step:** `Showcase.onBarrierClick`, called when the
+  dimmed background is tapped while that step shows. It runs after the
+  tour-wide `ShowCaseWidget.onBarrierClick`, not instead of it, and both run
+  on every tap, even with `BarrierInteraction.none`.
+* **Set the dimmed background's opacity once:**
+  `ShowcaseStyle(overlayOpacity: ...)`. A step's own `overlayOpacity` still
+  wins, and with neither set it is 0.75, as before.
+* **Text in the other direction:** `Showcase.titleTextDirection` and
+  `Showcase.descriptionTextDirection`, for example an Arabic title in an
+  English app. The tooltip is measured with the same direction, and screen
+  readers announce the step in it. Unset, the text follows the app, as
+  before.
+* These cover the showcaseview 5.x features the "Coming from showcaseview"
+  table listed as missing, under the same names.
+* **Choose what the back button does during a step:**
+  `ShowCaseWidget.backButtonInteraction`, with the new
+  `BackButtonInteraction` enum. `passThrough`, the default, leaves back as it
+  is today: it closes the page. `dismiss` ends the tour and keeps the page
+  open, `previous` goes to the previous step (and ends the tour from the
+  first step), and `block` ignores back. It covers the Android back button
+  and gesture, predictive back included, and the browser's back button. It
+  only acts while a step is on screen, not while the tour waits for a page
+  or a step is hidden under another page or a dialog, and it works with
+  `ShowCaseWidget` on a page or in `MaterialApp.builder`. Esc still
+  dismisses the tour through keyboard navigation. Like a `PopScope`, it only
+  hears back presses that reach the step's own navigator: a step in a nested
+  `Navigator` needs back forwarded to it, for example with
+  `NavigatorPopHandler`.
+* **Prepare a step before it shows:** `ShowCaseWidget.onBeforeStep`, an
+  `(index, key)` callback that runs before each step is shown. Return a
+  `Future` and the tour waits for it, to scroll, load data or open the
+  step's page first. It runs after the tour has chosen the step (`startAt`,
+  `onResolveNextStep` and the unmounted-step skip rules work as before) and
+  before that step's `onStart`. While it waits nothing is shown, and
+  `isPreparingStep` is `true`. If the tour moves meanwhile (`next`,
+  `previous`, `goTo`, `dismiss`, `startShowCase`, `enableShowcase` off), the
+  step being prepared is given up and never shows; calling `next()` from the
+  callback skips its step. An error in it is reported to
+  `FlutterError.onError` and the step shows anyway. A callback that returns
+  nothing shows the step on the same frame as before, and without the
+  callback nothing changes.
+
+**Fixed:**
+
+* An asynchronous `onShouldStartShowcase` could start a tour that had been
+  called off while it was deciding: after `dismiss()`, after
+  `enableShowcase` was turned off (the tour then ran while disabled), or
+  after a newer `startShowCase`, whose tour it then replaced. Its answer now
+  only counts for the latest start, while the showcase is enabled.
+* Closing a tour twice in quick succession, such as two taps on the dimmed
+  background with `BarrierInteraction.dismiss`, or two of Skip, Esc or a
+  `disposeOnTap` tap, reported the dismissal twice: `onDismiss` was called
+  again with `null`. A tap now ends the tour only if the tour is still on
+  that step when its closing animation is done, which also keeps it from
+  ending a tour that started meanwhile.
+
+**Types:** `Showcase.overlayOpacity` is now a `double?` (it was a `double`
+that defaulted to 0.75), so that a step that doesn't set it can use
+`ShowcaseStyle.overlayOpacity`. Passing a value works as before. Only code
+that reads `overlayOpacity` back from a `Showcase` and expects a `double`
+needs a change, for example `showcase.overlayOpacity ?? 0.75`.
+
 ## 2.0.3
 
 Three fixes. Nothing to change in your code.

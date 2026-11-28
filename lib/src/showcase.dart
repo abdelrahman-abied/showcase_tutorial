@@ -82,8 +82,32 @@ class Showcase extends StatefulWidget {
   /// Defaults to [TextAlign.start]
   final TextAlign titleAlignment;
 
+  /// Text direction of the default tooltip's [title].
+  ///
+  /// When `null` (the default) the title follows the ambient [Directionality],
+  /// as before. Set it for a title written in another direction than the
+  /// app, such as an Arabic title in an English app: it orders the title's
+  /// words and punctuation for that direction, and [titleAlignment]'s
+  /// [TextAlign.start] and [TextAlign.end] are read against it when the title
+  /// wraps. Where the title sits in the tooltip still follows the app's
+  /// direction. The tooltip is measured with the same direction, so it is
+  /// sized and placed for the text it shows. The screen-reader announcement
+  /// of the step ([ShowCaseWidget.enableAutoAnnouncements]) is made in this
+  /// direction too, unless [semanticLabel] replaces its text. Does not apply
+  /// to [Showcase.withWidget].
+  final TextDirection? titleTextDirection;
+
   /// Represents summary description of target widget
   final String? description;
+
+  /// Text direction of the default tooltip's [description].
+  ///
+  /// When `null` (the default) the description follows the ambient
+  /// [Directionality], as before. See [titleTextDirection], which works the
+  /// same way for the title; the two are independent. A step without a
+  /// [title] is announced to screen readers in this direction. Does not
+  /// apply to [Showcase.withWidget].
+  final TextDirection? descriptionTextDirection;
 
   /// ShapeBorder of the highlighted box when target widget will be showcased.
   ///
@@ -201,10 +225,17 @@ class Showcase extends StatefulWidget {
   /// `material_ui` theme.
   final Color? overlayColor;
 
-  /// Opacity apply on [overlayColor] (which ranges from 0.0 to 1.0)
+  /// Opacity applied to [overlayColor], from `0.0` (fully see-through) to
+  /// `1.0` (opaque).
   ///
-  /// Default to 0.75
-  final double overlayOpacity;
+  /// When `null` (the default) it falls back to [ShowCaseWidget.style]
+  /// ([ShowcaseStyle.overlayOpacity]), then to `0.75`, so a tour can set it
+  /// once for every step. A value outside `0.0`–`1.0` fails an assert.
+  ///
+  /// Up to 2.0.3 this was a non-nullable `double` defaulting to `0.75`.
+  /// Passing a value works as before; code that reads it back now gets a
+  /// `double?`.
+  final double? overlayOpacity;
 
   /// Custom tooltip widget when [Showcase.withWidget] is used.
   final Widget? container;
@@ -227,8 +258,9 @@ class Showcase extends StatefulWidget {
   /// an app without a `material_ui` theme it is black.
   final Color? textColor;
 
-  /// If [ShowCaseWidget.enableAutoScroll] is sets to `true`, this widget will be shown above
-  /// the overlay until the target widget is visible in the viewport.
+  /// While auto-scroll ([enableAutoScroll], or [ShowCaseWidget.enableAutoScroll])
+  /// brings the target into view, this widget is shown above the overlay
+  /// until the target widget is visible in the viewport.
   ///
   /// When `null` (the default) it is a [CircularProgressIndicator] coloured
   /// with [ShowcaseStyle.loadingIndicatorColor], or else white or black,
@@ -458,6 +490,16 @@ class Showcase extends StatefulWidget {
   /// [ShowCaseWidget.scrollAlignment].
   final double? scrollAlignment;
 
+  /// Overrides [ShowCaseWidget.enableAutoScroll] for this step: whether an
+  /// off-screen target is scrolled into view when the step starts.
+  ///
+  /// `true` scrolls to this step's target even when the tour does not
+  /// auto-scroll, and `false` leaves the scroll position alone for this step
+  /// even when it does. Defaults to `null`, which uses the tour-wide
+  /// [ShowCaseWidget.enableAutoScroll]. [ShowCaseWidget.scrollDuration] and
+  /// [scrollAlignment] apply as for the tour-wide setting.
+  final bool? enableAutoScroll;
+
   /// Called while this step is active whenever the highlighted target's bounds
   /// change — for example after a scroll, a rotation, the keyboard opening, or
   /// the target itself resizing.
@@ -482,9 +524,19 @@ class Showcase extends StatefulWidget {
   ///
   /// Takes precedence over the tour-wide setting, including the deprecated
   /// `ShowCaseWidget.disableBarrierInteraction` flag. Does not suppress
-  /// [ShowCaseWidget.onBarrierClick], which still fires on every barrier tap.
-  /// Defaults to `null`, which uses the tour-wide behaviour.
+  /// [ShowCaseWidget.onBarrierClick] or [onBarrierClick], which still fire on
+  /// every barrier tap. Defaults to `null`, which uses the tour-wide behaviour.
   final BarrierInteraction? barrierInteraction;
+
+  /// Called whenever the dimmed background (the barrier) is tapped while
+  /// **this** step is active.
+  ///
+  /// Runs in addition to the tour-wide [ShowCaseWidget.onBarrierClick], not
+  /// instead of it: on a barrier tap the tour-wide callback runs first, then
+  /// this one, then the tap does what [barrierInteraction] says (advance,
+  /// dismiss or nothing). Both fire on every barrier tap, including with
+  /// [BarrierInteraction.none]. Defaults to `null`.
+  final VoidCallback? onBarrierClick;
 
   /// Mouse cursor shown while hovering this step's highlighted target on
   /// web/desktop.
@@ -518,12 +570,14 @@ class Showcase extends StatefulWidget {
     required this.child,
     this.title,
     this.titleAlignment = TextAlign.start,
+    this.titleTextDirection,
     this.description,
     this.descriptionAlignment = TextAlign.start,
+    this.descriptionTextDirection,
     this.targetShapeBorder = const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
     this.highlightExactShape = false,
     this.overlayColor,
-    this.overlayOpacity = 0.75,
+    this.overlayOpacity,
     this.titleTextStyle,
     this.descTextStyle,
     this.tooltipBackgroundColor,
@@ -570,14 +624,19 @@ class Showcase extends StatefulWidget {
     this.targetTooltipGap = 0.0,
     this.toolTipMargin = const EdgeInsets.all(20),
     this.scrollAlignment,
+    this.enableAutoScroll,
     this.onTargetRectUpdate,
     this.barrierInteraction,
+    this.onBarrierClick,
     this.targetMouseCursor,
     this.tooltipMouseCursor,
   }) : height = null,
        width = null,
        container = null,
-       assert(overlayOpacity >= 0.0 && overlayOpacity <= 1.0, "overlay opacity must be between 0 and 1."),
+       assert(
+         overlayOpacity == null || (overlayOpacity >= 0.0 && overlayOpacity <= 1.0),
+         "overlay opacity must be between 0 and 1.",
+       ),
        assert(onTargetClick == null || disposeOnTap != null, "disposeOnTap is required if you're using onTargetClick"),
        assert(
          disposeOnTap == null ? true : (onTargetClick == null ? false : true),
@@ -607,7 +666,7 @@ class Showcase extends StatefulWidget {
     this.pulseDuration = const Duration(milliseconds: 1500),
     this.highlightBorderColor,
     this.highlightBorderWidth,
-    this.overlayOpacity = 0.75,
+    this.overlayOpacity,
     this.scrollLoadingWidget,
     this.onTargetClick,
     this.disposeOnTap,
@@ -631,8 +690,10 @@ class Showcase extends StatefulWidget {
     this.targetTooltipGap = 0.0,
     this.toolTipMargin = const EdgeInsets.all(20),
     this.scrollAlignment,
+    this.enableAutoScroll,
     this.onTargetRectUpdate,
     this.barrierInteraction,
+    this.onBarrierClick,
     this.targetMouseCursor,
     this.tooltipMouseCursor,
   }) : showArrow = false,
@@ -648,6 +709,8 @@ class Showcase extends StatefulWidget {
        description = null,
        titleAlignment = TextAlign.start,
        descriptionAlignment = TextAlign.start,
+       titleTextDirection = null,
+       descriptionTextDirection = null,
        titleTextStyle = null,
        descTextStyle = null,
        tooltipBackgroundColor = null,
@@ -656,7 +719,10 @@ class Showcase extends StatefulWidget {
        tooltipPadding = const EdgeInsets.symmetric(vertical: 8),
        titlePadding = null,
        descriptionPadding = null,
-       assert(overlayOpacity >= 0.0 && overlayOpacity <= 1.0, "overlay opacity must be between 0 and 1.");
+       assert(
+         overlayOpacity == null || (overlayOpacity >= 0.0 && overlayOpacity <= 1.0),
+         "overlay opacity must be between 0 and 1.",
+       );
 
   /// Creates the mutable state for this widget.
   @override
@@ -719,6 +785,11 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   /// [_isRouteSettled] as of the last visibility check.
   bool _wasRouteSettled = true;
 
+  /// The tour this step reported itself on screen to (see
+  /// [ShowcaseTourFocus.didShowStep]), kept so [dispose] can report it gone
+  /// without an ancestor lookup.
+  ShowCaseWidgetState? _shownOnTour;
+
   /// The theme colours for anything the developer left unset, resolved once
   /// per showing of the step rather than on every overlay build: finding out
   /// whether the app has a `material_ui` theme is a walk up the tree. Cleared
@@ -728,6 +799,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
 
   @override
   void dispose() {
+    _reportHidden();
     _unwatchRoute();
     _removeOverlayEntry();
     _releaseSnapshots();
@@ -858,11 +930,16 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
       // into a revisit of this step.
       timer?.cancel();
       timer = null;
+      _reportHidden();
       _notifyLifecycle(widget.onDismiss);
     }
 
     if (isActiveNow) {
-      if (showcaseState.enableAutoScroll) {
+      // Lets the tour attach its back-button handling to this step's page
+      // (see [ShowCaseWidget.backButtonInteraction]).
+      _shownOnTour = showcaseState..didShowStep(this, _route, _dismissFromBackButton);
+      // A per-step [Showcase.enableAutoScroll] wins over the tour-wide flag.
+      if (widget.enableAutoScroll ?? showcaseState.enableAutoScroll) {
         _scrollIntoView();
       }
 
@@ -876,6 +953,12 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
         timer = Timer(autoPlayDelay, _nextIfAny);
       }
     }
+  }
+
+  /// Tells the tour this step is no longer on screen, if it said it was.
+  void _reportHidden() {
+    _shownOnTour?.didHideStep(this);
+    _shownOnTour = null;
   }
 
   /// Invokes a per-step lifecycle [callback] ([Showcase.onShow] /
@@ -996,7 +1079,14 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
           widget.description,
         ].whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty).join('. ');
     if (label.isEmpty) return;
-    final textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
+    // The announcement reads in the direction of the text it starts with: the
+    // title's own direction, or the description's when there is no title.
+    // A [Showcase.semanticLabel] is the app's own text, in the app's direction.
+    final hasTitle = widget.title?.trim().isNotEmpty ?? false;
+    final ownDirection = widget.semanticLabel != null
+        ? null
+        : (hasTitle ? widget.titleTextDirection : widget.descriptionTextDirection);
+    final textDirection = ownDirection ?? Directionality.maybeOf(context) ?? TextDirection.ltr;
     // Announce on the view this step is drawn in, so a multi-window app
     // routes it to the right one.
     SemanticsService.sendAnnouncement(View.of(context), label, textDirection);
@@ -1154,7 +1244,8 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   Future<void> _getOnTargetTap() async {
     if (widget.disposeOnTap == true) {
       await _reverseAnimateTooltip();
-      showCaseWidgetState.dismiss();
+      if (!mounted) return;
+      _dismissIfStillActive();
       widget.onTargetClick?.call();
     } else {
       (widget.onTargetClick ?? _nextIfAny).call();
@@ -1249,17 +1340,49 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   Future<void> _getOnTooltipTap() async {
     if (widget.disposeOnTap == true) {
       await _reverseAnimateTooltip();
-      showCaseWidgetState.dismiss();
+      if (!mounted) return;
+      _dismissIfStillActive();
     }
     widget.onToolTipClick?.call();
   }
 
   /// Reverse-animates the tooltip and then dismisses the whole tour. Used when
-  /// [ShowCaseWidget.barrierInteraction] is [BarrierInteraction.dismiss].
+  /// [ShowCaseWidget.barrierInteraction] is [BarrierInteraction.dismiss], by
+  /// the Skip button and by <kbd>Esc</kbd>.
   Future<void> _dismissShowcaseTour() async {
     await _reverseAnimateTooltip();
     if (!mounted) return;
-    showCaseWidgetState.dismiss();
+    _dismissIfStillActive();
+  }
+
+  /// Dismisses the tour for the back button
+  /// ([ShowCaseWidget.backButtonInteraction]).
+  ///
+  /// Normally it animates the tooltip out first, as <kbd>Esc</kbd> does. When
+  /// the tooltip is already animating out, for a Next tap or another
+  /// dismissal, the tour is dismissed at once instead: waiting for that
+  /// animation would let [_dismissIfStillActive] drop this dismissal once the
+  /// tap had moved the tour on, and back would do nothing. A dismissal that
+  /// is still animating then finds the tour gone and reports nothing more.
+  void _dismissFromBackButton() {
+    if (_isTooltipDismissed) {
+      showCaseWidgetState.dismiss();
+      return;
+    }
+    _dismissShowcaseTour();
+  }
+
+  /// Dismisses the tour once the reverse animation a tap started is over,
+  /// unless the tour has left this step in the meantime.
+  ///
+  /// The tour may have moved on during the animation: a second tap already
+  /// dismissed it, or another tour (such as a delayed [startShowCase]) took
+  /// its place. Dismissing then would report a second dismissal, with no step,
+  /// or end a tour the user never closed.
+  void _dismissIfStillActive() {
+    final tour = showCaseWidgetState;
+    if (tour.activeStepKey != widget.key) return;
+    tour.dismiss();
   }
 
   /// Reverse animates the provided tooltip or
@@ -1349,7 +1472,9 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     final scrim = SizedBox(
       width: screen.width,
       height: screen.height,
-      child: ColoredBox(color: scrimColor.withValues(alpha: widget.overlayOpacity)),
+      // [Showcase.overlayOpacity], then [ShowcaseStyle.overlayOpacity], then
+      // the default.
+      child: ColoredBox(color: scrimColor.withValues(alpha: widget.overlayOpacity ?? style.overlayOpacity ?? 0.75)),
     );
 
     final Widget overlay = Directionality(
@@ -1361,9 +1486,11 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
           children: [
             GestureDetector(
               onTap: () {
-                // Notify the barrier-tap listener first, regardless of what the
-                // tap is configured to do (it fires even for `.none`).
+                // Notify the barrier-tap listeners first, the tour-wide one
+                // then this step's, regardless of what the tap is configured to
+                // do (they fire even for `.none`).
                 showcaseState.onBarrierClick?.call();
+                widget.onBarrierClick?.call();
                 switch (barrierInteraction) {
                   case BarrierInteraction.next:
                     _nextIfAny();
@@ -1448,8 +1575,10 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
                 screenSize: screenSize,
                 title: widget.title,
                 titleAlignment: widget.titleAlignment,
+                titleTextDirection: widget.titleTextDirection,
                 description: widget.description,
                 descriptionAlignment: widget.descriptionAlignment,
+                descriptionTextDirection: widget.descriptionTextDirection,
                 titleTextStyle: widget.titleTextStyle ?? showcaseState.style.titleTextStyle,
                 descTextStyle: widget.descTextStyle ?? showcaseState.style.descTextStyle,
                 container: widget.container,

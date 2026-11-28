@@ -35,6 +35,13 @@ import '../showcase_tutorial.dart';
 /// Receives the zero-based index of the step and the [GlobalKey] of its target.
 typedef ShowcaseStepCallback = void Function(int? index, GlobalKey key);
 
+/// Signature of [ShowCaseWidget.onBeforeStep].
+///
+/// Receives the zero-based index of the step the tour is about to show and
+/// the [GlobalKey] of its target. Return a [Future] to make the tour wait for
+/// it, or nothing to let the step show straight away.
+typedef ShowcaseBeforeStepCallback = FutureOr<void> Function(int index, GlobalKey key);
+
 /// Hosts a showcase tour for the [Showcase] widgets in its subtree.
 ///
 /// Wrap your screen (or app) in a [ShowCaseWidget], wrap each target in a
@@ -73,6 +80,8 @@ class ShowCaseWidget extends StatefulWidget {
   final Widget builder;
 
   /// Triggered when all the showcases are completed.
+  ///
+  /// To add listeners at runtime, see [ShowCaseWidgetState.addOnFinishCallback].
   final VoidCallback? onFinish;
 
   /// Triggered every time a step starts, with the step's zero-based index in
@@ -82,6 +91,100 @@ class ShowCaseWidget extends StatefulWidget {
   /// `startAt` in [ShowCaseWidgetState.startShowCase]. To add listeners at
   /// runtime, see [ShowCaseWidgetState.addOnStartCallback].
   final ShowcaseStepCallback? onStart;
+
+  /// Runs before each step is shown, and the tour waits for it: use it to
+  /// scroll to the step's widget, load what it needs or open its page first.
+  ///
+  /// ```dart
+  /// ShowCaseWidget(
+  ///   onBeforeStep: (index, key) async {
+  ///     if (key == _chartStep) await _controller.loadChart();
+  ///   },
+  ///   builder: const HomePage(),
+  /// )
+  /// ```
+  ///
+  /// It receives the index of the step in the running tour and its target
+  /// key. Return a [Future] and the tour waits for it to complete before it
+  /// shows the step; return nothing and the step shows straight away.
+  ///
+  /// **When it runs.** For every step the tour is about to show: the step a
+  /// tour opens on, and every step it moves to with the Next button, a tap on
+  /// the target, tooltip or background, the keyboard, auto-play, the back
+  /// button, [ShowCaseWidgetState.next], [ShowCaseWidgetState.completed],
+  /// [ShowCaseWidgetState.previous], [ShowCaseWidgetState.goTo] and
+  /// [ShowCaseWidgetState.goToKey]. In order:
+  ///
+  /// 1. [ShowCaseWidgetState.startShowCase] waits out its `delay` and asks
+  ///    [onShouldStartShowcase] (unless `force` is set). A tour the guard
+  ///    turns down never calls this.
+  /// 2. When the tour moves on, [onComplete] runs for the step it leaves.
+  /// 3. The tour chooses the step, exactly as it does without this callback:
+  ///    `startAt` is clamped, [onResolveNextStep] can branch, and
+  ///    [autoSkipUnmountedSteps] / [onShouldSkipUnmountedStep] skip unmounted
+  ///    steps, judged by what is mounted at that moment.
+  /// 4. This callback runs for the chosen step, and the tour waits for it.
+  /// 5. [onStart] runs for that step, and the step shows: its
+  ///    [Showcase.onShow], auto-scroll, announcement and auto-play timer
+  ///    start from here, so an auto-play delay counts from when the step
+  ///    appears.
+  ///
+  /// It does not run for skipped steps, when the tour finishes or when it is
+  /// dismissed. Because skipping is decided before it runs, a step this
+  /// callback brings on screen (by opening its page or scrolling a lazy list)
+  /// must not be skipped: leave [autoSkipUnmountedSteps] off, so the tour
+  /// waits for it, or return `false` for it from [onShouldSkipUnmountedStep].
+  /// A step whose widget is still not mounted when the callback completes is
+  /// waited for, like any step the tour does not skip.
+  ///
+  /// **While the tour waits.** The step it left is gone and nothing else is
+  /// shown: no dimmed background, no tooltip, and the app takes taps and the
+  /// back button as usual. A tap still in flight on the step that was left,
+  /// such as a second tap on its background, is ignored rather than
+  /// advancing the tour again. [ShowCaseWidgetState.isShowcaseRunning] is
+  /// `true`, [ShowCaseWidgetState.currentIndex] is the index of the step being
+  /// prepared, and [ShowCaseWidgetState.isPreparingStep] is `true`.
+  ///
+  /// **If the tour moves while it waits.** The step being prepared is given
+  /// up, and when the callback completes nothing happens: no stale step
+  /// shows and [onStart] does not run for it. That step never started, so
+  /// [onComplete] does not run for it either. The calls, from the app or from
+  /// this callback itself:
+  ///
+  /// * [ShowCaseWidgetState.next], or [ShowCaseWidgetState.completed] with
+  ///   its key, moves on from the step being prepared, as if it had been
+  ///   shown: [onResolveNextStep] is asked about it, and this callback runs
+  ///   for the step after it. Calling `next()` from this callback skips its
+  ///   step.
+  /// * [ShowCaseWidgetState.previous], [ShowCaseWidgetState.goTo] and
+  ///   [ShowCaseWidgetState.goToKey] move from it in the same way. A
+  ///   `previous()` with no earlier step to go to does nothing, and the wait
+  ///   goes on.
+  /// * [ShowCaseWidgetState.dismiss] ends the tour. [onDismiss] receives
+  ///   `null`, as no step was showing.
+  /// * [ShowCaseWidgetState.startShowCase] replaces the tour, and this
+  ///   callback runs for the new tour's first step. With a `delay`, the
+  ///   running tour carries on until the delayed start replaces it, as
+  ///   always.
+  /// * Turning [enableShowcase] off ends the tour, and disposing this
+  ///   [ShowCaseWidget] drops it.
+  ///
+  /// **If it throws**, synchronously or through its [Future], the error is
+  /// reported to [FlutterError.onError] and the step shows as if the callback
+  /// had completed. To skip the step or end the tour instead, catch the error
+  /// and call [ShowCaseWidgetState.next] or [ShowCaseWidgetState.dismiss].
+  ///
+  /// **Timing.** When it returns nothing (a synchronous callback), the step
+  /// shows within the same call, on the same frame as without the callback.
+  /// When it returns a [Future], even one that has already completed, the
+  /// step shows once that future completes, after the current microtask. With
+  /// [enableStepTransition], a step entered after a [Future] appears without
+  /// gliding from the previous target, since nothing was on screen in
+  /// between; after a synchronous callback it glides as usual.
+  ///
+  /// Defaults to `null`, which shows each step as soon as the tour moves to
+  /// it.
+  final ShowcaseBeforeStepCallback? onBeforeStep;
 
   /// Triggered every time a step completes (the tour leaves it to go to another
   /// step or to finish), with the step's zero-based index and its target key.
@@ -100,6 +203,9 @@ class ShowCaseWidget extends StatefulWidget {
   /// tour finishes normally by advancing past the last step — use [onFinish] for
   /// that. Distinct from the per-step [Showcase.onDismiss], which fires for every
   /// step as the tour leaves it.
+  ///
+  /// To add listeners at runtime, see
+  /// [ShowCaseWidgetState.addOnDismissCallback].
   final void Function(GlobalKey? dismissedAt)? onDismiss;
 
   /// Triggered whenever the dimmed background (the barrier) is tapped, in
@@ -110,6 +216,9 @@ class ShowCaseWidget extends StatefulWidget {
   /// nudge, a sound, or analytics — without changing what the tap does. When
   /// [barrierInteraction] is `.next` or `.dismiss` this runs first, then the
   /// configured action follows.
+  ///
+  /// A step's own [Showcase.onBarrierClick] runs right after this one, for
+  /// taps while that step is active.
   final VoidCallback? onBarrierClick;
 
   /// A screen-anchored widget shown above the overlay for **every** step of the
@@ -216,6 +325,40 @@ class ShowCaseWidget extends StatefulWidget {
   /// `true`.
   final BarrierInteraction barrierInteraction;
 
+  /// What the system back button does while a step is showing.
+  ///
+  /// Defaults to [BackButtonInteraction.passThrough]: back does what it does
+  /// without a tour, usually closing the step's page. Use
+  /// [BackButtonInteraction.dismiss] to end the tour on back,
+  /// [BackButtonInteraction.previous] to step back through it (ending it from
+  /// the first step), or [BackButtonInteraction.block] to ignore back while a
+  /// step shows.
+  ///
+  /// It works wherever this [ShowCaseWidget] is: on a page, or above the
+  /// [Navigator] in `MaterialApp.builder` for a tour across screens. The
+  /// handling is attached to the page of the step that is showing, like a
+  /// `PopScope(canPop: false)` on that page, and only while it shows. While
+  /// the tour waits for a step's page, while a step is hidden because another
+  /// page or a dialog covers its page, and whenever no tour runs, back is left
+  /// alone. Because the page reports that it handles back, Android's
+  /// predictive back gesture does not preview leaving the page or the app
+  /// while a step shows.
+  ///
+  /// A step that is not on any page (outside every [Navigator]) has nothing to
+  /// attach to, and back is left alone for it. <kbd>Esc</kbd> keeps
+  /// dismissing the tour through [enableKeyboardNavigation], whatever this is.
+  ///
+  /// **Nested navigators.** The handling sits on the step's own page, so it
+  /// sees only the back presses that reach that page's [Navigator], the same
+  /// limit as a `PopScope` there. A step on a page of a nested [Navigator]
+  /// (for example one per tab) is never asked: the root [Navigator] handles
+  /// back and closes the page around it. Forward back to the nested
+  /// navigator, with a [NavigatorPopHandler] around it or a router whose
+  /// back-button dispatcher does so, and the tour handles it there.
+  ///
+  /// See [BackButtonInteraction] for each value.
+  final BackButtonInteraction backButtonInteraction;
+
   /// Provides time duration for auto scrolling when [enableAutoScroll] is true
   final Duration scrollDuration;
 
@@ -236,6 +379,8 @@ class ShowCaseWidget extends StatefulWidget {
 
   /// While target widget is out viewport then
   /// whether enabling auto scroll so as to make the target widget visible.
+  ///
+  /// Overridden for a single step by [Showcase.enableAutoScroll].
   final bool enableAutoScroll;
 
   /// Enable/disable showcase globally. Enabled by default.
@@ -252,7 +397,8 @@ class ShowCaseWidget extends StatefulWidget {
   final String? showcaseId;
 
   /// Called when [ShowCaseWidgetState.startShowCase] is invoked (unless
-  /// `force: true` is passed).
+  /// `force: true` is passed). With a `delay`, it is called once the delay has
+  /// passed, just before the tour would start.
   ///
   /// Return `false` to skip starting the tour — for example when the user has
   /// already completed it. The result may be a `bool` or a `Future<bool>`.
@@ -436,6 +582,7 @@ class ShowCaseWidget extends StatefulWidget {
     required this.builder,
     this.onFinish,
     this.onStart,
+    this.onBeforeStep,
     this.onComplete,
     this.onDismiss,
     this.onBarrierClick,
@@ -461,6 +608,7 @@ class ShowCaseWidget extends StatefulWidget {
     )
     this.disableBarrierInteraction = false,
     this.barrierInteraction = BarrierInteraction.next,
+    this.backButtonInteraction = BackButtonInteraction.passThrough,
     this.enableShowcase = true,
     this.style = const ShowcaseStyle(),
     this.showcaseId,
@@ -573,6 +721,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Value of [ShowCaseWidget.onBarrierClick].
   VoidCallback? get onBarrierClick => widget.onBarrierClick;
 
+  /// Value of [ShowCaseWidget.backButtonInteraction].
+  BackButtonInteraction get backButtonInteraction => widget.backButtonInteraction;
+
   /// Value of [ShowCaseWidget.globalFloatingActionWidget].
   WidgetBuilder? get globalFloatingActionWidget => widget.globalFloatingActionWidget;
 
@@ -655,6 +806,14 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Whether a showcase tour is currently running.
   bool get isShowcaseRunning => ids != null;
 
+  /// Whether the tour is waiting on [ShowCaseWidget.onBeforeStep] before it
+  /// shows the step at [currentIndex].
+  ///
+  /// No step is on screen meanwhile. Always `false` without
+  /// [ShowCaseWidget.onBeforeStep]; with a synchronous callback it is `true`
+  /// only while that call runs.
+  bool get isPreparingStep => _preparingStep;
+
   /// Zero-based index of the active step, or `null` when no tour is running.
   int? get currentIndex => activeWidgetId;
 
@@ -671,6 +830,54 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Listeners registered with [addOnCompleteCallback].
   final List<ShowcaseStepCallback> _onCompleteCallbacks = [];
+
+  /// Listeners registered with [addOnFinishCallback].
+  final List<VoidCallback> _onFinishCallbacks = [];
+
+  /// Listeners registered with [addOnDismissCallback].
+  final List<void Function(GlobalKey? dismissedAt)> _onDismissCallbacks = [];
+
+  /// The start [startShowCase] scheduled with a `delay`, while it waits.
+  Timer? _delayedStart;
+
+  /// Whether a start is waiting on an asynchronous
+  /// [ShowCaseWidget.onShouldStartShowcase].
+  bool _awaitingGuard = false;
+
+  /// Counts the starts asked for and called off. A guard that answers after
+  /// its start was called off, or replaced, finds a newer generation and does
+  /// nothing.
+  int _startGeneration = 0;
+
+  /// Whether the tour waits on [ShowCaseWidget.onBeforeStep] for the step at
+  /// [activeWidgetId], which is not shown meanwhile.
+  bool _preparingStep = false;
+
+  /// Counts the tour's moves, ends and teardowns. A
+  /// [ShowCaseWidget.onBeforeStep] that completes after the tour moved on,
+  /// ended, was disabled or went away finds a newer generation and shows
+  /// nothing.
+  int _stepGeneration = 0;
+
+  /// Whether a move of the tour goes through [ShowCaseWidget.onBeforeStep].
+  ///
+  /// Also while a step is still being prepared for a callback that has since
+  /// been taken off the widget, so that step is given up properly.
+  bool get _usesBeforeStep => widget.onBeforeStep != null || _preparingStep;
+
+  /// The step on screen right now, as reported by [ShowcaseTourFocus.didShowStep]:
+  /// its owner, the page it is on, and how it dismisses the tour.
+  Object? _shownStep;
+  ModalRoute<Object?>? _shownStepRoute;
+  VoidCallback? _dismissShownStep;
+
+  /// Handles the back button for [ShowCaseWidget.backButtonInteraction] while
+  /// it is registered on [_popEntryRoute]. A fresh one for every
+  /// registration: see [_syncPopEntry].
+  _TourPopEntry? _popEntry;
+
+  /// The page [_popEntry] is registered on, or `null` when it is not.
+  ModalRoute<Object?>? _popEntryRoute;
 
   /// Whether the target widget for [key] is currently laid out on screen.
   ///
@@ -704,8 +911,26 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Unlike the widget-level callback — which is fixed when the
   /// [ShowCaseWidget] is built — listeners registered here can come and go at
   /// runtime, so a screen, controller, or analytics service deeper in the tree
-  /// can observe the tour for as long as it lives. Register in `initState` and
-  /// pair with [removeOnStartCallback] in `dispose`.
+  /// can observe the tour for as long as it lives. Register in `initState`,
+  /// keeping the controller, and pair with [removeOnStartCallback] on that
+  /// same controller in `dispose`. Don't call [ShowCaseWidget.of] in
+  /// `dispose`: looking up an ancestor there throws.
+  ///
+  /// ```dart
+  /// late final ShowCaseWidgetState _tour;
+  ///
+  /// @override
+  /// void initState() {
+  ///   super.initState();
+  ///   _tour = ShowCaseWidget.of(context)..addOnStartCallback(_onStep);
+  /// }
+  ///
+  /// @override
+  /// void dispose() {
+  ///   _tour.removeOnStartCallback(_onStep);
+  ///   super.dispose();
+  /// }
+  /// ```
   ///
   /// Adding the same callback twice invokes it twice. Listeners run after
   /// [ShowCaseWidget.onStart], in registration order; removing one during
@@ -723,7 +948,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   ///
   /// The dynamic counterpart of [ShowCaseWidget.onComplete] — see
   /// [addOnStartCallback] for the registration contract. Pair with
-  /// [removeOnCompleteCallback] in `dispose`.
+  /// [removeOnCompleteCallback] in `dispose`, on the controller kept
+  /// from `initState` (see [addOnStartCallback]).
   void addOnCompleteCallback(ShowcaseStepCallback callback) => _onCompleteCallbacks.add(callback);
 
   /// Unregisters a listener added with [addOnCompleteCallback].
@@ -731,6 +957,47 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Returns `true` if it was registered. Removes only the first match when the
   /// same callback was added more than once.
   bool removeOnCompleteCallback(ShowcaseStepCallback callback) => _onCompleteCallbacks.remove(callback);
+
+  /// Registers [callback] to run whenever a tour finishes normally (advances
+  /// past its last step), in addition to [ShowCaseWidget.onFinish].
+  ///
+  /// The dynamic counterpart of [ShowCaseWidget.onFinish], with the same
+  /// contract as [addOnStartCallback]: adding the same callback twice invokes
+  /// it twice, listeners run after [ShowCaseWidget.onFinish] in registration
+  /// order, and removing one during dispatch is safe and takes effect from
+  /// the next finish. Like [ShowCaseWidget.onFinish], it is not called when
+  /// the tour is dismissed early: see [addOnDismissCallback]. Pair with
+  /// [removeOnFinishCallback] in `dispose`, on the controller kept
+  /// from `initState` (see [addOnStartCallback]).
+  void addOnFinishCallback(VoidCallback callback) => _onFinishCallbacks.add(callback);
+
+  /// Unregisters a listener added with [addOnFinishCallback].
+  ///
+  /// Returns `true` if it was registered. Removes only the first match when the
+  /// same callback was added more than once.
+  bool removeOnFinishCallback(VoidCallback callback) => _onFinishCallbacks.remove(callback);
+
+  /// Registers [callback] to run whenever the tour is dismissed early, in
+  /// addition to [ShowCaseWidget.onDismiss].
+  ///
+  /// The dynamic counterpart of [ShowCaseWidget.onDismiss]: it runs on every
+  /// [dismiss] (a barrier tap with [BarrierInteraction.dismiss], <kbd>Esc</kbd>,
+  /// the skip button, `disposeOnTap`, a manual `dismiss()` call, or
+  /// [ShowCaseWidget.enableShowcase] turning off mid-tour) and receives the
+  /// same [GlobalKey] of the step that was active, or `null` if none was.
+  /// It has the same contract as [addOnStartCallback]: adding the same
+  /// callback twice invokes it twice, listeners run after
+  /// [ShowCaseWidget.onDismiss] in registration order, and removing one during
+  /// dispatch is safe and takes effect from the next dismissal. Pair with
+  /// [removeOnDismissCallback] in `dispose`, on the controller kept
+  /// from `initState` (see [addOnStartCallback]).
+  void addOnDismissCallback(void Function(GlobalKey? dismissedAt) callback) => _onDismissCallbacks.add(callback);
+
+  /// Unregisters a listener added with [addOnDismissCallback].
+  ///
+  /// Returns `true` if it was registered. Removes only the first match when the
+  /// same callback was added more than once.
+  bool removeOnDismissCallback(void Function(GlobalKey? dismissedAt) callback) => _onDismissCallbacks.remove(callback);
 
   /// Starts the tour over [widgetIds], in that order. If this function is used
   /// when showcase has been disabled then it will throw an exception.
@@ -767,7 +1034,46 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// which would fire [ShowCaseWidget.onFinish] and could mark a tour they
   /// never saw as done. An empty [widgetIds] list finishes the tour straight
   /// away, whatever [startAt] is.
-  void startShowCase(List<GlobalKey> widgetIds, {bool force = false, int startAt = 0}) {
+  ///
+  /// [delay] waits that long before starting the tour, for example to let a
+  /// screen finish its entrance animation first. It defaults to
+  /// [Duration.zero], which starts the tour straight away, within this call,
+  /// exactly as without it (a zero or negative [delay] is treated the same).
+  /// With a positive [delay]:
+  ///
+  /// * the call returns at once, and the tour starts once [delay] has passed,
+  ///   as if `startShowCase(widgetIds, force: force, startAt: startAt)` were
+  ///   called at that moment,
+  /// * so [ShowCaseWidget.onShouldStartShowcase] is consulted **after** the
+  ///   delay, not before. It sees the app as it is when the tour would start:
+  ///   a tour the user completed elsewhere in the meantime does not start.
+  ///   An asynchronous guard adds its own wait to the delay,
+  /// * a tour already running keeps running until the delayed start replaces
+  ///   it.
+  ///
+  /// The delay's timer belongs to this [ShowCaseWidget], not to the screen
+  /// that called [startShowCase]. When a page schedules a delayed start and
+  /// the [ShowCaseWidget] sits above the [Navigator], popping the page does
+  /// not call the start off: it still fires, and the tour then waits for the
+  /// page's steps to mount again (or, with
+  /// [ShowCaseWidget.autoSkipUnmountedSteps], skips them and finishes). A
+  /// screen that schedules a delayed start should call [cancelDelayedStart] in
+  /// its `dispose`, through a [ShowCaseWidgetState] it kept from
+  /// `didChangeDependencies` (an ancestor lookup is not allowed in `dispose`).
+  /// A start whose steps are not mounted when it fires is not dropped, as a
+  /// tour can wait for a page the user has yet to open.
+  ///
+  /// **Calling a start off.** A start waiting on its [delay], or on an
+  /// asynchronous guard, never fires once it is called off. That happens
+  /// when [cancelDelayedStart] or [dismiss] is called, when [startShowCase]
+  /// is called again (the new call replaces it), when
+  /// [ShowCaseWidget.enableShowcase] turns `false`, or when this
+  /// [ShowCaseWidget] is disposed. [cancelDelayedStart] does it silently;
+  /// [dismiss] also reports a dismissal, as it always does (see [dismiss]).
+  ///
+  /// The throw for a disabled showcase (see above) happens at the call, not
+  /// after the delay.
+  void startShowCase(List<GlobalKey> widgetIds, {bool force = false, int startAt = 0, Duration delay = Duration.zero}) {
     if (!enableShowcase) {
       throw Exception(
         "You are trying to start Showcase while it has been disabled with "
@@ -776,19 +1082,93 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     }
     if (!mounted) return;
 
+    // A start still waiting, on its delay or on the guard, is replaced by
+    // this one.
+    _cancelPendingStart();
+    if (delay > Duration.zero) {
+      _delayedStart = Timer(delay, () {
+        _delayedStart = null;
+        if (mounted && enableShowcase) _startShowCaseGuarded(widgetIds, force, startAt);
+      });
+      return;
+    }
+    _startShowCaseGuarded(widgetIds, force, startAt);
+  }
+
+  /// Whether a start asked for with [startShowCase] has yet to happen: one
+  /// waiting on its `delay`, or on an asynchronous
+  /// [ShowCaseWidget.onShouldStartShowcase].
+  ///
+  /// [isShowcaseRunning] stays as it was while a start is pending: a tour
+  /// already running keeps running until the start replaces it.
+  bool get isStartPending => _delayedStart != null || _awaitingGuard;
+
+  /// Calls off a start that [startShowCase] has yet to make, without firing
+  /// any callback, and returns whether one was pending (see [isStartPending]).
+  ///
+  /// It is the silent way to cancel a start that waits on its `delay` or on an
+  /// asynchronous [ShowCaseWidget.onShouldStartShowcase]: unlike [dismiss], it
+  /// leaves a running tour alone and calls neither [ShowCaseWidget.onDismiss]
+  /// nor the [addOnDismissCallback] listeners.
+  ///
+  /// Call it from the `dispose` of a screen that scheduled a delayed start,
+  /// so the start does not outlive the screen. Keep the [ShowCaseWidgetState]
+  /// from `didChangeDependencies`: `dispose` cannot look up ancestors.
+  ///
+  /// ```dart
+  /// late ShowCaseWidgetState _tour;
+  ///
+  /// @override
+  /// void didChangeDependencies() {
+  ///   super.didChangeDependencies();
+  ///   _tour = ShowCaseWidget.of(context);
+  /// }
+  ///
+  /// @override
+  /// void dispose() {
+  ///   _tour.cancelDelayedStart();
+  ///   super.dispose();
+  /// }
+  /// ```
+  bool cancelDelayedStart() => _cancelPendingStart();
+
+  /// Starts the tour now, unless [ShowCaseWidget.onShouldStartShowcase] says
+  /// otherwise (or [force] bypasses it).
+  void _startShowCaseGuarded(List<GlobalKey> widgetIds, bool force, int startAt) {
     final guard = widget.onShouldStartShowcase;
     if (force || guard == null) {
       _startShowCaseNow(widgetIds, startAt);
       return;
     }
     // The guard may be synchronous or asynchronous; wrapping in Future.value
-    // handles both without forcing callers to await.
+    // handles both without forcing callers to await. Its answer only counts
+    // while no newer start, dismissal or cancellation came in the meantime,
+    // and while the showcase is still enabled.
+    final generation = _startGeneration;
+    _awaitingGuard = true;
     Future<bool>.value(guard(widget.showcaseId)).then((shouldStart) {
-      if (shouldStart && mounted) _startShowCaseNow(widgetIds, startAt);
+      if (generation != _startGeneration) return;
+      _awaitingGuard = false;
+      if (shouldStart && mounted && enableShowcase) _startShowCaseNow(widgetIds, startAt);
     });
   }
 
+  /// Calls off a start that waits on its `delay` or on the guard, and returns
+  /// whether there was one.
+  bool _cancelPendingStart() {
+    final wasPending = isStartPending;
+    _delayedStart?.cancel();
+    _delayedStart = null;
+    _awaitingGuard = false;
+    _startGeneration++;
+    return wasPending;
+  }
+
   void _startShowCaseNow(List<GlobalKey> widgetIds, int startAt) {
+    if (_usesBeforeStep) {
+      _startBeforeStep(widgetIds, startAt);
+      return;
+    }
     setState(() {
       // A tour always opens on its starting step rather than gliding into it,
       // even when this call restarts a running tour.
@@ -800,11 +1180,131 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
       activeWidgetId = _nextMountedIndex(start, 1);
       if (activeWidgetId! >= ids!.length) {
         _cleanupAfterSteps();
-        widget.onFinish?.call();
+        _onFinish();
       } else {
         _onStart();
       }
     });
+  }
+
+  /// [_startShowCaseNow] for a tour with [ShowCaseWidget.onBeforeStep]: the
+  /// same choice of first step, then [_enterStep] for it.
+  void _startBeforeStep(List<GlobalKey> widgetIds, int startAt) {
+    // A tour being replaced stops waiting on its own callback.
+    _stepGeneration++;
+    _preparingStep = false;
+    _previousTargetRect = null;
+    ids = widgetIds;
+    final start = widgetIds.isEmpty ? 0 : startAt.clamp(0, widgetIds.length - 1);
+    final first = _nextMountedIndex(start, 1);
+    if (first >= widgetIds.length) {
+      setState(() {
+        activeWidgetId = first;
+        _cleanupAfterSteps();
+        _onFinish();
+      });
+      return;
+    }
+    _enterStep(first);
+  }
+
+  /// Moves forward from the step at [activeWidgetId], for [next] and
+  /// [completed] in a tour with [ShowCaseWidget.onBeforeStep].
+  void _moveForwardBeforeStep() {
+    final from = activeWidgetId!;
+    final generation = _stepGeneration;
+    // A step still being prepared never started, so it does not complete.
+    if (!_preparingStep) _onComplete();
+    final target = _forwardTargetIndex(from);
+    // onComplete or onResolveNextStep moved or ended the tour themselves.
+    if (generation != _stepGeneration || ids == null) return;
+    if (target >= ids!.length) {
+      setState(() {
+        activeWidgetId = target;
+        _cleanupAfterSteps();
+        _onFinish();
+      });
+      return;
+    }
+    _enterStep(target);
+  }
+
+  /// Moves to [index], for [previous] and [goTo] in a tour with
+  /// [ShowCaseWidget.onBeforeStep].
+  void _jumpBeforeStep(int index) {
+    final generation = _stepGeneration;
+    if (!_preparingStep) _onComplete();
+    // onComplete moved or ended the tour itself.
+    if (generation != _stepGeneration || ids == null) return;
+    _enterStep(index);
+  }
+
+  /// Shows the step at [index], which the tour has already chosen, once
+  /// [ShowCaseWidget.onBeforeStep] has completed for it.
+  ///
+  /// The step the tour left has already completed. Until the callback
+  /// completes the tour is between steps: [activeWidgetId] is [index] and no
+  /// step is published, so none shows. Any move of the tour in the meantime,
+  /// including one the callback makes itself, bumps [_stepGeneration], and
+  /// the late completion is then ignored.
+  void _enterStep(int index) {
+    final generation = ++_stepGeneration;
+    activeWidgetId = index;
+    _preparingStep = true;
+    Object? result;
+    final callback = widget.onBeforeStep;
+    if (callback != null) {
+      try {
+        result = callback(index, ids![index]);
+      } catch (error, stack) {
+        _reportBeforeStepError(error, stack, index);
+      }
+    }
+    // The callback moved the tour itself (next, goTo, dismiss, a new start):
+    // that move has already taken over.
+    if (generation != _stepGeneration || !mounted) return;
+    if (result is Future) {
+      // Takes the step the tour left off the screen while the callback runs.
+      setState(() {});
+      result.then(
+        (_) => _showPreparedStep(generation, waited: true),
+        onError: (Object error, StackTrace stack) {
+          _reportBeforeStepError(error, stack, index);
+          _showPreparedStep(generation, waited: true);
+        },
+      );
+      return;
+    }
+    _showPreparedStep(generation, waited: false);
+  }
+
+  /// Shows the step [_enterStep] prepared, unless the tour has moved on since.
+  void _showPreparedStep(int generation, {required bool waited}) {
+    if (generation != _stepGeneration || !mounted || ids == null || !enableShowcase) return;
+    setState(() {
+      _preparingStep = false;
+      // Nothing was on screen while the callback ran, so the step appears
+      // rather than gliding from a highlight that is long gone.
+      if (waited) _previousTargetRect = null;
+      _onStart();
+    });
+  }
+
+  void _reportBeforeStepError(Object error, StackTrace stack, int index) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'showcase_tutorial',
+        context: ErrorDescription('while running ShowCaseWidget.onBeforeStep for step $index'),
+        informationCollector: () => [
+          ErrorHint(
+            'The tour shows the step anyway. To skip it or end the tour, '
+            'catch the error and call next() or dismiss().',
+          ),
+        ],
+      ),
+    );
   }
 
   /// Advances [index] in [direction] (`1` forward / `-1` back) past steps whose
@@ -861,6 +1361,10 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// otherwise will finish the entire showcase view
   void completed(GlobalKey? key) {
     if (ids != null && ids![activeWidgetId!] == key && mounted) {
+      if (_usesBeforeStep) {
+        _moveForwardBeforeStep();
+        return;
+      }
       setState(() {
         _onComplete();
         activeWidgetId = _forwardTargetIndex(activeWidgetId!);
@@ -868,7 +1372,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
         if (activeWidgetId! >= ids!.length) {
           _cleanupAfterSteps();
-          widget.onFinish?.call();
+          _onFinish();
         }
       });
     }
@@ -878,6 +1382,10 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// otherwise will finish the entire showcase view
   void next() {
     if (ids != null && mounted) {
+      if (_usesBeforeStep) {
+        _moveForwardBeforeStep();
+        return;
+      }
       setState(() {
         _onComplete();
         activeWidgetId = _forwardTargetIndex(activeWidgetId!);
@@ -885,7 +1393,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
         if (activeWidgetId! >= ids!.length) {
           _cleanupAfterSteps();
-          widget.onFinish?.call();
+          _onFinish();
         }
       });
     }
@@ -893,15 +1401,23 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Completes current active showcase and starts previous one
   /// otherwise does nothing
-  void previous() {
-    if (ids == null || !mounted) return;
+  void previous() => _goBack();
+
+  /// [previous], returning whether the tour had a step to go back to.
+  bool _goBack() {
+    if (ids == null || !mounted) return false;
     final target = _nextMountedIndex((activeWidgetId ?? 0) - 1, -1);
-    if (target < 0) return;
+    if (target < 0) return false;
+    if (_usesBeforeStep) {
+      _jumpBeforeStep(target);
+      return true;
+    }
     setState(() {
       _onComplete();
       activeWidgetId = target;
       _onStart();
     });
+    return true;
   }
 
   /// Jumps to the step at [index] (zero-based) of the running tour.
@@ -912,6 +1428,10 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   void goTo(int index) {
     if (ids == null || activeWidgetId == null || !mounted) return;
     if (index < 0 || index >= ids!.length) return;
+    if (_usesBeforeStep) {
+      _jumpBeforeStep(index);
+      return;
+    }
     setState(() {
       _onComplete();
       activeWidgetId = index;
@@ -928,15 +1448,37 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   }
 
   /// Dismiss entire showcase view
+  ///
+  /// Calls [ShowCaseWidget.onDismiss] and the [addOnDismissCallback]
+  /// listeners with the step that was active, or with `null` when no tour is
+  /// running, as it always has. It also calls off a start that [startShowCase]
+  /// has yet to make (see [isStartPending]). To call off a pending start
+  /// without reporting a dismissal, use [cancelDelayedStart] instead.
   void dismiss() {
     if (!mounted) return;
+    _cancelPendingStart();
     // Capture the active step before clearing state so [ShowCaseWidget.onDismiss]
     // can report where the user left off.
-    final dismissedAt = (ids != null && activeWidgetId != null && activeWidgetId! >= 0 && activeWidgetId! < ids!.length)
-        ? ids![activeWidgetId!]
-        : null;
+    final dismissedAt = activeStepKey;
     setState(_cleanupAfterSteps);
     widget.onDismiss?.call(dismissedAt);
+    if (_onDismissCallbacks.isNotEmpty) {
+      // A copy, so a listener can unregister itself (or another) while it runs.
+      for (final listener in List.of(_onDismissCallbacks)) {
+        listener(dismissedAt);
+      }
+    }
+  }
+
+  /// Reports a normal finish to [ShowCaseWidget.onFinish], then to the
+  /// listeners registered with [addOnFinishCallback].
+  void _onFinish() {
+    widget.onFinish?.call();
+    if (_onFinishCallbacks.isEmpty) return;
+    // A copy, so a listener can unregister itself (or another) while it runs.
+    for (final listener in List.of(_onFinishCallbacks)) {
+      listener();
+    }
   }
 
   void _onStart() {
@@ -971,12 +1513,88 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     ids = null;
     activeWidgetId = null;
     _previousTargetRect = null;
+    // A step still being prepared is given up with the tour.
+    _preparingStep = false;
+    _stepGeneration++;
+  }
+
+  /// Answers a back press for [ShowCaseWidget.backButtonInteraction]. Only
+  /// reached while a step shows and the value is not
+  /// [BackButtonInteraction.passThrough], which registers nothing.
+  void _handleBackButton() {
+    if (!mounted || ids == null) return;
+    switch (backButtonInteraction) {
+      case BackButtonInteraction.passThrough:
+      case BackButtonInteraction.block:
+        return;
+      case BackButtonInteraction.previous:
+        // From the first step there is nowhere to go back to, so back leaves
+        // the tour instead: the user can always get out of it with back.
+        if (_goBack()) return;
+        _dismissFromBack();
+      case BackButtonInteraction.dismiss:
+        _dismissFromBack();
+    }
+  }
+
+  /// Dismisses the tour the way <kbd>Esc</kbd> does: through the step on
+  /// screen, so its tooltip animates out first.
+  void _dismissFromBack() {
+    final dismissStep = _dismissShownStep;
+    if (dismissStep != null) {
+      dismissStep();
+    } else {
+      dismiss();
+    }
+  }
+
+  /// Registers [_popEntry] on the page of the step on screen, or takes it
+  /// off, to match [ShowCaseWidget.backButtonInteraction].
+  ///
+  /// The entry taken off stops blocking back at once, but leaves the page's
+  /// list of entries a microtask later. A back press can take the step off
+  /// the screen while the page is still calling its entries, for example
+  /// through an app's own `PopScope` that pops the page, or a step change
+  /// that pushes or pops a page: changing that list then would break the
+  /// page's loop over it. An entry that no longer blocks ignores the press.
+  void _syncPopEntry() {
+    final route = (mounted && backButtonInteraction != BackButtonInteraction.passThrough) ? _shownStepRoute : null;
+    if (identical(route, _popEntryRoute)) return;
+    final oldRoute = _popEntryRoute;
+    final oldEntry = _popEntry;
+    if (oldRoute != null && oldEntry != null) {
+      oldEntry.canPopNotifier.value = true;
+      scheduleMicrotask(() {
+        oldRoute.unregisterPopEntry(oldEntry);
+        oldEntry.dispose();
+      });
+    }
+    _popEntryRoute = route;
+    _popEntry = null;
+    if (route != null) {
+      final entry = _popEntry = _TourPopEntry(_handleBackButton);
+      route.registerPopEntry(entry);
+    }
   }
 
   @override
   void dispose() {
+    _shownStep = null;
+    _shownStepRoute = null;
+    _dismissShownStep = null;
+    final entry = _popEntry;
+    if (entry != null) {
+      _popEntryRoute?.unregisterPopEntry(entry);
+      entry.dispose();
+    }
+    _popEntryRoute = null;
+    _popEntry = null;
+    _cancelPendingStart();
+    _stepGeneration++;
     _onStartCallbacks.clear();
     _onCompleteCallbacks.clear();
+    _onFinishCallbacks.clear();
+    _onDismissCallbacks.clear();
     _overlayFocusNode.dispose();
     super.dispose();
   }
@@ -984,6 +1602,15 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   @override
   void didUpdateWidget(covariant ShowCaseWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // A start still waiting on its `delay` is called off too: the tour is not
+    // to start while the showcase is disabled.
+    if (!widget.enableShowcase) {
+      _cancelPendingStart();
+      // A step being prepared is not shown either: the dismissal below ends
+      // the tour.
+      _stepGeneration++;
+    }
+    if (oldWidget.backButtonInteraction != widget.backButtonInteraction) _syncPopEntry();
     // A running tour cannot survive being disabled: [startShowCase] refuses to
     // run at all while [ShowCaseWidget.enableShowcase] is false, so leaving the
     // tour half-alive would be a state the API cannot otherwise reach. Ending it
@@ -1004,7 +1631,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   @override
   Widget build(BuildContext context) {
     return _InheritedShowCaseView(
-      activeWidgetIds: ids?.elementAt(activeWidgetId!),
+      // While a step is being prepared, no step is active.
+      activeWidgetIds: _preparingStep ? null : ids?.elementAt(activeWidgetId!),
       enableShowcase: widget.enableShowcase,
       child: widget.builder,
     );
@@ -1047,9 +1675,62 @@ class _InheritedShowCaseView extends InheritedModel<GlobalKey> {
   }
 }
 
+/// The back-button handler [ShowCaseWidgetState] attaches to the page of the
+/// step on screen (see [ShowCaseWidget.backButtonInteraction]).
+///
+/// It is what a `PopScope(canPop: false)` on that page would register, added
+/// and removed with the step rather than built into the page: the tour may sit
+/// above the [Navigator], where no `PopScope` of its own could reach the page.
+class _TourPopEntry extends PopEntry<Object?> {
+  _TourPopEntry(this._onBack);
+
+  final VoidCallback _onBack;
+
+  /// `false` while the entry is in use: the page does not pop on back, and
+  /// reports that it handles back, which also keeps Android's predictive back
+  /// from previewing a pop. Set to `true` when the step leaves the screen, just
+  /// before the entry is taken off the page.
+  @override
+  final ValueNotifier<bool> canPopNotifier = ValueNotifier<bool>(false);
+
+  @override
+  void onPopInvokedWithResult(bool didPop, Object? result) {
+    // `didPop` is true when the page closed anyway, through `Navigator.pop`:
+    // that is not a back press for the tour. Nor is a press that reaches an
+    // entry already taken off with its step.
+    if (!didPop && !canPopNotifier.value) _onBack();
+  }
+
+  void dispose() => canPopNotifier.dispose();
+}
+
 /// Gives [Showcase] the parts of [ShowCaseWidgetState] that are not public
 /// API. Hidden from the package's public library.
 extension ShowcaseTourFocus on ShowCaseWidgetState {
+  /// Reports that the step [owner] is on screen, on [route], and dismisses the
+  /// tour through [dismissStep] (with its closing animation).
+  ///
+  /// Called each time the step's visibility is checked while it shows, so it
+  /// returns early when nothing changed.
+  void didShowStep(Object owner, ModalRoute<Object?>? route, VoidCallback dismissStep) {
+    _dismissShownStep = dismissStep;
+    if (identical(owner, _shownStep) && identical(route, _shownStepRoute)) return;
+    _shownStep = owner;
+    _shownStepRoute = route;
+    _syncPopEntry();
+  }
+
+  /// Reports that the step [owner] has left the screen. Ignored when another
+  /// step has reported itself on screen since: when the tour moves on, the
+  /// step being entered may be checked before the step being left.
+  void didHideStep(Object owner) {
+    if (!identical(owner, _shownStep)) return;
+    _shownStep = null;
+    _shownStepRoute = null;
+    _dismissShownStep = null;
+    _syncPopEntry();
+  }
+
   /// The focus node of the active step's overlay, which a hardware keyboard
   /// drives the tour through.
   ///
@@ -1059,4 +1740,17 @@ extension ShowcaseTourFocus on ShowCaseWidgetState {
   /// one being left gave focus back to the page and the next one took it
   /// again, rebuilding every focus widget on the way in between.
   FocusNode get overlayFocusNode => _overlayFocusNode;
+
+  /// The target key of the step the tour is on right now, or `null` when no
+  /// tour is running.
+  ///
+  /// Read from the tour itself rather than from the inherited value a step
+  /// last rebuilt with, so it is current even between frames.
+  GlobalKey? get activeStepKey {
+    if (_preparingStep) return null;
+    final steps = ids;
+    final index = activeWidgetId;
+    if (steps == null || index == null || index < 0 || index >= steps.length) return null;
+    return steps[index];
+  }
 }

@@ -65,13 +65,18 @@ and you can run it on its own with
   Next button) shown per step or tour-wide.
 - **Auto-play**, **auto-scroll** to off-screen targets, and **background blur**.
 - **Programmatic control**: `next()`, `previous()`, `goTo()`, `goToKey()`,
-  `dismiss()`, plus live progress (`currentIndex`, `totalSteps`).
+  `dismiss()`, plus live progress (`currentIndex`, `totalSteps`), and a
+  `delay` to start the tour after a screen settles.
 - **Conditional / branching tours** — let a step decide the next step at runtime
   with `onResolveNextStep`.
+- **Prepare a step before it shows** — `onBeforeStep` is awaited before each
+  step, to scroll, load data or open its page first.
+- **Back button** — choose whether back closes the page, ends the tour, goes to
+  the previous step or does nothing while a step shows.
 - **Lifecycle callbacks** — per-step (`onShow` / `onDismiss`) and tour-level
   (`onStart` / `onComplete` / `onFinish`, plus `onDismiss` for early close), and
   configurable background-tap behavior (tour-wide or per step).
-- **Introspection** — register/unregister step listeners at runtime, track the
+- **Introspection** — register/unregister step, finish and dismiss listeners at runtime, track the
   highlighted target's bounds with `onTargetRectUpdate`, and check whether a
   step's target is on screen with `isTargetRendered`.
 - **Run the tour only once** for onboarding, **resume it** where the user left
@@ -82,6 +87,16 @@ and you can run it on its own with
   to a click, with per-step overrides.
 - **Target interaction callbacks**: tap, double-tap, long-press.
 - **Enable/disable** the whole tour with a single flag.
+
+## What's new in 2.1.0
+
+| Feature | What you get |
+| ------- | ------------ |
+| [Coming from showcaseview](#coming-from-showcaseview) / [tutorial_coach_mark](#coming-from-tutorial_coach_mark) | Guides that map each of their APIs to this package, with before/after code. |
+| [Back button](#back-button) | `backButtonInteraction` decides what the system back button does while a step shows: leave it alone, end the tour, go back a step, or block it. |
+| [Prepare a step before it shows](#prepare-a-step-before-it-shows) | `onBeforeStep` is awaited before each step, to scroll, load or open a page first. |
+| [Programmatic control](#programmatic-control--progress) | `startShowCase(keys, delay: ...)` with `cancelDelayedStart()`, and listeners for a tour that finishes or is dismissed. |
+| Per-step and tour-wide options | `Showcase.enableAutoScroll`, `Showcase.onBarrierClick`, `ShowcaseStyle.overlayOpacity`, and a text direction for the title and the description. |
 
 ## What's new in 2.0.0
 
@@ -177,9 +192,450 @@ may need a small change:
 - If you saved progress yourself to resume a tour, use
   [`startShowCase(keys, startAt: savedIndex)`](#resume-where-the-user-left-off).
 
+## Coming from showcaseview
+
+This package started as a fork of
+[`showcaseview`](https://pub.dev/packages/showcaseview) and keeps its shape:
+a `Showcase` around each target, identified by a `GlobalKey`, and a tour you
+start with `startShowCase`, then drive with `next()`, `previous()` and
+`dismiss()`. Most `Showcase` parameters have the same names, so most of a
+switch is setup and action buttons. This section maps showcaseview 5.x to
+this package.
+
+> **Before you switch:** this package needs Flutter 3.47 or newer and is
+> built on [`material_ui`](https://pub.dev/packages/material_ui). See the
+> [Requirements](#installation) note.
+
+**1. Setup: wrap a widget instead of registering.**
+
+```dart
+// showcaseview 5.x
+@override
+void initState() {
+  super.initState();
+  ShowcaseView.register(onFinish: () => debugPrint('Tour finished'));
+}
+
+@override
+void dispose() {
+  ShowcaseView.get().unregister();
+  super.dispose();
+}
+```
+
+```dart
+// showcase_tutorial
+ShowCaseWidget(
+  onFinish: () => debugPrint('Tour finished'),
+  builder: const HomePage(),
+);
+```
+
+There is nothing to unregister: the tour goes away with the widget. For a
+tour that spans several screens, put `ShowCaseWidget` in `MaterialApp.builder`
+(see [Tours across screens](#tours-across-screens)).
+
+**2. Starting and controlling the tour: from a `context`.**
+
+```dart
+// showcaseview 5.x
+ShowcaseView.get().startShowCase([_one, _two, _three]);
+
+// showcase_tutorial: any context below ShowCaseWidget
+ShowCaseWidget.of(context).startShowCase([_one, _two, _three]);
+```
+
+**3. Steps: mostly unchanged.** `Showcase(key:, title:, description:,
+child:)` and `Showcase.withWidget(container:)` work the same way. The
+renamed parameters are in the table below.
+
+**4. Action buttons: one widget for the row.**
+
+```dart
+// showcaseview 5.x
+ShowcaseView.register(
+  globalTooltipActions: const [
+    TooltipActionButton(type: TooltipDefaultActionType.previous, name: 'Back'),
+    TooltipActionButton(type: TooltipDefaultActionType.next),
+  ],
+);
+```
+
+```dart
+// showcase_tutorial
+ShowCaseWidget(
+  globalActions: (context) => const ShowCaseDefaultActions(
+    previous: ActionButtonConfig(text: 'Back'),
+    stop: ActionButtonConfig(buttonVisible: false),
+  ),
+  builder: const HomePage(),
+);
+```
+
+To translate the built-in labels once instead of per button, use
+[`labels`](#translating-the-tour). For a button of your own (showcaseview's
+`TooltipActionButton.custom`), pass any widget as `actions`.
+
+### API mapping
+
+| showcaseview 5.x | showcase_tutorial |
+| --- | --- |
+| `ShowcaseView.register(...)` | `ShowCaseWidget(...)` |
+| `ShowcaseView.get()` / `getNamed(scope)` | `ShowCaseWidget.of(context)` (the nearest one) |
+| `unregister()` | not needed |
+| `Showcase(scope: ...)` | a separate `ShowCaseWidget` for that part of the tree |
+| `startShowCase(keys, delay: d)` | same; an `onShouldStartShowcase` guard is consulted after the delay |
+| `next(force: true)` | `next()` |
+| `previous()`, `dismiss()`, `completed(key)` | same |
+| `isShowcaseRunning`, `isTargetRendered(key)` | same |
+| `getActiveShowcaseKey` | `ids` and `currentIndex` (the active key is `ids![currentIndex!]` while a tour runs), plus `totalSteps` |
+| `addOnStartCallback`, `addOnCompleteCallback` | same |
+| `addOnFinishCallback`, `addOnDismissCallback` | same (and the `remove…` pairs) |
+| `skipIfTargetNotPresent: true` | `autoSkipUnmountedSteps: true`, or `onShouldSkipUnmountedStep` per step |
+| `disableBarrierInteraction: true` | `barrierInteraction: BarrierInteraction.none` (also `.dismiss`) |
+| `semanticEnable: true` | on by default: `enableAutoAnnouncements` |
+| `overlayColor` (tour-wide) | `style: ShowcaseStyle(overlayColor: ...)` |
+| `overlayOpacity` (tour-wide) | `style: ShowcaseStyle(overlayOpacity: ...)`; `Showcase.overlayOpacity` per step |
+| `globalTooltipActions` | `globalActions: (context) => ShowCaseDefaultActions(...)` |
+| `globalTooltipActionConfig` | `globalActionSettings` and `actionsPosition` |
+| `Showcase.tooltipActions` / `tooltipActionConfig` | `Showcase.actions` / `actionSettings` / `actionsPosition` |
+| `TooltipActionButton(type: next / previous / skip)` | `ShowCaseDefaultActions(next:, previous:, stop:)` with `ActionButtonConfig` |
+| `TooltipActionButton.custom(button: ...)` | any widget as `actions` |
+| `hideActionWidgetForShowcase` (per button) | `hideActionsForShowcase` (the whole row) |
+| `FloatingActionWidget(...)` | any widget, positioned with `Align` / `Positioned` |
+| `titleTextAlign` / `descriptionTextAlign` | `titleAlignment` / `descriptionAlignment` |
+| `titleTextDirection` / `descriptionTextDirection` | same |
+| `Showcase.enableAutoScroll` (per step) | same; `ShowCaseWidget.enableAutoScroll` tour-wide |
+| `Showcase.onBarrierClick` (per step) | same; runs after the tour-wide `ShowCaseWidget.onBarrierClick` |
+| `toolTipMargin: 14` | `toolTipMargin: EdgeInsets.all(14)` |
+| `toolTipSlideEndDistance` | not available |
+| no hook before a step | `onBeforeStep`, awaited before each step shows (see [Prepare a step before it shows](#prepare-a-step-before-it-shows)) |
+| no back-button option (back closes the page) | the same by default; `backButtonInteraction` to dismiss, step back or block instead (see [Back button](#back-button)) |
+
+### Behaviour that differs
+
+- **A step whose widget isn't on screen.** showcaseview ends the tour when it
+  moves on to one. Here the tour waits on that step until its widget
+  appears, which is what makes [tours across screens](#tours-across-screens)
+  work. Set `autoSkipUnmountedSteps: true` to skip such steps instead.
+- **Colours.** showcaseview's tooltip is always white with black text. Here
+  every colour you don't set comes from your app's theme, including dark
+  mode (see [Colours and your app's theme](#colours-and-your-apps-theme)).
+  For a white tooltip, set `ShowcaseStyle(tooltipBackgroundColor:
+  Colors.white, textColor: Colors.black)`.
+- **Keys.** In showcaseview 5.x the `GlobalKey` only names a step. Here it is
+  the `Showcase` widget's own key, so use each key on one `Showcase`. To
+  highlight several widgets in one step, use
+  [`keys` and `MultiView`](#highlight-multiple-widgets-in-one-step).
+- **Pages and dialogs on top.** A step hides while another page or a dialog
+  covers its page, and comes back when its page is on top again.
+- **Accessibility.** Each step is announced to screen readers by default,
+  and the tour takes keyboard focus (Esc, arrows, Enter). Turn these off
+  with `enableAutoAnnouncements: false` and `enableKeyboardNavigation:
+  false`.
+- **Spacing defaults.** The gap between target and tooltip is 0 here, against
+  10 in showcaseview. Set `targetTooltipGap: 10` for the same spacing.
+
+## Coming from tutorial_coach_mark
+
+[`tutorial_coach_mark`](https://pub.dev/packages/tutorial_coach_mark) builds
+a tutorial from a list: you tag each widget with a `GlobalKey`, describe it
+in a `TargetFocus`, and call `show()`. Here each target is wrapped in a
+`Showcase` instead, and a `ShowCaseWidget` above the screen runs the tour.
+This section maps tutorial_coach_mark 1.3.4 to this package.
+
+> **Before you switch:** this package needs Flutter 3.47 or newer and is
+> built on [`material_ui`](https://pub.dev/packages/material_ui). See the
+> [Requirements](#installation) note.
+
+**1. Setup: wrap the targets instead of listing them.**
+
+```dart
+// tutorial_coach_mark 1.3.4
+final menuKey = GlobalKey();
+final searchKey = GlobalKey();
+
+void showTutorial(BuildContext context) {
+  TutorialCoachMark(
+    targets: [
+      TargetFocus(
+        identify: 'menu',
+        keyTarget: menuKey,
+        contents: [TargetContent(align: ContentAlign.bottom, child: const Text('Open the menu'))],
+      ),
+      TargetFocus(
+        identify: 'search',
+        keyTarget: searchKey,
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+        contents: [TargetContent(align: ContentAlign.top, child: const Text('Search here'))],
+      ),
+    ],
+    colorShadow: Colors.black,
+    opacityShadow: 0.8,
+    onFinish: () => debugPrint('Tutorial finished'),
+  ).show(context: context);
+}
+
+// In the page, the key goes on the widget itself.
+IconButton(key: menuKey, icon: const Icon(Icons.menu), onPressed: openMenu);
+```
+
+```dart
+// showcase_tutorial
+ShowCaseWidget(
+  style: const ShowcaseStyle(overlayColor: Colors.black, overlayOpacity: 0.8),
+  onFinish: () => debugPrint('Tour finished'),
+  builder: const HomePage(),
+);
+
+// In HomePage, the key goes on a Showcase around the widget.
+Showcase(
+  key: menuKey,
+  description: 'Open the menu',
+  tooltipPosition: TooltipPosition.bottom,
+  targetShapeBorder: const CircleBorder(), // tutorial_coach_mark's default shape
+  child: IconButton(icon: const Icon(Icons.menu), onPressed: openMenu),
+);
+Showcase(
+  key: searchKey,
+  description: 'Search here',
+  tooltipPosition: TooltipPosition.top,
+  targetBorderRadius: BorderRadius.circular(8),
+  child: const SearchField(),
+);
+```
+
+The order of the tour is the order of the keys you pass to `startShowCase`.
+For a tutorial that spans several screens, put `ShowCaseWidget` in
+`MaterialApp.builder` (see [Tours across screens](#tours-across-screens)).
+
+**2. Starting and advancing: from a `context`.**
+
+```dart
+// tutorial_coach_mark 1.3.4
+final tutorial = TutorialCoachMark(targets: targets, initialFocus: 1)
+  ..show(context: context);
+tutorial.next();
+tutorial.previous();
+tutorial.goTo(2);
+tutorial.skip();
+```
+
+```dart
+// showcase_tutorial: any context below ShowCaseWidget
+final tour = ShowCaseWidget.of(context)
+  ..startShowCase([menuKey, searchKey, profileKey], startAt: 1);
+tour.next();
+tour.previous();
+tour.goTo(2);
+tour.dismiss(); // reports onDismiss, where tutorial_coach_mark calls onSkip
+```
+
+**3. Custom content: `TargetContent` becomes `Showcase.withWidget`.**
+
+```dart
+// tutorial_coach_mark 1.3.4
+TargetFocus(
+  keyTarget: profileKey,
+  contents: [
+    TargetContent(
+      align: ContentAlign.bottom,
+      builder: (context, controller) => Column(
+        children: [
+          const Text('Your profile'),
+          TextButton(onPressed: controller.next, child: const Text('Next')),
+        ],
+      ),
+    ),
+  ],
+);
+```
+
+```dart
+// showcase_tutorial, in the page's build method
+Showcase.withWidget(
+  key: profileKey,
+  tooltipPosition: TooltipPosition.bottom,
+  container: Column(
+    children: [
+      const Text('Your profile'),
+      TextButton(
+        onPressed: () => ShowCaseWidget.of(context).next(),
+        child: const Text('Next'),
+      ),
+    ],
+  ),
+  child: const ProfileAvatar(),
+);
+```
+
+There is no controller argument: the `container` is built with the rest of
+your page, so the page's `context` reaches the tour. For the built-in
+Previous / Next / Stop buttons, use [`actions`](#action-buttons-next--previous--stop).
+
+**4. Before a step, and the back button.**
+
+```dart
+// tutorial_coach_mark 1.3.4
+TutorialCoachMark(
+  targets: targets,
+  beforeFocus: (target) async {
+    if (target.identify == 'chart') await loadChart();
+  },
+  disableBackButton: true,
+);
+```
+
+```dart
+// showcase_tutorial
+ShowCaseWidget(
+  onBeforeStep: (index, key) async {
+    if (key == chartKey) await loadChart();
+  },
+  backButtonInteraction: BackButtonInteraction.block,
+  builder: const HomePage(),
+);
+```
+
+`block` acts only while a step is on screen. tutorial_coach_mark's
+`disableBackButton` blocks back for the whole tutorial, `beforeFocus`
+included; here back stays live while `onBeforeStep` runs, while the tour
+waits for a step's page, and while a dialog covers the step. See
+[Prepare a step before it shows](#prepare-a-step-before-it-shows) and
+[Back button](#back-button).
+
+**5. The Skip button: opt in.**
+
+```dart
+// showcase_tutorial: in the tooltip
+ShowCaseWidget(
+  showSkip: true,
+  labels: const ShowcaseLabels(skip: 'SKIP'),
+  builder: const HomePage(),
+);
+
+// or pinned to a corner of the screen, like alignSkip
+ShowCaseWidget(
+  globalFloatingActionWidget: (context) => Align(
+    alignment: Alignment.bottomRight,
+    child: SafeArea(
+      child: TextButton(onPressed: ShowCaseWidget.of(context).dismiss, child: const Text('SKIP')),
+    ),
+  ),
+  builder: const HomePage(),
+);
+```
+
+### API mapping
+
+| tutorial_coach_mark 1.3.4 | showcase_tutorial |
+| --- | --- |
+| `TutorialCoachMark(targets: ...).show(context: context)` | `ShowCaseWidget(...)` above the screen, then `ShowCaseWidget.of(context).startShowCase(keys)` |
+| `show(rootOverlay: true)`, `showWithNavigatorStateKey`, `showWithOverlayState` | `ShowCaseWidget` in `MaterialApp.builder` (see [Tours across screens](#tours-across-screens)) |
+| `TargetFocus(keyTarget: key)` | `Showcase(key: key, child: yourWidget)` |
+| `TargetFocus(targetPosition: TargetPosition(size, offset))` | not available: every step wraps a widget. Closest: a `Showcase` around an empty `SizedBox` of that size, placed with `Positioned` in a `Stack` over the area |
+| `identify` | the step's `GlobalKey`; `onStart`, `onComplete` and `onBeforeStep` get its index and key |
+| `contents: [TargetContent(child: ...)]` | `Showcase(title:, description:)`, or `Showcase.withWidget(container:)` |
+| several `TargetContent`s in one target | not available: one tooltip per step. Closest: put them in one `container` (a `Column`), and pin another block to the screen with `floatingActionWidget` |
+| `TargetContent(builder: (context, controller) => ...)` | `Showcase.withWidget(container: ...)`, calling `ShowCaseWidget.of(context)` from your page |
+| `TargetContent(align: ContentAlign.top / bottom / left / right)` | `tooltipPosition: TooltipPosition.top / bottom / left / right` |
+| `ContentAlign.custom` with `customPosition` | `floatingActionWidget: Positioned(...)` (placed on the screen, not by the target) |
+| `TargetContent(padding: ...)` | `targetTooltipGap` (from the target) and `toolTipMargin` (from the screen edges) |
+| `shape: ShapeLightFocus.Circle`, or `shape` left unset (a circle) | `targetShapeBorder: const CircleBorder()` (the default here is a rounded rectangle) |
+| `shape: ShapeLightFocus.RRect`, `radius` | `targetBorderRadius: BorderRadius.circular(radius)` |
+| `borderSide` | `highlightBorderColor` and `highlightBorderWidth` |
+| `TargetFocus(color: ...)` | `Showcase.overlayColor` |
+| `paddingFocus` (tour-wide or per target, default 10) | `Showcase.targetPadding`, per step, default zero. A rounded-rectangle hole there grows by half of `paddingFocus` on each side, so `EdgeInsets.all(5)` gives a similar look |
+| `enableOverlayTab: false` (the default) | `barrierInteraction: BarrierInteraction.none`, tour-wide or per step |
+| `enableOverlayTab: true` | the default here: `BarrierInteraction.next` |
+| `enableTargetTab: false` | `disposeOnTap: false, onTargetClick: () {}` (a target tap then does nothing) |
+| `onClickTarget` | `Showcase.onTargetClick` with `disposeOnTap: false`; it replaces the advance, so call `next()` in it |
+| `onClickTargetWithTapPosition` | not available: `onTargetClick` gets no position |
+| `onClickOverlay` (only with `enableOverlayTab: true`) | `onBarrierClick` tour-wide, `Showcase.onBarrierClick` per step; both fire on every background tap |
+| `beforeFocus` | `onBeforeStep: (index, key) async { ... }` |
+| `disableBackButton: true` | `backButtonInteraction: BackButtonInteraction.block`, which blocks back only while a step is on screen (see Behaviour that differs); also `.dismiss` and `.previous` |
+| `initialFocus` | `startShowCase(keys, startAt: index)` |
+| `onFinish` | `onFinish` |
+| `onSkip` | `onDismiss` |
+| `onSkip` returning `false` (go on instead of closing) | not available. Closest: a skip button of your own in `globalFloatingActionWidget` that calls `next()` or `dismiss()` |
+| `hideSkip: false` (the default: Skip shows) | `showSkip: true` (off by default) |
+| `textSkip` | `labels: ShowcaseLabels(skip: ...)` |
+| `alignSkip`, `skipWidget`, `textStyleSkip` | your own button in `globalFloatingActionWidget`, placed with `Align` |
+| `TargetFocus(alignSkip: ...)` | `Showcase.floatingActionWidget` for that step |
+| `showSkipInLastTarget: false` | no direct equivalent: the built-in `showSkip` button shows on every step. Closest: your own skip button in `globalFloatingActionWidget`, hidden on the last step with `hideFloatingActionWidgetForShowcase: [lastKey]` |
+| `useSafeArea` | wrap your floating widget in a `SafeArea` |
+| `colorShadow` | `style: ShowcaseStyle(overlayColor: ...)` |
+| `opacityShadow` (default 0.8) | `style: ShowcaseStyle(overlayOpacity: ...)` (default 0.75) |
+| `imageFilter` | `blurValue`, tour-wide or per step: a blur, not any `ImageFilter` |
+| `focusAnimationDuration`, `unFocusAnimationDuration` | `enableStepTransition: true` with `stepTransitionDuration` for the highlight; `scaleAnimationDuration` for the tooltip |
+| `pulseEnable` (default `true`) | `Showcase.enablePulseAnimation: true`, per step (off by default) |
+| `pulseAnimationDuration` | `Showcase.pulseDuration` |
+| `TargetFocus(pulseVariation: ...)` | not available: `pulseColor` and `pulseDuration` set the ring |
+| `backgroundSemanticLabel` | not available. Each step is announced to screen readers; `Showcase.semanticLabel` sets the text |
+| `next()`, `previous()`, `goTo(index)` | same, on `ShowCaseWidget.of(context)` |
+| `skip()`, `removeOverlayEntry()` | `dismiss()` |
+| `finish()` | not available as such: `dismiss()` ends the tour and reports `onDismiss`, not `onFinish` |
+| `isShowing` | `isShowcaseRunning` |
+| `TutorialCoachMarkController` | `ShowCaseWidget.of(context)` |
+
+### Behaviour that differs
+
+- **Background taps advance.** tutorial_coach_mark ignores taps on the
+  shadow unless a target sets `enableOverlayTab: true`. Here a tap on the
+  dimmed background goes to the next step. Set `barrierInteraction:
+  BarrierInteraction.none` to ignore it, as tutorial_coach_mark does.
+- **`onTargetClick` replaces the advance.** tutorial_coach_mark runs
+  `onClickTarget` and then moves on. Here a tap on the target moves on only
+  when the step has no `onTargetClick`; with one, your callback runs instead.
+  Call `ShowCaseWidget.of(context).next()` in it to move on too.
+- **A missing target waits.** tutorial_coach_mark skips a target it can't
+  find, and finishes when none is left. Here the tour waits for that step's
+  widget to appear, which is what makes [tours across
+  screens](#tours-across-screens) work. `autoSkipUnmountedSteps: true` gives
+  tutorial_coach_mark's behaviour, finishing the tour when every remaining
+  step is skipped. One difference remains: tutorial_coach_mark looks for the
+  target after `beforeFocus`, while this package decides on skipping before
+  `onBeforeStep`. A step your `onBeforeStep` brings on screen must not be
+  skipped (see [Prepare a step before it shows](#prepare-a-step-before-it-shows)).
+- **Pages and dialogs on top.** tutorial_coach_mark's overlay stays above
+  everything, including pages pushed while it shows. Here a step hides while
+  another page or a dialog covers its page, and comes back when its page is
+  on top again.
+- **The pulse is opt-in.** tutorial_coach_mark pulses every target
+  (`pulseEnable: true`). Here a step pulses only with `enablePulseAnimation:
+  true`.
+- **Skip is opt-in.** tutorial_coach_mark shows SKIP unless `hideSkip:
+  true`. Here set `showSkip: true`, or pin your own button (step 5 above).
+- **`previous()` on the first step** does nothing here. In
+  tutorial_coach_mark it finishes the tutorial and calls `onFinish`.
+- **A default tooltip.** tutorial_coach_mark draws only the content you give
+  it. Here a step with a `title` and `description` gets a tooltip styled from
+  your app's theme (see [Colours and your app's
+  theme](#colours-and-your-apps-theme)). Use `Showcase.withWidget` for content
+  of your own.
+- **The default shape.** tutorial_coach_mark draws a circle around a target
+  whose `shape` is unset. Here the default is a rounded rectangle; set
+  `targetShapeBorder: const CircleBorder()` for a circle.
+- **Spacing.** tutorial_coach_mark's `paddingFocus` defaults to 10, which
+  grows a rounded-rectangle hole by 5 on each side (a circle's radius is
+  sized from the target instead). Here `targetPadding` is zero; set
+  `targetPadding: EdgeInsets.all(5)` for a similar look.
+- **The back button.** `disableBackButton: true` pushes a blocking route for
+  the whole tutorial, `beforeFocus` included. `backButtonInteraction:
+  BackButtonInteraction.block` acts only while a step is on screen: back
+  stays live while `onBeforeStep` runs, while the tour waits for a step's
+  page, and while a dialog or another page covers the step.
+- **Requirements.** This package needs Flutter 3.47 or newer and
+  [`material_ui`](https://pub.dev/packages/material_ui). tutorial_coach_mark
+  is built on `package:flutter/material.dart` and supports older Flutter
+  releases.
+
 ## Table of contents
 
 - [Migrating from 1.x to 2.0](#migrating-from-1x-to-20)
+- [Coming from showcaseview](#coming-from-showcaseview)
+- [Coming from tutorial_coach_mark](#coming-from-tutorial_coach_mark)
 - [Installation](#installation)
 - [Getting started](#getting-started)
 - [Custom tooltip](#custom-tooltip-with-showcasewithwidget)
@@ -199,10 +655,12 @@ may need a small change:
 - [Auto play](#auto-play)
 - [Programmatic control & progress](#programmatic-control--progress)
 - [Conditional / branching tours](#conditional--branching-tours)
+- [Prepare a step before it shows](#prepare-a-step-before-it-shows)
 - [Tours across screens](#tours-across-screens)
 - [Target interactions](#target-interactions)
 - [Step lifecycle callbacks](#step-lifecycle-callbacks)
 - [Background (barrier) tap behavior](#background-barrier-tap-behavior)
+- [Back button](#back-button)
 - [Accessibility & keyboard navigation](#accessibility--keyboard-navigation)
 - [Pointer cursor (web / desktop)](#pointer-cursor-web--desktop)
 - [Blur the background](#blur-the-background)
@@ -221,7 +679,7 @@ may need a small change:
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^2.0.3
+     showcase_tutorial: ^2.1.0
    ```
 
    Or from the command line:
@@ -710,8 +1168,9 @@ Set any of these once for the whole tour via `ShowcaseStyle`, e.g.
 `ShowCaseWidget(style: ShowcaseStyle(arrowColor: ..., highlightBorderColor: ...))`.
 
 > The dimmed background's color is `Showcase.overlayColor` (or
-> `ShowcaseStyle.overlayColor` for the whole tour), and `overlayOpacity` sets
-> how see-through it is.
+> `ShowcaseStyle.overlayColor` for the whole tour), and `overlayOpacity`
+> (`Showcase.overlayOpacity`, or `ShowcaseStyle.overlayOpacity` for the whole
+> tour, default `0.75`) sets how see-through it is.
 
 ## Highlight multiple widgets in one step
 
@@ -822,6 +1281,17 @@ Every colour of a tour can be set here:
 
 Resolution order for each value: **`Showcase` → `ShowcaseStyle` → your app's theme**.
 
+`ShowcaseStyle.overlayOpacity` sets how see-through the dimmed background is
+for every step, from `0` to `1`. A step's own `Showcase.overlayOpacity` wins,
+and with neither set it is `0.75`:
+
+```dart
+ShowCaseWidget(
+  style: const ShowcaseStyle(overlayOpacity: 0.6),
+  builder: const HomePage(),
+);
+```
+
 ## Run the tour only once
 
 By default the package stores nothing, so the tour replays every time you call
@@ -847,6 +1317,10 @@ returns `false`. The guard may be synchronous or asynchronous. To force a replay
 ```dart
 ShowCaseWidget.of(context).startShowCase([_one, _two], force: true);
 ```
+
+With a [`delay`](#programmatic-control--progress), the guard is asked when the
+delay ends, just before the tour would start, so it sees whether the tour was
+completed in the meantime.
 
 ## Resume where the user left off
 
@@ -929,6 +1403,55 @@ ShowCaseWidget.of(context).previous();  // go to the previous step
 ShowCaseWidget.of(context).dismiss();   // stop the whole tour
 ```
 
+To let a screen finish its entrance animation before the tour covers it, start
+the tour after a `delay`:
+
+```dart
+ShowCaseWidget.of(context).startShowCase(
+  [_one, _two],
+  delay: const Duration(milliseconds: 500),
+);
+```
+
+The call returns at once and the tour starts when the delay ends. A `delay` of
+zero (the default) starts the tour within the call, as before. While the start
+waits, on its delay or on an asynchronous `onShouldStartShowcase`,
+`isStartPending` is `true`, and the start is called off when:
+
+- `cancelDelayedStart()` is called, which does it silently and returns
+  whether a start was pending,
+- `dismiss()` is called, which also reports a dismissal as it always does
+  (`onDismiss` gets `null` when no tour is running),
+- another `startShowCase` is called (the newer one wins),
+- `enableShowcase` turns `false`, or the `ShowCaseWidget` goes away.
+
+The timer belongs to the `ShowCaseWidget`, not to the screen that asked for
+the start. When `ShowCaseWidget` sits above the `Navigator` and a page
+schedules a delayed start, popping the page does not cancel it: the tour still
+starts and waits for the page's steps (or skips them all and finishes, with
+`autoSkipUnmountedSteps`). Cancel it in the page's `dispose`, through the
+controller kept from `didChangeDependencies`, since `dispose` cannot look up
+ancestors:
+
+```dart
+late ShowCaseWidgetState _tour;
+
+@override
+void didChangeDependencies() {
+  super.didChangeDependencies();
+  _tour = ShowCaseWidget.of(context);
+}
+
+@override
+void dispose() {
+  _tour.cancelDelayedStart();
+  super.dispose();
+}
+```
+
+A start whose steps aren't on screen when it fires is not dropped: a tour can
+wait for a page the user opens later.
+
 Jump to a specific step and read progress — useful for a "Step 2 of 5" indicator
 or a skip-to control:
 
@@ -987,6 +1510,72 @@ as an explicit jump (like `goTo`), so `autoSkipUnmountedSteps` and
 `onShouldSkipUnmountedStep` are not applied to the target. `previous()`,
 `goTo()`, and `goToKey()` ignore the resolver.
 
+## Prepare a step before it shows
+
+`onBeforeStep` runs before each step is shown, and the tour waits for it.
+Use it to scroll to a step, load its data or open its page first:
+
+```dart
+ShowCaseWidget(
+  onBeforeStep: (index, key) async {
+    if (key == _chartStep) await _repository.loadChart();
+  },
+  builder: const HomePage(),
+);
+```
+
+It gets the step's index in the running tour and its key. Return a `Future`
+and the tour waits until it completes; return nothing and the step shows at
+once, on the same frame as without the callback.
+
+**When it runs.** For the step a tour opens on and for every step it moves to,
+whatever moves it: Next, a tap, the keyboard, auto-play, the back button,
+`next()`, `previous()`, `goTo()`. The order is:
+
+1. `startShowCase` waits out its `delay` and asks `onShouldStartShowcase`. A
+   tour the guard turns down never calls `onBeforeStep`.
+2. `onComplete` runs for the step the tour leaves.
+3. The tour chooses the next step as it always does: `startAt`,
+   `onResolveNextStep`, then `autoSkipUnmountedSteps` /
+   `onShouldSkipUnmountedStep`, judged by what is on screen at that moment.
+4. `onBeforeStep` runs for that step, and the tour waits for it.
+5. `onStart` runs, and the step shows. Its `onShow`, auto-scroll and
+   auto-play timer start here, so the auto-play delay counts from when the
+   step appears.
+
+It isn't called for skipped steps, or when the tour finishes or is dismissed.
+Skipping is decided before it runs, so a step that `onBeforeStep` brings on
+screen must not be skipped. Leave `autoSkipUnmountedSteps` off, and the tour
+waits for that step's widget, or return `false` for it from
+`onShouldSkipUnmountedStep`. A step whose widget still isn't there after the
+callback is waited for, as usual.
+
+**While it waits,** the step the tour left is gone and nothing else is shown:
+no dimmed background and no tooltip. The app takes taps and the back button
+as usual. A second tap on the step that was left, still in flight, doesn't
+advance the tour again. `currentIndex` is the step being prepared, and
+`isPreparingStep` is `true`.
+
+**If the tour moves meanwhile,** the step being prepared is given up. When the
+callback completes, nothing shows and `onStart` doesn't run for it. The step
+never started, so `onComplete` doesn't run for it either.
+
+| Called while it waits | What happens |
+| --- | --- |
+| `next()` | Moves on from the step being prepared. Call it from `onBeforeStep` to skip that step. |
+| `previous()`, `goTo()`, `goToKey()` | Moves from the step being prepared. A `previous()` with no earlier step does nothing. |
+| `dismiss()` | Ends the tour. `onDismiss` gets `null`, as no step was showing. |
+| `startShowCase()` | Replaces the tour. With a `delay`, the waiting step still shows until the new tour starts. |
+| `enableShowcase: false` | Ends the tour. |
+| `ShowCaseWidget` disposed | Nothing more happens. |
+
+**If it throws,** the error goes to `FlutterError.onError` and the step shows
+anyway. Catch the error and call `next()` or `dismiss()` to skip the step or
+end the tour instead.
+
+With `enableStepTransition`, a step shown after a `Future` appears without the
+glide, since nothing was on screen in between.
+
 ## Tours across screens
 
 One tour can cover several pages. Put `ShowCaseWidget` above the `Navigator`
@@ -1015,7 +1604,9 @@ Then pass keys from any page to `startShowCase`:
   pauses while it's hidden.
 
 To take the user to the next page from a step, advance the tour and navigate
-in `onTargetClick`. Use `disposeOnTap: false`; `true` ends the whole tour
+in `onTargetClick`, or open the page from
+[`onBeforeStep`](#prepare-a-step-before-it-shows) when the tour reaches its
+step. Use `disposeOnTap: false`; `true` ends the whole tour
 before calling it:
 
 ```dart
@@ -1078,25 +1669,36 @@ analytics service deeper in the tree — register it on the controller instead:
 
 ```dart
 class _StepCounterState extends State<StepCounter> {
+  late final ShowCaseWidgetState _tour;
+  int? _index;
+
   void _onStep(int? index, GlobalKey key) => setState(() => _index = index);
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    ShowCaseWidget.of(context).addOnStartCallback(_onStep);
+  void initState() {
+    super.initState();
+    _tour = ShowCaseWidget.of(context)..addOnStartCallback(_onStep);
   }
 
   @override
   void dispose() {
-    ShowCaseWidget.of(context).removeOnStartCallback(_onStep);
+    // Use the controller kept in initState: looking it up in dispose throws.
+    _tour.removeOnStartCallback(_onStep);
     super.dispose();
   }
+
+  @override
+  Widget build(BuildContext context) => Text('Step ${(_index ?? 0) + 1}');
 }
 ```
 
-There's an `addOnCompleteCallback` / `removeOnCompleteCallback` pair too. Both
-run in addition to the widget-level callbacks, in registration order; always
-remove in `dispose` so a gone widget stops being called.
+There are `addOnCompleteCallback` / `removeOnCompleteCallback`,
+`addOnFinishCallback` / `removeOnFinishCallback` and `addOnDismissCallback` /
+`removeOnDismissCallback` pairs too, the runtime counterparts of `onComplete`,
+`onFinish` and `onDismiss` (a dismiss listener gets the same `GlobalKey?` of
+the step the user left off on). All of them run after the widget-level
+callback, in registration order, and a listener can remove itself while it
+runs. Always remove in `dispose` so a gone widget stops being called.
 
 ### Following the highlighted target
 
@@ -1162,6 +1764,71 @@ Showcase(
 
 The per-step value wins over the tour-wide `barrierInteraction`.
 `onBarrierClick` still fires either way.
+
+A step can have its own `onBarrierClick` too, for a tap while that step is
+showing. It runs **in addition to** the tour-wide one: first
+`ShowCaseWidget.onBarrierClick`, then the step's, then whatever
+`barrierInteraction` does. Both fire on every barrier tap, `.none` included:
+
+```dart
+Showcase(
+  key: _two,
+  title: 'Try it',
+  description: 'Tap the switch to continue',
+  barrierInteraction: BarrierInteraction.none,
+  onBarrierClick: () => _nudgeSwitch(), // only while this step shows
+  child: const FeatureSwitch(),
+);
+```
+
+## Back button
+
+By default the system back button does what it does without a tour: it
+closes the page, and a tour on that page goes with it. Choose what back does
+while a step is showing with `backButtonInteraction`:
+
+```dart
+ShowCaseWidget(
+  backButtonInteraction: BackButtonInteraction.previous, // back → previous step
+  // BackButtonInteraction.passThrough → back closes the page (default)
+  // BackButtonInteraction.dismiss     → back ends the tour, the page stays
+  // BackButtonInteraction.block       → back does nothing while a step shows
+  builder: const HomePage(),
+);
+```
+
+| Value | Back while a step shows |
+| --- | --- |
+| `passThrough` (default) | Does what it does without a tour, usually closing the page. |
+| `dismiss` | Ends the tour, like Esc. The page stays open. |
+| `previous` | Goes to the previous step. On the first step it ends the tour, so back always gets the user out. The page stays open. |
+| `block` | Does nothing. The user leaves the tour with its own buttons. |
+
+- **It covers the Android back button and back gesture, and the browser's
+  back button.** Android's predictive back doesn't preview leaving the page
+  or the app while a step shows, because the page tells the system it
+  handles back.
+- **Only while a step is on screen.** Before and after the tour, while the
+  tour waits for a step whose page isn't open, and while a step is hidden
+  under another page or a dialog, back works as usual. A dialog over a step
+  closes on back.
+- **Wherever `ShowCaseWidget` is**, on the page or in `MaterialApp.builder`
+  for [a tour across screens](#tours-across-screens). The handling is
+  attached to the page of the step that shows. With `previous`, going back to
+  a step on the page below leaves the current page with no step, so the next
+  back closes it and the earlier step appears.
+- **Not inside a nested `Navigator` on its own.** A step on a page of a
+  nested navigator (one per tab, say) never sees back: like a `PopScope`
+  there, it only hears presses that reach that navigator, and by default the
+  root navigator takes them and closes the page around it. Forward back to
+  the nested navigator, with a `NavigatorPopHandler` around it or a router
+  that does so, and the tour handles it there.
+- **Anything but `passThrough` works like `PopScope(canPop: false)` on the
+  step's page:** the iOS swipe that closes the page is off while the step
+  shows, and `Navigator.maybePop` counts as back. `Navigator.pop` still closes
+  the page.
+- **Esc is separate.** On desktop and web it keeps dismissing the tour
+  through [keyboard navigation](#accessibility--keyboard-navigation).
 
 ## Accessibility & keyboard navigation
 
@@ -1346,6 +2013,26 @@ left, each button's icon sits to the right of its label, and the progress
 indicator and Skip button swap sides. To translate the buttons' text, see
 [Translating the tour](#translating-the-tour).
 
+When a step's text runs in the other direction from the app, such as an Arabic
+title in an English app, give the title or description its own direction:
+
+```dart
+Showcase(
+  key: _one,
+  title: 'القائمة',
+  titleTextDirection: TextDirection.rtl,
+  description: 'Open the menu', // follows the app
+  child: const Icon(Icons.menu),
+);
+```
+
+`titleTextDirection` and `descriptionTextDirection` order that text's words
+and punctuation, and set which side `titleAlignment` / `descriptionAlignment`
+start from when it wraps. The tooltip is measured with the same direction,
+and the screen-reader announcement is made in the direction of the text it
+starts with (the title, or the description when there is no title). Left
+`null` (the default), the text follows the app.
+
 ## Enable or disable globally
 
 ```dart
@@ -1393,6 +2080,11 @@ Showcase(
 );
 ```
 
+Turn auto-scroll on or off for a single step with `Showcase.enableAutoScroll`:
+`true` scrolls to that step's target even when the tour does not auto-scroll,
+`false` leaves the scroll position alone for that step, and `null` (the
+default) follows `ShowCaseWidget.enableAutoScroll`.
+
 If you have a small number of children, prefer `SingleChildScrollView`. Otherwise,
 assign a `ScrollController` and scroll to the target manually inside `onStart`:
 
@@ -1419,42 +2111,49 @@ ShowCaseWidget(
 
 | Member                                       | Description                                                              |
 | -------------------------------------------- | ------------------------------------------------------------------------ |
-| `startShowCase(List<GlobalKey> keys, {bool force, int startAt})` | Start the tour in key order. `force: true` bypasses `onShouldStartShowcase`; `startAt` opens it on that zero-based step (default `0`). |
+| `startShowCase(List<GlobalKey> keys, {bool force, int startAt, Duration delay})` | Start the tour in key order. `force: true` bypasses `onShouldStartShowcase`; `startAt` opens it on that zero-based step (default `0`); `delay` starts it that much later (default `Duration.zero`, at once), consulting the guard then. |
 | `next()`                                     | Advance to the next step.                                                |
 | `previous()`                                 | Go back one step.                                                        |
 | `goTo(int index)`                            | Jump to a step by its zero-based index.                                  |
 | `goToKey(GlobalKey key)`                     | Jump to a step by its `GlobalKey`.                                       |
-| `dismiss()`                                  | End the whole tour.                                                      |
+| `dismiss()`                                  | End the whole tour (and call off a pending start).                       |
+| `cancelDelayedStart()`                       | Silently call off a start still waiting on its `delay` or the guard; returns whether one was pending. |
+| `isStartPending`                             | Whether a `startShowCase` call has yet to start its tour.                |
 | `currentIndex`                               | Zero-based index of the active step, or `null` when no tour is running.  |
 | `totalSteps`                                 | Number of steps in the running tour (0 when none).                       |
 | `isShowcaseRunning`                          | Whether a tour is currently active.                                      |
+| `isPreparingStep`                            | Whether the tour waits on `onBeforeStep` before it shows the step at `currentIndex` (no step shows meanwhile). |
 | `labels`                                     | The `ShowcaseLabels` the built-in buttons show.                          |
 | `isTargetRendered(GlobalKey key)`            | Whether that step's target is mounted **and** laid out on screen.        |
 | `previousTargetRect`                         | Global bounds of the step the tour just left (`null` outside a transition). |
 | `addOnStartCallback(cb)` / `removeOnStartCallback(cb)` | Register/unregister a step-start listener at runtime.          |
 | `addOnCompleteCallback(cb)` / `removeOnCompleteCallback(cb)` | Register/unregister a step-complete listener at runtime. |
+| `addOnFinishCallback(cb)` / `removeOnFinishCallback(cb)` | Register/unregister a tour-finish listener at runtime (runs after `onFinish`). |
+| `addOnDismissCallback(cb)` / `removeOnDismissCallback(cb)` | Register/unregister an early-dismiss listener at runtime, `void Function(GlobalKey?)` (runs after `onDismiss`). |
 
 ### `ShowCaseWidget` properties
 
 | Name                      | Type                       | Default                        | Description                                                                      |
 | ------------------------- | -------------------------- | ------------------------------ | -------------------------------------------------------------------------------- |
 | builder                   | Widget                     | required                       | The subtree that contains the `Showcase` widgets (a `Builder` also works).       |
-| style                     | ShowcaseStyle              | `const ShowcaseStyle()`        | Default tooltip styling for every `Showcase` in the tree.                        |
+| style                     | ShowcaseStyle              | `const ShowcaseStyle()`        | Default tooltip styling for every `Showcase` in the tree, including `overlayOpacity`. |
 | blurValue                 | double                     | 0                              | Gaussian blur applied to the overlay.                                            |
 | autoPlay                  | bool                       | false                          | Automatically advance to the next step.                                          |
 | autoPlayDelay             | Duration                   | `Duration(milliseconds: 2000)` | Visibility time of a step when `autoPlay` is enabled.                            |
 | enableAutoPlayLock        | bool                       | false                          | Block user interaction on the overlay while auto-playing.                        |
-| enableAutoScroll          | bool                       | false                          | Auto-scroll so the next target becomes visible.                                  |
+| enableAutoScroll          | bool                       | false                          | Auto-scroll so the next target becomes visible (`Showcase.enableAutoScroll` overrides it per step). |
 | scrollDuration            | Duration                   | `Duration(milliseconds: 300)`  | Duration of the auto-scroll animation.                                           |
 | scrollAlignment           | double                     | `0.5`                          | Where an auto-scrolled target rests (0 = leading, 0.5 = center, 1 = trailing).   |
 | barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`      | What a background tap does: `next` (advance), `dismiss` (end tour), `none`.      |
 | disableBarrierInteraction | bool                       | false                          | **Deprecated** (removed in 3.0.0): use `barrierInteraction: BarrierInteraction.none`. |
-| onBarrierClick            | VoidCallback?              |                                | Called on every barrier tap (even when `barrierInteraction` is `none`).          |
+| onBarrierClick            | VoidCallback?              |                                | Called on every barrier tap (even when `barrierInteraction` is `none`), before the step's `Showcase.onBarrierClick`. |
+| backButtonInteraction     | BackButtonInteraction      | `BackButtonInteraction.passThrough` | What the system back button does while a step shows: `passThrough` (closes the page, as without a tour), `dismiss`, `previous` (ends the tour from the first step), `block`. |
 | globalFloatingActionWidget | WidgetBuilder?            |                                | Screen-anchored widget shown above the overlay on every step (you position it).  |
 | hideFloatingActionWidgetForShowcase | `List<GlobalKey>` | `const []`                    | Steps on which the global floating widget is hidden.                             |
 | disableScaleAnimation     | bool                       | false                          | Disable the tooltip scale transition for all steps.                              |
 | disableMovingAnimation    | bool                       | false                          | Disable the bouncing/moving transition for all steps.                            |
 | onStart                   | ShowcaseStepCallback?      |                                | Called on the start of each step with `(int? index, GlobalKey key)`.             |
+| onBeforeStep              | `FutureOr<void> Function(int, GlobalKey)?` |                | Runs before each step shows, before its `onStart`; a returned `Future` is awaited (see [Prepare a step before it shows](#prepare-a-step-before-it-shows)). |
 | onComplete                | ShowcaseStepCallback?      |                                | Called on the completion of each step with `(int? index, GlobalKey key)`.        |
 | onFinish                  | VoidCallback?              |                                | Called when all steps are completed (normal finish).                             |
 | onDismiss                  | `void Function(GlobalKey?)?` |                              | Called when the tour is closed early; receives the step it was dismissed at.     |
@@ -1516,6 +2215,8 @@ ShowCaseWidget(
 | descTextStyle                | TextStyle?             | `ShowcaseStyle`                                    | Text style of the description.                                                              |     ✅     |                       |
 | titleAlignment               | TextAlign              | `TextAlign.start`                                  | Alignment of the title.                                                                     |     ✅     |                       |
 | descriptionAlignment         | TextAlign              | `TextAlign.start`                                  | Alignment of the description.                                                               |     ✅     |                       |
+| titleTextDirection           | TextDirection?         | the app's direction                                | Text direction of the title, when it differs from the app's.                                |     ✅     |                       |
+| descriptionTextDirection     | TextDirection?         | the app's direction                                | Text direction of the description, when it differs from the app's.                          |     ✅     |                       |
 | tooltipBackgroundColor       | Color?                 | `ShowcaseStyle` → app theme                        | Background color of the default tooltip.                                                    |     ✅     |                       |
 | textColor                    | Color?                 | `ShowcaseStyle` → app theme                        | Text color of the default tooltip.                                                          |     ✅     |                       |
 | tooltipBorderRadius          | BorderRadius?          | `ShowcaseStyle` → `BorderRadius.circular(8)`       | Border radius of the default tooltip.                                                       |     ✅     |                       |
@@ -1532,7 +2233,9 @@ ShowCaseWidget(
 | targetTooltipGap             | double                 | `0`                                                | Extra space (logical px) between the target and the tooltip; applies to all sides.          |     ✅     |          ✅           |
 | toolTipMargin                | EdgeInsets             | `EdgeInsets.all(20)`                               | Minimum margin between the tooltip and the screen edges (also caps its size).               |     ✅     |          ✅           |
 | scrollAlignment              | double?                | `ShowCaseWidget.scrollAlignment`                   | Where this step's target rests when auto-scrolled (0 = leading, 0.5 = center, 1 = trailing).|     ✅     |          ✅           |
+| enableAutoScroll             | bool?                  | `ShowCaseWidget.enableAutoScroll`                  | Whether this step scrolls its target into view; overrides the tour-wide value.              |     ✅     |          ✅           |
 | barrierInteraction           | BarrierInteraction?    | `ShowCaseWidget.barrierInteraction`                | What a background tap does on this step; overrides the tour-wide value.                     |     ✅     |          ✅           |
+| onBarrierClick               | VoidCallback?          |                                                    | Called on a background tap during this step, after `ShowCaseWidget.onBarrierClick`.         |     ✅     |          ✅           |
 | targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlight (used when `targetBorderRadius` is null).                    |     ✅     |          ✅           |
 | highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
 | targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlight.                                                             |     ✅     |          ✅           |
@@ -1546,7 +2249,7 @@ ShowCaseWidget(
 | arrowHeight                  | double?                | `9`                                                | Height (depth) of the default tooltip arrow.                                                |     ✅     |                       |
 | targetPadding                | EdgeInsets             | `EdgeInsets.zero`                                  | Padding around the highlight.                                                               |     ✅     |          ✅           |
 | overlayColor                 | Color?                 | `ShowcaseStyle` → app theme                        | Color of the overlay scrim.                                                                 |     ✅     |          ✅           |
-| overlayOpacity               | double                 | 0.75                                               | Opacity of the overlay scrim.                                                               |     ✅     |          ✅           |
+| overlayOpacity               | double?                | `ShowcaseStyle` → `0.75`                           | Opacity of the overlay scrim, from 0 to 1.                                                  |     ✅     |          ✅           |
 | blurValue                    | double?                | `ShowCaseWidget.blurValue`                         | Gaussian blur on the overlay.                                                               |     ✅     |          ✅           |
 | disableDefaultTargetGestures | bool                   | false                                              | Disable the default gestures on the target.                                                 |     ✅     |          ✅           |
 | disposeOnTap                 | bool?                  |                                                    | Dismiss the whole tour when the target/tooltip is tapped.                                   |     ✅     |          ✅           |

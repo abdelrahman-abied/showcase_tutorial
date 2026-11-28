@@ -58,11 +58,19 @@ class ShowcaseStyle {
   final Color? textColor;
 
   /// Color of the dimmed background drawn behind each step. Its own opacity is
-  /// ignored: `Showcase.overlayOpacity` sets how see-through it is.
+  /// ignored: [overlayOpacity] (or `Showcase.overlayOpacity`) sets how
+  /// see-through it is.
   ///
   /// Falls back to the theme's `colorScheme.scrim` (black unless the theme
   /// changes it).
   final Color? overlayColor;
+
+  /// Opacity of the dimmed background drawn behind each step, from `0.0`
+  /// (fully see-through) to `1.0` (opaque).
+  ///
+  /// Used by every step that does not set its own `Showcase.overlayOpacity`.
+  /// Falls back to `0.75`. A value outside `0.0`–`1.0` fails an assert.
+  final double? overlayOpacity;
 
   /// Color of the labels of the default action buttons
   /// ([ShowCaseDefaultActions]). A button's own [ActionButtonConfig.textColor]
@@ -139,6 +147,7 @@ class ShowcaseStyle {
     this.tooltipBackgroundColor,
     this.textColor,
     this.overlayColor,
+    this.overlayOpacity,
     this.actionTextColor,
     this.actionDividerColor,
     this.loadingIndicatorColor,
@@ -151,5 +160,8 @@ class ShowcaseStyle {
     this.arrowHeight,
     this.highlightBorderColor,
     this.highlightBorderWidth,
-  });
+  }) : assert(
+         overlayOpacity == null || (overlayOpacity >= 0.0 && overlayOpacity <= 1.0),
+         "overlay opacity must be between 0 and 1.",
+       );
 }

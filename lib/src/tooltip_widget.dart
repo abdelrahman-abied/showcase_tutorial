@@ -38,8 +38,17 @@ class ToolTipWidget extends StatefulWidget {
   final Size? screenSize;
   final String? title;
   final TextAlign? titleAlignment;
+
+  /// Direction of the title's [Text], or `null` for the ambient one
+  /// ([Showcase.titleTextDirection]). The title is measured with it too.
+  final TextDirection? titleTextDirection;
   final String? description;
   final TextAlign? descriptionAlignment;
+
+  /// Direction of the description's [Text], or `null` for the ambient one
+  /// ([Showcase.descriptionTextDirection]). The description is measured with
+  /// it too.
+  final TextDirection? descriptionTextDirection;
   final TextStyle? titleTextStyle;
   final TextStyle? descTextStyle;
   final Widget? container;
@@ -143,7 +152,9 @@ class ToolTipWidget extends StatefulWidget {
     required this.screenSize,
     required this.title,
     required this.titleAlignment,
+    this.titleTextDirection,
     required this.description,
+    this.descriptionTextDirection,
     required this.titleTextStyle,
     required this.descTextStyle,
     required this.container,
@@ -420,18 +431,23 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     final theme = Theme.of(context);
     final padding = widget.tooltipPadding ?? EdgeInsets.zero;
     final contentWidth = max(0.0, tooltipWidth - padding.horizontal);
-    double textHeight(String text, TextStyle style, EdgeInsets? textPadding) =>
-        _laidOutTextHeight(text, style, max(0.0, contentWidth - (textPadding?.horizontal ?? 0))) +
+    double textHeight(String text, TextStyle style, EdgeInsets? textPadding, TextDirection? textDirection) =>
+        _laidOutTextHeight(
+          text,
+          style,
+          max(0.0, contentWidth - (textPadding?.horizontal ?? 0)),
+          textDirection: textDirection,
+        ) +
         (textPadding?.vertical ?? 0);
 
     var height = padding.vertical;
     if (widget.title != null) {
       final style = widget.titleTextStyle ?? theme.textTheme.titleLarge!.merge(TextStyle(color: widget.textColor));
-      height += textHeight(widget.title!, style, widget.titlePadding);
+      height += textHeight(widget.title!, style, widget.titlePadding, widget.titleTextDirection);
     }
     if (widget.description != null) {
       final style = widget.descTextStyle ?? theme.textTheme.titleSmall!.merge(TextStyle(color: widget.textColor));
-      height += textHeight(widget.description!, style, widget.descriptionPadding);
+      height += textHeight(widget.description!, style, widget.descriptionPadding, widget.descriptionTextDirection);
     }
     return height;
   }
@@ -442,14 +458,15 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
   /// The box's [Material] sets the default text style: the theme's
   /// `bodyMedium`, which [style] is merged into, with no line limit and
   /// clipped overflow. A style that asks for an ellipsis keeps the text to
-  /// one line, as [RenderParagraph] does.
-  double _laidOutTextHeight(String text, TextStyle style, double maxWidth) {
+  /// one line, as [RenderParagraph] does. [textDirection] is the [Text]'s
+  /// own direction, `null` for the ambient one.
+  double _laidOutTextHeight(String text, TextStyle style, double maxWidth, {TextDirection? textDirection}) {
     final base = Theme.of(context).textTheme.bodyMedium ?? const TextStyle();
     final effective = base.merge(style);
     final painter = TextPainter(
       text: TextSpan(text: text, style: effective),
       textScaler: MediaQuery.textScalerOf(context),
-      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      textDirection: textDirection ?? Directionality.maybeOf(context) ?? TextDirection.ltr,
       ellipsis: effective.overflow == TextOverflow.ellipsis ? '…' : null,
     )..layout(maxWidth: maxWidth);
     final height = painter.height;
@@ -515,14 +532,14 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
         widget.descTextStyle ?? Theme.of(context).textTheme.titleSmall!.merge(TextStyle(color: widget.textColor));
     final titleLength = widget.title == null
         ? 0
-        : _textSize(widget.title!, titleStyle).width +
+        : _textSize(widget.title!, titleStyle, textDirection: widget.titleTextDirection).width +
               widget.tooltipPadding!.right +
               widget.tooltipPadding!.left +
               (widget.titlePadding?.right ?? 0) +
               (widget.titlePadding?.left ?? 0);
     final descriptionLength = widget.description == null
         ? 0
-        : (_textSize(widget.description!, descriptionStyle).width +
+        : (_textSize(widget.description!, descriptionStyle, textDirection: widget.descriptionTextDirection).width +
               widget.tooltipPadding!.right +
               widget.tooltipPadding!.left +
               (widget.descriptionPadding?.right ?? 0) +
@@ -545,10 +562,12 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
         widget.descTextStyle ?? Theme.of(context).textTheme.titleSmall!.merge(TextStyle(color: widget.textColor));
     final titleLength = widget.title == null
         ? 0
-        : _textSize(widget.title!, titleStyle).height + widget.tooltipPadding!.bottom + widget.tooltipPadding!.top;
+        : _textSize(widget.title!, titleStyle, textDirection: widget.titleTextDirection).height +
+              widget.tooltipPadding!.bottom +
+              widget.tooltipPadding!.top;
     final descriptionLength = widget.description == null
         ? 0
-        : (_textSize(widget.description!, descriptionStyle).height +
+        : (_textSize(widget.description!, descriptionStyle, textDirection: widget.descriptionTextDirection).height +
               widget.tooltipPadding!.bottom +
               widget.tooltipPadding!.top);
     var maxTextHeight = titleLength + descriptionLength + _footerHeight + _insideActionsHeight;
@@ -968,6 +987,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
                   child: Text(
                     widget.title!,
                     textAlign: widget.titleAlignment,
+                    textDirection: widget.titleTextDirection,
                     style:
                         widget.titleTextStyle ??
                         Theme.of(context).textTheme.titleLarge!.merge(TextStyle(color: widget.textColor)),
@@ -979,6 +999,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
                   child: Text(
                     widget.description!,
                     textAlign: widget.descriptionAlignment,
+                    textDirection: widget.descriptionTextDirection,
                     style:
                         widget.descTextStyle ??
                         Theme.of(context).textTheme.titleSmall!.merge(TextStyle(color: widget.textColor)),
@@ -1189,6 +1210,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
                                               child: Text(
                                                 widget.title!,
                                                 textAlign: widget.titleAlignment,
+                                                textDirection: widget.titleTextDirection,
                                                 style:
                                                     widget.titleTextStyle ??
                                                     Theme.of(context).textTheme.titleLarge!
@@ -1201,6 +1223,7 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
                                               child: Text(
                                                 widget.description!,
                                                 textAlign: widget.descriptionAlignment,
+                                                textDirection: widget.descriptionTextDirection,
                                                 style:
                                                     widget.descTextStyle ??
                                                     Theme.of(context).textTheme.titleSmall!
@@ -1310,14 +1333,16 @@ class _ToolTipWidgetState extends State<ToolTipWidget> with TickerProviderStateM
     });
   }
 
-  Size _textSize(String text, TextStyle style) {
+  /// The one-line size of [text] in [style]. [textDirection] is the [Text]'s
+  /// own direction, `null` for the ambient one.
+  Size _textSize(String text, TextStyle style, {TextDirection? textDirection}) {
     final textPainter = TextPainter(
       text: TextSpan(text: text, style: style),
       maxLines: 1,
       textScaler: MediaQuery.textScalerOf(context),
-      // Measure with the ambient text direction so RTL (e.g. Arabic) text is
-      // sized correctly.
-      textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      // Measure with the direction the text is laid out in (its own, or else
+      // the ambient one) so RTL (e.g. Arabic) text is sized correctly.
+      textDirection: textDirection ?? Directionality.maybeOf(context) ?? TextDirection.ltr,
     )..layout();
     final size = textPainter.size;
     // Frees the native paragraph that `layout()` allocated.
