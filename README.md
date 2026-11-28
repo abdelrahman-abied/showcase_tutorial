@@ -295,6 +295,7 @@ To translate the built-in labels once instead of per button, use
 | `Showcase.onBarrierClick` (per step) | same; runs after the tour-wide `ShowCaseWidget.onBarrierClick` |
 | `toolTipMargin: 14` | `toolTipMargin: EdgeInsets.all(14)` |
 | `toolTipSlideEndDistance` | not available |
+| no hook before a step | `onBeforeStep`, awaited before each step shows (see [Prepare a step before it shows](#prepare-a-step-before-it-shows)) |
 | no back-button option (back closes the page) | the same by default; `backButtonInteraction` to dismiss, step back or block instead (see [Back button](#back-button)) |
 
 ### Behaviour that differs
@@ -344,6 +345,7 @@ To translate the built-in labels once instead of per button, use
 - [Auto play](#auto-play)
 - [Programmatic control & progress](#programmatic-control--progress)
 - [Conditional / branching tours](#conditional--branching-tours)
+- [Prepare a step before it shows](#prepare-a-step-before-it-shows)
 - [Tours across screens](#tours-across-screens)
 - [Target interactions](#target-interactions)
 - [Step lifecycle callbacks](#step-lifecycle-callbacks)
@@ -1198,6 +1200,72 @@ as an explicit jump (like `goTo`), so `autoSkipUnmountedSteps` and
 `onShouldSkipUnmountedStep` are not applied to the target. `previous()`,
 `goTo()`, and `goToKey()` ignore the resolver.
 
+## Prepare a step before it shows
+
+`onBeforeStep` runs before each step is shown, and the tour waits for it.
+Use it to scroll to a step, load its data or open its page first:
+
+```dart
+ShowCaseWidget(
+  onBeforeStep: (index, key) async {
+    if (key == _chartStep) await _repository.loadChart();
+  },
+  builder: const HomePage(),
+);
+```
+
+It gets the step's index in the running tour and its key. Return a `Future`
+and the tour waits until it completes; return nothing and the step shows at
+once, on the same frame as without the callback.
+
+**When it runs.** For the step a tour opens on and for every step it moves to,
+whatever moves it: Next, a tap, the keyboard, auto-play, the back button,
+`next()`, `previous()`, `goTo()`. The order is:
+
+1. `startShowCase` waits out its `delay` and asks `onShouldStartShowcase`. A
+   tour the guard turns down never calls `onBeforeStep`.
+2. `onComplete` runs for the step the tour leaves.
+3. The tour chooses the next step as it always does: `startAt`,
+   `onResolveNextStep`, then `autoSkipUnmountedSteps` /
+   `onShouldSkipUnmountedStep`, judged by what is on screen at that moment.
+4. `onBeforeStep` runs for that step, and the tour waits for it.
+5. `onStart` runs, and the step shows. Its `onShow`, auto-scroll and
+   auto-play timer start here, so the auto-play delay counts from when the
+   step appears.
+
+It isn't called for skipped steps, or when the tour finishes or is dismissed.
+Skipping is decided before it runs, so a step that `onBeforeStep` brings on
+screen must not be skipped. Leave `autoSkipUnmountedSteps` off, and the tour
+waits for that step's widget, or return `false` for it from
+`onShouldSkipUnmountedStep`. A step whose widget still isn't there after the
+callback is waited for, as usual.
+
+**While it waits,** the step the tour left is gone and nothing else is shown:
+no dimmed background and no tooltip. The app takes taps and the back button
+as usual. A second tap on the step that was left, still in flight, doesn't
+advance the tour again. `currentIndex` is the step being prepared, and
+`isPreparingStep` is `true`.
+
+**If the tour moves meanwhile,** the step being prepared is given up. When the
+callback completes, nothing shows and `onStart` doesn't run for it. The step
+never started, so `onComplete` doesn't run for it either.
+
+| Called while it waits | What happens |
+| --- | --- |
+| `next()` | Moves on from the step being prepared. Call it from `onBeforeStep` to skip that step. |
+| `previous()`, `goTo()`, `goToKey()` | Moves from the step being prepared. A `previous()` with no earlier step does nothing. |
+| `dismiss()` | Ends the tour. `onDismiss` gets `null`, as no step was showing. |
+| `startShowCase()` | Replaces the tour. With a `delay`, the waiting step still shows until the new tour starts. |
+| `enableShowcase: false` | Ends the tour. |
+| `ShowCaseWidget` disposed | Nothing more happens. |
+
+**If it throws,** the error goes to `FlutterError.onError` and the step shows
+anyway. Catch the error and call `next()` or `dismiss()` to skip the step or
+end the tour instead.
+
+With `enableStepTransition`, a step shown after a `Future` appears without the
+glide, since nothing was on screen in between.
+
 ## Tours across screens
 
 One tour can cover several pages. Put `ShowCaseWidget` above the `Navigator`
@@ -1226,7 +1294,9 @@ Then pass keys from any page to `startShowCase`:
   pauses while it's hidden.
 
 To take the user to the next page from a step, advance the tour and navigate
-in `onTargetClick`. Use `disposeOnTap: false`; `true` ends the whole tour
+in `onTargetClick`, or open the page from
+[`onBeforeStep`](#prepare-a-step-before-it-shows) when the tour reaches its
+step. Use `disposeOnTap: false`; `true` ends the whole tour
 before calling it:
 
 ```dart
@@ -1736,6 +1806,7 @@ ShowCaseWidget(
 | `currentIndex`                               | Zero-based index of the active step, or `null` when no tour is running.  |
 | `totalSteps`                                 | Number of steps in the running tour (0 when none).                       |
 | `isShowcaseRunning`                          | Whether a tour is currently active.                                      |
+| `isPreparingStep`                            | Whether the tour waits on `onBeforeStep` before it shows the step at `currentIndex` (no step shows meanwhile). |
 | `labels`                                     | The `ShowcaseLabels` the built-in buttons show.                          |
 | `isTargetRendered(GlobalKey key)`            | Whether that step's target is mounted **and** laid out on screen.        |
 | `previousTargetRect`                         | Global bounds of the step the tour just left (`null` outside a transition). |
@@ -1766,6 +1837,7 @@ ShowCaseWidget(
 | disableScaleAnimation     | bool                       | false                          | Disable the tooltip scale transition for all steps.                              |
 | disableMovingAnimation    | bool                       | false                          | Disable the bouncing/moving transition for all steps.                            |
 | onStart                   | ShowcaseStepCallback?      |                                | Called on the start of each step with `(int? index, GlobalKey key)`.             |
+| onBeforeStep              | `FutureOr<void> Function(int, GlobalKey)?` |                | Runs before each step shows, before its `onStart`; a returned `Future` is awaited (see [Prepare a step before it shows](#prepare-a-step-before-it-shows)). |
 | onComplete                | ShowcaseStepCallback?      |                                | Called on the completion of each step with `(int? index, GlobalKey key)`.        |
 | onFinish                  | VoidCallback?              |                                | Called when all steps are completed (normal finish).                             |
 | onDismiss                  | `void Function(GlobalKey?)?` |                              | Called when the tour is closed early; receives the step it was dismissed at.     |

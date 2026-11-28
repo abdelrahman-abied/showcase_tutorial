@@ -58,6 +58,19 @@
   or a step is hidden under another page or a dialog, and it works with
   `ShowCaseWidget` on a page or in `MaterialApp.builder`. Esc still
   dismisses the tour through keyboard navigation.
+* **Prepare a step before it shows:** `ShowCaseWidget.onBeforeStep`, an
+  `(index, key)` callback that runs before each step is shown. Return a
+  `Future` and the tour waits for it, to scroll, load data or open the
+  step's page first. It runs after the tour has chosen the step (`startAt`,
+  `onResolveNextStep` and the unmounted-step skip rules work as before) and
+  before that step's `onStart`. While it waits nothing is shown, and
+  `isPreparingStep` is `true`. If the tour moves meanwhile (`next`,
+  `previous`, `goTo`, `dismiss`, `startShowCase`, `enableShowcase` off), the
+  step being prepared is given up and never shows; calling `next()` from the
+  callback skips its step. An error in it is reported to
+  `FlutterError.onError` and the step shows anyway. A callback that returns
+  nothing shows the step on the same frame as before, and without the
+  callback nothing changes.
 
 **Fixed:**
 

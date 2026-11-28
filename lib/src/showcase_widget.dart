@@ -35,6 +35,13 @@ import '../showcase_tutorial.dart';
 /// Receives the zero-based index of the step and the [GlobalKey] of its target.
 typedef ShowcaseStepCallback = void Function(int? index, GlobalKey key);
 
+/// Signature of [ShowCaseWidget.onBeforeStep].
+///
+/// Receives the zero-based index of the step the tour is about to show and
+/// the [GlobalKey] of its target. Return a [Future] to make the tour wait for
+/// it, or nothing to let the step show straight away.
+typedef ShowcaseBeforeStepCallback = FutureOr<void> Function(int index, GlobalKey key);
+
 /// Hosts a showcase tour for the [Showcase] widgets in its subtree.
 ///
 /// Wrap your screen (or app) in a [ShowCaseWidget], wrap each target in a
@@ -84,6 +91,100 @@ class ShowCaseWidget extends StatefulWidget {
   /// `startAt` in [ShowCaseWidgetState.startShowCase]. To add listeners at
   /// runtime, see [ShowCaseWidgetState.addOnStartCallback].
   final ShowcaseStepCallback? onStart;
+
+  /// Runs before each step is shown, and the tour waits for it: use it to
+  /// scroll to the step's widget, load what it needs or open its page first.
+  ///
+  /// ```dart
+  /// ShowCaseWidget(
+  ///   onBeforeStep: (index, key) async {
+  ///     if (key == _chartStep) await _controller.loadChart();
+  ///   },
+  ///   builder: const HomePage(),
+  /// )
+  /// ```
+  ///
+  /// It receives the index of the step in the running tour and its target
+  /// key. Return a [Future] and the tour waits for it to complete before it
+  /// shows the step; return nothing and the step shows straight away.
+  ///
+  /// **When it runs.** For every step the tour is about to show: the step a
+  /// tour opens on, and every step it moves to with the Next button, a tap on
+  /// the target, tooltip or background, the keyboard, auto-play, the back
+  /// button, [ShowCaseWidgetState.next], [ShowCaseWidgetState.completed],
+  /// [ShowCaseWidgetState.previous], [ShowCaseWidgetState.goTo] and
+  /// [ShowCaseWidgetState.goToKey]. In order:
+  ///
+  /// 1. [ShowCaseWidgetState.startShowCase] waits out its `delay` and asks
+  ///    [onShouldStartShowcase] (unless `force` is set). A tour the guard
+  ///    turns down never calls this.
+  /// 2. When the tour moves on, [onComplete] runs for the step it leaves.
+  /// 3. The tour chooses the step, exactly as it does without this callback:
+  ///    `startAt` is clamped, [onResolveNextStep] can branch, and
+  ///    [autoSkipUnmountedSteps] / [onShouldSkipUnmountedStep] skip unmounted
+  ///    steps, judged by what is mounted at that moment.
+  /// 4. This callback runs for the chosen step, and the tour waits for it.
+  /// 5. [onStart] runs for that step, and the step shows: its
+  ///    [Showcase.onShow], auto-scroll, announcement and auto-play timer
+  ///    start from here, so an auto-play delay counts from when the step
+  ///    appears.
+  ///
+  /// It does not run for skipped steps, when the tour finishes or when it is
+  /// dismissed. Because skipping is decided before it runs, a step this
+  /// callback brings on screen (by opening its page or scrolling a lazy list)
+  /// must not be skipped: leave [autoSkipUnmountedSteps] off, so the tour
+  /// waits for it, or return `false` for it from [onShouldSkipUnmountedStep].
+  /// A step whose widget is still not mounted when the callback completes is
+  /// waited for, like any step the tour does not skip.
+  ///
+  /// **While the tour waits.** The step it left is gone and nothing else is
+  /// shown: no dimmed background, no tooltip, and the app takes taps and the
+  /// back button as usual. A tap still in flight on the step that was left,
+  /// such as a second tap on its background, is ignored rather than
+  /// advancing the tour again. [ShowCaseWidgetState.isShowcaseRunning] is
+  /// `true`, [ShowCaseWidgetState.currentIndex] is the index of the step being
+  /// prepared, and [ShowCaseWidgetState.isPreparingStep] is `true`.
+  ///
+  /// **If the tour moves while it waits.** The step being prepared is given
+  /// up, and when the callback completes nothing happens: no stale step
+  /// shows and [onStart] does not run for it. That step never started, so
+  /// [onComplete] does not run for it either. The calls, from the app or from
+  /// this callback itself:
+  ///
+  /// * [ShowCaseWidgetState.next], or [ShowCaseWidgetState.completed] with
+  ///   its key, moves on from the step being prepared, as if it had been
+  ///   shown: [onResolveNextStep] is asked about it, and this callback runs
+  ///   for the step after it. Calling `next()` from this callback skips its
+  ///   step.
+  /// * [ShowCaseWidgetState.previous], [ShowCaseWidgetState.goTo] and
+  ///   [ShowCaseWidgetState.goToKey] move from it in the same way. A
+  ///   `previous()` with no earlier step to go to does nothing, and the wait
+  ///   goes on.
+  /// * [ShowCaseWidgetState.dismiss] ends the tour. [onDismiss] receives
+  ///   `null`, as no step was showing.
+  /// * [ShowCaseWidgetState.startShowCase] replaces the tour, and this
+  ///   callback runs for the new tour's first step. With a `delay`, the
+  ///   running tour carries on until the delayed start replaces it, as
+  ///   always.
+  /// * Turning [enableShowcase] off ends the tour, and disposing this
+  ///   [ShowCaseWidget] drops it.
+  ///
+  /// **If it throws**, synchronously or through its [Future], the error is
+  /// reported to [FlutterError.onError] and the step shows as if the callback
+  /// had completed. To skip the step or end the tour instead, catch the error
+  /// and call [ShowCaseWidgetState.next] or [ShowCaseWidgetState.dismiss].
+  ///
+  /// **Timing.** When it returns nothing (a synchronous callback), the step
+  /// shows within the same call, on the same frame as without the callback.
+  /// When it returns a [Future], even one that has already completed, the
+  /// step shows once that future completes, after the current microtask. With
+  /// [enableStepTransition], a step entered after a [Future] appears without
+  /// gliding from the previous target, since nothing was on screen in
+  /// between; after a synchronous callback it glides as usual.
+  ///
+  /// Defaults to `null`, which shows each step as soon as the tour moves to
+  /// it.
+  final ShowcaseBeforeStepCallback? onBeforeStep;
 
   /// Triggered every time a step completes (the tour leaves it to go to another
   /// step or to finish), with the step's zero-based index and its target key.
@@ -473,6 +574,7 @@ class ShowCaseWidget extends StatefulWidget {
     required this.builder,
     this.onFinish,
     this.onStart,
+    this.onBeforeStep,
     this.onComplete,
     this.onDismiss,
     this.onBarrierClick,
@@ -696,6 +798,14 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Whether a showcase tour is currently running.
   bool get isShowcaseRunning => ids != null;
 
+  /// Whether the tour is waiting on [ShowCaseWidget.onBeforeStep] before it
+  /// shows the step at [currentIndex].
+  ///
+  /// No step is on screen meanwhile. Always `false` without
+  /// [ShowCaseWidget.onBeforeStep]; with a synchronous callback it is `true`
+  /// only while that call runs.
+  bool get isPreparingStep => _preparingStep;
+
   /// Zero-based index of the active step, or `null` when no tour is running.
   int? get currentIndex => activeWidgetId;
 
@@ -730,6 +840,22 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// its start was called off, or replaced, finds a newer generation and does
   /// nothing.
   int _startGeneration = 0;
+
+  /// Whether the tour waits on [ShowCaseWidget.onBeforeStep] for the step at
+  /// [activeWidgetId], which is not shown meanwhile.
+  bool _preparingStep = false;
+
+  /// Counts the tour's moves, ends and teardowns. A
+  /// [ShowCaseWidget.onBeforeStep] that completes after the tour moved on,
+  /// ended, was disabled or went away finds a newer generation and shows
+  /// nothing.
+  int _stepGeneration = 0;
+
+  /// Whether a move of the tour goes through [ShowCaseWidget.onBeforeStep].
+  ///
+  /// Also while a step is still being prepared for a callback that has since
+  /// been taken off the widget, so that step is given up properly.
+  bool get _usesBeforeStep => widget.onBeforeStep != null || _preparingStep;
 
   /// The step on screen right now, as reported by [ShowcaseTourFocus.didShowStep]:
   /// its owner, the page it is on, and how it dismisses the tour.
@@ -1030,6 +1156,10 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   }
 
   void _startShowCaseNow(List<GlobalKey> widgetIds, int startAt) {
+    if (_usesBeforeStep) {
+      _startBeforeStep(widgetIds, startAt);
+      return;
+    }
     setState(() {
       // A tour always opens on its starting step rather than gliding into it,
       // even when this call restarts a running tour.
@@ -1046,6 +1176,126 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
         _onStart();
       }
     });
+  }
+
+  /// [_startShowCaseNow] for a tour with [ShowCaseWidget.onBeforeStep]: the
+  /// same choice of first step, then [_enterStep] for it.
+  void _startBeforeStep(List<GlobalKey> widgetIds, int startAt) {
+    // A tour being replaced stops waiting on its own callback.
+    _stepGeneration++;
+    _preparingStep = false;
+    _previousTargetRect = null;
+    ids = widgetIds;
+    final start = widgetIds.isEmpty ? 0 : startAt.clamp(0, widgetIds.length - 1);
+    final first = _nextMountedIndex(start, 1);
+    if (first >= widgetIds.length) {
+      setState(() {
+        activeWidgetId = first;
+        _cleanupAfterSteps();
+        _onFinish();
+      });
+      return;
+    }
+    _enterStep(first);
+  }
+
+  /// Moves forward from the step at [activeWidgetId], for [next] and
+  /// [completed] in a tour with [ShowCaseWidget.onBeforeStep].
+  void _moveForwardBeforeStep() {
+    final from = activeWidgetId!;
+    final generation = _stepGeneration;
+    // A step still being prepared never started, so it does not complete.
+    if (!_preparingStep) _onComplete();
+    final target = _forwardTargetIndex(from);
+    // onComplete or onResolveNextStep moved or ended the tour themselves.
+    if (generation != _stepGeneration || ids == null) return;
+    if (target >= ids!.length) {
+      setState(() {
+        activeWidgetId = target;
+        _cleanupAfterSteps();
+        _onFinish();
+      });
+      return;
+    }
+    _enterStep(target);
+  }
+
+  /// Moves to [index], for [previous] and [goTo] in a tour with
+  /// [ShowCaseWidget.onBeforeStep].
+  void _jumpBeforeStep(int index) {
+    final generation = _stepGeneration;
+    if (!_preparingStep) _onComplete();
+    // onComplete moved or ended the tour itself.
+    if (generation != _stepGeneration || ids == null) return;
+    _enterStep(index);
+  }
+
+  /// Shows the step at [index], which the tour has already chosen, once
+  /// [ShowCaseWidget.onBeforeStep] has completed for it.
+  ///
+  /// The step the tour left has already completed. Until the callback
+  /// completes the tour is between steps: [activeWidgetId] is [index] and no
+  /// step is published, so none shows. Any move of the tour in the meantime,
+  /// including one the callback makes itself, bumps [_stepGeneration], and
+  /// the late completion is then ignored.
+  void _enterStep(int index) {
+    final generation = ++_stepGeneration;
+    activeWidgetId = index;
+    _preparingStep = true;
+    Object? result;
+    final callback = widget.onBeforeStep;
+    if (callback != null) {
+      try {
+        result = callback(index, ids![index]);
+      } catch (error, stack) {
+        _reportBeforeStepError(error, stack, index);
+      }
+    }
+    // The callback moved the tour itself (next, goTo, dismiss, a new start):
+    // that move has already taken over.
+    if (generation != _stepGeneration || !mounted) return;
+    if (result is Future) {
+      // Takes the step the tour left off the screen while the callback runs.
+      setState(() {});
+      result.then(
+        (_) => _showPreparedStep(generation, waited: true),
+        onError: (Object error, StackTrace stack) {
+          _reportBeforeStepError(error, stack, index);
+          _showPreparedStep(generation, waited: true);
+        },
+      );
+      return;
+    }
+    _showPreparedStep(generation, waited: false);
+  }
+
+  /// Shows the step [_enterStep] prepared, unless the tour has moved on since.
+  void _showPreparedStep(int generation, {required bool waited}) {
+    if (generation != _stepGeneration || !mounted || ids == null || !enableShowcase) return;
+    setState(() {
+      _preparingStep = false;
+      // Nothing was on screen while the callback ran, so the step appears
+      // rather than gliding from a highlight that is long gone.
+      if (waited) _previousTargetRect = null;
+      _onStart();
+    });
+  }
+
+  void _reportBeforeStepError(Object error, StackTrace stack, int index) {
+    FlutterError.reportError(
+      FlutterErrorDetails(
+        exception: error,
+        stack: stack,
+        library: 'showcase_tutorial',
+        context: ErrorDescription('while running ShowCaseWidget.onBeforeStep for step $index'),
+        informationCollector: () => [
+          ErrorHint(
+            'The tour shows the step anyway. To skip it or end the tour, '
+            'catch the error and call next() or dismiss().',
+          ),
+        ],
+      ),
+    );
   }
 
   /// Advances [index] in [direction] (`1` forward / `-1` back) past steps whose
@@ -1102,6 +1352,10 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// otherwise will finish the entire showcase view
   void completed(GlobalKey? key) {
     if (ids != null && ids![activeWidgetId!] == key && mounted) {
+      if (_usesBeforeStep) {
+        _moveForwardBeforeStep();
+        return;
+      }
       setState(() {
         _onComplete();
         activeWidgetId = _forwardTargetIndex(activeWidgetId!);
@@ -1119,6 +1373,10 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// otherwise will finish the entire showcase view
   void next() {
     if (ids != null && mounted) {
+      if (_usesBeforeStep) {
+        _moveForwardBeforeStep();
+        return;
+      }
       setState(() {
         _onComplete();
         activeWidgetId = _forwardTargetIndex(activeWidgetId!);
@@ -1141,6 +1399,10 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     if (ids == null || !mounted) return false;
     final target = _nextMountedIndex((activeWidgetId ?? 0) - 1, -1);
     if (target < 0) return false;
+    if (_usesBeforeStep) {
+      _jumpBeforeStep(target);
+      return true;
+    }
     setState(() {
       _onComplete();
       activeWidgetId = target;
@@ -1157,6 +1419,10 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   void goTo(int index) {
     if (ids == null || activeWidgetId == null || !mounted) return;
     if (index < 0 || index >= ids!.length) return;
+    if (_usesBeforeStep) {
+      _jumpBeforeStep(index);
+      return;
+    }
     setState(() {
       _onComplete();
       activeWidgetId = index;
@@ -1238,6 +1504,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     ids = null;
     activeWidgetId = null;
     _previousTargetRect = null;
+    // A step still being prepared is given up with the tour.
+    _preparingStep = false;
+    _stepGeneration++;
   }
 
   /// Answers a back press for [ShowCaseWidget.backButtonInteraction]. Only
@@ -1289,6 +1558,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     _popEntryRoute = null;
     _popEntry.dispose();
     _cancelPendingStart();
+    _stepGeneration++;
     _onStartCallbacks.clear();
     _onCompleteCallbacks.clear();
     _onFinishCallbacks.clear();
@@ -1302,7 +1572,12 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     super.didUpdateWidget(oldWidget);
     // A start still waiting on its `delay` is called off too: the tour is not
     // to start while the showcase is disabled.
-    if (!widget.enableShowcase) _cancelPendingStart();
+    if (!widget.enableShowcase) {
+      _cancelPendingStart();
+      // A step being prepared is not shown either: the dismissal below ends
+      // the tour.
+      _stepGeneration++;
+    }
     if (oldWidget.backButtonInteraction != widget.backButtonInteraction) _syncPopEntry();
     // A running tour cannot survive being disabled: [startShowCase] refuses to
     // run at all while [ShowCaseWidget.enableShowcase] is false, so leaving the
@@ -1324,7 +1599,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   @override
   Widget build(BuildContext context) {
     return _InheritedShowCaseView(
-      activeWidgetIds: ids?.elementAt(activeWidgetId!),
+      // While a step is being prepared, no step is active.
+      activeWidgetIds: _preparingStep ? null : ids?.elementAt(activeWidgetId!),
       enableShowcase: widget.enableShowcase,
       child: widget.builder,
     );
@@ -1437,6 +1713,7 @@ extension ShowcaseTourFocus on ShowCaseWidgetState {
   /// Read from the tour itself rather than from the inherited value a step
   /// last rebuilt with, so it is current even between frames.
   GlobalKey? get activeStepKey {
+    if (_preparingStep) return null;
     final steps = ids;
     final index = activeWidgetId;
     if (steps == null || index == null || index < 0 || index >= steps.length) return null;
