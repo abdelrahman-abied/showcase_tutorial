@@ -15,6 +15,11 @@
   by another `startShowCase`, by turning `enableShowcase` off, or when the
   `ShowCaseWidget` goes away. Without a delay the tour starts at once, as
   before.
+* **Listen for the end of a tour from anywhere:** `addOnFinishCallback` /
+  `removeOnFinishCallback` and `addOnDismissCallback` /
+  `removeOnDismissCallback` on `ShowCaseWidget.of(context)`. They work like
+  `addOnStartCallback`: they run after `onFinish` / `onDismiss`, in the order
+  they were added, and a listener can remove itself while it runs.
 
 ## 2.0.3
 

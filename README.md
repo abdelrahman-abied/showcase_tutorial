@@ -72,7 +72,7 @@ and you can run it on its own with
 - **Lifecycle callbacks** — per-step (`onShow` / `onDismiss`) and tour-level
   (`onStart` / `onComplete` / `onFinish`, plus `onDismiss` for early close), and
   configurable background-tap behavior (tour-wide or per step).
-- **Introspection** — register/unregister step listeners at runtime, track the
+- **Introspection** — register/unregister step, finish and dismiss listeners at runtime, track the
   highlighted target's bounds with `onTargetRectUpdate`, and check whether a
   step's target is on screen with `isTargetRendered`.
 - **Run the tour only once** for onboarding, **resume it** where the user left
@@ -276,7 +276,7 @@ To translate the built-in labels once instead of per button, use
 | `isShowcaseRunning`, `isTargetRendered(key)` | same |
 | `getActiveShowcaseKey` | `ids` and `currentIndex` (the active key is `ids![currentIndex!]` while a tour runs), plus `totalSteps` |
 | `addOnStartCallback`, `addOnCompleteCallback` | same |
-| `addOnFinishCallback`, `addOnDismissCallback` | use `onFinish` / `onDismiss` on `ShowCaseWidget` |
+| `addOnFinishCallback`, `addOnDismissCallback` | same (and the `remove…` pairs) |
 | `skipIfTargetNotPresent: true` | `autoSkipUnmountedSteps: true`, or `onShouldSkipUnmountedStep` per step |
 | `disableBarrierInteraction: true` | `barrierInteraction: BarrierInteraction.none` (also `.dismiss`) |
 | `semanticEnable: true` | on by default: `enableAutoAnnouncements` |
@@ -1257,9 +1257,13 @@ class _StepCounterState extends State<StepCounter> {
 }
 ```
 
-There's an `addOnCompleteCallback` / `removeOnCompleteCallback` pair too. Both
-run in addition to the widget-level callbacks, in registration order; always
-remove in `dispose` so a gone widget stops being called.
+There are `addOnCompleteCallback` / `removeOnCompleteCallback`,
+`addOnFinishCallback` / `removeOnFinishCallback` and `addOnDismissCallback` /
+`removeOnDismissCallback` pairs too, the runtime counterparts of `onComplete`,
+`onFinish` and `onDismiss` (a dismiss listener gets the same `GlobalKey?` of
+the step the user left off on). All of them run after the widget-level
+callback, in registration order, and a listener can remove itself while it
+runs. Always remove in `dispose` so a gone widget stops being called.
 
 ### Following the highlighted target
 
@@ -1596,6 +1600,8 @@ ShowCaseWidget(
 | `previousTargetRect`                         | Global bounds of the step the tour just left (`null` outside a transition). |
 | `addOnStartCallback(cb)` / `removeOnStartCallback(cb)` | Register/unregister a step-start listener at runtime.          |
 | `addOnCompleteCallback(cb)` / `removeOnCompleteCallback(cb)` | Register/unregister a step-complete listener at runtime. |
+| `addOnFinishCallback(cb)` / `removeOnFinishCallback(cb)` | Register/unregister a tour-finish listener at runtime (runs after `onFinish`). |
+| `addOnDismissCallback(cb)` / `removeOnDismissCallback(cb)` | Register/unregister an early-dismiss listener at runtime, `void Function(GlobalKey?)` (runs after `onDismiss`). |
 
 ### `ShowCaseWidget` properties
 

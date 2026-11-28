@@ -6025,6 +6025,13 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
+  // Makes a tap that would fall through to something else fail the test.
+  void failOnMissedTaps() {
+    final previousWarning = WidgetController.hitTestWarningShouldBeFatal;
+    WidgetController.hitTestWarningShouldBeFatal = true;
+    addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = previousWarning);
+  }
+
   // The tooltip animates forever, so frames are pumped instead of settling.
   Future<void> pumpFrames(WidgetTester tester, [int count = 6]) async {
     await tester.pump();
@@ -6032,6 +6039,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
+
+  // The active step's dimmed background, the barrier a tap outside the
+  // highlight lands on.
+  final barrier = find.byWidgetPredicate((w) => w is ClipPath && w.clipper is RRectClipper);
 
   group('startShowCase(delay:)', () {
     Widget delayApp(
@@ -6239,6 +6250,168 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       expect(tester.takeException(), isNull);
       expect(state.isShowcaseRunning, isFalse);
+    });
+  });
+
+  group('addOnFinishCallback / addOnDismissCallback', () {
+    testWidgets('finish listeners run after onFinish, in registration order', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final events = <String>[];
+      await tester.pumpWidget(
+        buildDismissApp(k1, k2, onFinish: () => events.add('widget'), onDismiss: (_) => events.add('dismissed')),
+      );
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.addOnFinishCallback(() => events.add('a'));
+      state.addOnFinishCallback(() => events.add('b'));
+
+      state.startShowCase([k1, k2]);
+      await pumpFrames(tester, 4);
+      state.next();
+      await pumpFrames(tester, 4);
+      expect(events, isEmpty);
+      state.next(); // past the last step: a normal finish
+      await pumpFrames(tester, 4);
+      expect(events, ['widget', 'a', 'b']);
+
+      // A tour with no steps finishes straight away, and is reported too.
+      events.clear();
+      state.startShowCase([]);
+      expect(events, ['widget', 'a', 'b']);
+    });
+
+    testWidgets('dismiss listeners run after onDismiss, in order, with the active key', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final events = <String>[];
+      String name(GlobalKey? key) => key == k1 ? 'k1' : (key == k2 ? 'k2' : '$key');
+      await tester.pumpWidget(
+        buildDismissApp(
+          k1,
+          k2,
+          onFinish: () => events.add('finished'),
+          onDismiss: (key) => events.add('widget:${name(key)}'),
+        ),
+      );
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.addOnDismissCallback((key) => events.add('a:${name(key)}'));
+      state.addOnDismissCallback((key) => events.add('b:${name(key)}'));
+
+      state.startShowCase([k1, k2]);
+      await pumpFrames(tester, 4);
+      state.next();
+      await pumpFrames(tester, 4);
+      state.dismiss();
+      await pumpFrames(tester, 4);
+      expect(events, ['widget:k2', 'a:k2', 'b:k2']);
+
+      // A normal finish is not a dismissal.
+      events.clear();
+      state.startShowCase([k1]);
+      await pumpFrames(tester, 4);
+      state.next();
+      await pumpFrames(tester, 4);
+      expect(events, ['finished']);
+    });
+
+    testWidgets('a barrier tap that dismisses reaches the dismiss listeners', (tester) async {
+      usePhone(tester);
+      failOnMissedTaps();
+      final keys = [GlobalKey(), GlobalKey()];
+      final dismissedAt = <GlobalKey?>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            barrierInteraction: BarrierInteraction.dismiss,
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Column(
+                  children: [
+                    for (var i = 0; i < keys.length; i++)
+                      Showcase(key: keys[i], title: 'Step $i', description: 'd', child: Text('t$i')),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+      state.addOnDismissCallback(dismissedAt.add);
+
+      state.startShowCase(keys);
+      await pumpFrames(tester);
+      await tester.tap(barrier.first);
+      await pumpFrames(tester);
+      expect(dismissedAt, [keys[0]]);
+      expect(state.isShowcaseRunning, isFalse);
+    });
+
+    testWidgets('removed listeners stop firing', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      var finishes = 0;
+      var dismissals = 0;
+      void onFinish() => finishes++;
+      void onDismiss(GlobalKey? key) => dismissals++;
+      await tester.pumpWidget(buildDismissApp(k1, k2));
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+      state.addOnFinishCallback(onFinish);
+      state.addOnDismissCallback(onDismiss);
+
+      expect(state.removeOnFinishCallback(onFinish), isTrue);
+      expect(state.removeOnDismissCallback(onDismiss), isTrue);
+      // Removing an unregistered callback reports false rather than throwing.
+      expect(state.removeOnFinishCallback(onFinish), isFalse);
+      expect(state.removeOnDismissCallback(onDismiss), isFalse);
+
+      state.startShowCase([k1]);
+      await pumpFrames(tester, 4);
+      state.next();
+      await pumpFrames(tester, 4);
+      state.startShowCase([k1]);
+      await pumpFrames(tester, 4);
+      state.dismiss();
+      await pumpFrames(tester, 4);
+      expect(finishes, 0);
+      expect(dismissals, 0);
+    });
+
+    testWidgets('a listener that unregisters itself mid-dispatch is safe', (tester) async {
+      final k1 = GlobalKey();
+      final k2 = GlobalKey();
+      final calls = <String>[];
+      await tester.pumpWidget(buildDismissApp(k1, k2));
+      final state = ShowCaseWidget.of(tester.element(find.text('t1')));
+
+      late final VoidCallback finishOnce;
+      finishOnce = () {
+        calls.add('finish-once');
+        state.removeOnFinishCallback(finishOnce); // mutates the list while dispatching
+      };
+      state.addOnFinishCallback(finishOnce);
+      state.addOnFinishCallback(() => calls.add('finish'));
+
+      late final void Function(GlobalKey?) dismissOnce;
+      dismissOnce = (_) {
+        calls.add('dismiss-once');
+        state.removeOnDismissCallback(dismissOnce);
+      };
+      state.addOnDismissCallback(dismissOnce);
+      state.addOnDismissCallback((_) => calls.add('dismiss'));
+
+      for (var round = 0; round < 2; round++) {
+        state.startShowCase([k1]);
+        await pumpFrames(tester, 4);
+        state.next();
+        await pumpFrames(tester, 4);
+        state.startShowCase([k1]);
+        await pumpFrames(tester, 4);
+        state.dismiss();
+        await pumpFrames(tester, 4);
+      }
+      expect(tester.takeException(), isNull);
+      expect(calls, ['finish-once', 'finish', 'dismiss-once', 'dismiss', 'finish', 'dismiss']);
     });
   });
 }

@@ -73,6 +73,8 @@ class ShowCaseWidget extends StatefulWidget {
   final Widget builder;
 
   /// Triggered when all the showcases are completed.
+  ///
+  /// To add listeners at runtime, see [ShowCaseWidgetState.addOnFinishCallback].
   final VoidCallback? onFinish;
 
   /// Triggered every time a step starts, with the step's zero-based index in
@@ -100,6 +102,9 @@ class ShowCaseWidget extends StatefulWidget {
   /// tour finishes normally by advancing past the last step — use [onFinish] for
   /// that. Distinct from the per-step [Showcase.onDismiss], which fires for every
   /// step as the tour leaves it.
+  ///
+  /// To add listeners at runtime, see
+  /// [ShowCaseWidgetState.addOnDismissCallback].
   final void Function(GlobalKey? dismissedAt)? onDismiss;
 
   /// Triggered whenever the dimmed background (the barrier) is tapped, in
@@ -673,6 +678,12 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Listeners registered with [addOnCompleteCallback].
   final List<ShowcaseStepCallback> _onCompleteCallbacks = [];
 
+  /// Listeners registered with [addOnFinishCallback].
+  final List<VoidCallback> _onFinishCallbacks = [];
+
+  /// Listeners registered with [addOnDismissCallback].
+  final List<void Function(GlobalKey? dismissedAt)> _onDismissCallbacks = [];
+
   /// The start [startShowCase] scheduled with a `delay`, while it waits.
   Timer? _delayedStart;
 
@@ -735,6 +746,45 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Returns `true` if it was registered. Removes only the first match when the
   /// same callback was added more than once.
   bool removeOnCompleteCallback(ShowcaseStepCallback callback) => _onCompleteCallbacks.remove(callback);
+
+  /// Registers [callback] to run whenever a tour finishes normally (advances
+  /// past its last step), in addition to [ShowCaseWidget.onFinish].
+  ///
+  /// The dynamic counterpart of [ShowCaseWidget.onFinish], with the same
+  /// contract as [addOnStartCallback]: adding the same callback twice invokes
+  /// it twice, listeners run after [ShowCaseWidget.onFinish] in registration
+  /// order, and removing one during dispatch is safe and takes effect from
+  /// the next finish. Like [ShowCaseWidget.onFinish], it is not called when
+  /// the tour is dismissed early: see [addOnDismissCallback]. Pair with
+  /// [removeOnFinishCallback] in `dispose`.
+  void addOnFinishCallback(VoidCallback callback) => _onFinishCallbacks.add(callback);
+
+  /// Unregisters a listener added with [addOnFinishCallback].
+  ///
+  /// Returns `true` if it was registered. Removes only the first match when the
+  /// same callback was added more than once.
+  bool removeOnFinishCallback(VoidCallback callback) => _onFinishCallbacks.remove(callback);
+
+  /// Registers [callback] to run whenever the tour is dismissed early, in
+  /// addition to [ShowCaseWidget.onDismiss].
+  ///
+  /// The dynamic counterpart of [ShowCaseWidget.onDismiss]: it runs on every
+  /// [dismiss] (a barrier tap with [BarrierInteraction.dismiss], <kbd>Esc</kbd>,
+  /// the skip button, `disposeOnTap`, a manual `dismiss()` call, or
+  /// [ShowCaseWidget.enableShowcase] turning off mid-tour) and receives the
+  /// same [GlobalKey] of the step that was active, or `null` if none was.
+  /// It has the same contract as [addOnStartCallback]: adding the same
+  /// callback twice invokes it twice, listeners run after
+  /// [ShowCaseWidget.onDismiss] in registration order, and removing one during
+  /// dispatch is safe and takes effect from the next dismissal. Pair with
+  /// [removeOnDismissCallback] in `dispose`.
+  void addOnDismissCallback(void Function(GlobalKey? dismissedAt) callback) => _onDismissCallbacks.add(callback);
+
+  /// Unregisters a listener added with [addOnDismissCallback].
+  ///
+  /// Returns `true` if it was registered. Removes only the first match when the
+  /// same callback was added more than once.
+  bool removeOnDismissCallback(void Function(GlobalKey? dismissedAt) callback) => _onDismissCallbacks.remove(callback);
 
   /// Starts the tour over [widgetIds], in that order. If this function is used
   /// when showcase has been disabled then it will throw an exception.
@@ -848,7 +898,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
       activeWidgetId = _nextMountedIndex(start, 1);
       if (activeWidgetId! >= ids!.length) {
         _cleanupAfterSteps();
-        widget.onFinish?.call();
+        _onFinish();
       } else {
         _onStart();
       }
@@ -916,7 +966,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
         if (activeWidgetId! >= ids!.length) {
           _cleanupAfterSteps();
-          widget.onFinish?.call();
+          _onFinish();
         }
       });
     }
@@ -933,7 +983,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
         if (activeWidgetId! >= ids!.length) {
           _cleanupAfterSteps();
-          widget.onFinish?.call();
+          _onFinish();
         }
       });
     }
@@ -989,6 +1039,23 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
         : null;
     setState(_cleanupAfterSteps);
     widget.onDismiss?.call(dismissedAt);
+    if (_onDismissCallbacks.isNotEmpty) {
+      // A copy, so a listener can unregister itself (or another) while it runs.
+      for (final listener in List.of(_onDismissCallbacks)) {
+        listener(dismissedAt);
+      }
+    }
+  }
+
+  /// Reports a normal finish to [ShowCaseWidget.onFinish], then to the
+  /// listeners registered with [addOnFinishCallback].
+  void _onFinish() {
+    widget.onFinish?.call();
+    if (_onFinishCallbacks.isEmpty) return;
+    // A copy, so a listener can unregister itself (or another) while it runs.
+    for (final listener in List.of(_onFinishCallbacks)) {
+      listener();
+    }
   }
 
   void _onStart() {
@@ -1030,6 +1097,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     _cancelDelayedStart();
     _onStartCallbacks.clear();
     _onCompleteCallbacks.clear();
+    _onFinishCallbacks.clear();
+    _onDismissCallbacks.clear();
     _overlayFocusNode.dispose();
     super.dispose();
   }
