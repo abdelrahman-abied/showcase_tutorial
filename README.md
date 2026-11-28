@@ -69,6 +69,10 @@ and you can run it on its own with
   `delay` to start the tour after a screen settles.
 - **Conditional / branching tours** — let a step decide the next step at runtime
   with `onResolveNextStep`.
+- **Prepare a step before it shows** — `onBeforeStep` is awaited before each
+  step, to scroll, load data or open its page first.
+- **Back button** — choose whether back closes the page, ends the tour, goes to
+  the previous step or does nothing while a step shows.
 - **Lifecycle callbacks** — per-step (`onShow` / `onDismiss`) and tour-level
   (`onStart` / `onComplete` / `onFinish`, plus `onDismiss` for early close), and
   configurable background-tap behavior (tour-wide or per step).
@@ -322,10 +326,292 @@ To translate the built-in labels once instead of per button, use
 - **Spacing defaults.** The gap between target and tooltip is 0 here, against
   10 in showcaseview. Set `targetTooltipGap: 10` for the same spacing.
 
+## Coming from tutorial_coach_mark
+
+[`tutorial_coach_mark`](https://pub.dev/packages/tutorial_coach_mark) builds
+a tutorial from a list: you tag each widget with a `GlobalKey`, describe it
+in a `TargetFocus`, and call `show()`. Here each target is wrapped in a
+`Showcase` instead, and a `ShowCaseWidget` above the screen runs the tour.
+This section maps tutorial_coach_mark 1.3.4 to this package.
+
+> **Before you switch:** this package needs Flutter 3.47 or newer and is
+> built on [`material_ui`](https://pub.dev/packages/material_ui). See the
+> [Requirements](#installation) note.
+
+**1. Setup: wrap the targets instead of listing them.**
+
+```dart
+// tutorial_coach_mark 1.3.4
+final menuKey = GlobalKey();
+final searchKey = GlobalKey();
+
+void showTutorial(BuildContext context) {
+  TutorialCoachMark(
+    targets: [
+      TargetFocus(
+        identify: 'menu',
+        keyTarget: menuKey,
+        contents: [TargetContent(align: ContentAlign.bottom, child: const Text('Open the menu'))],
+      ),
+      TargetFocus(
+        identify: 'search',
+        keyTarget: searchKey,
+        shape: ShapeLightFocus.RRect,
+        radius: 8,
+        contents: [TargetContent(align: ContentAlign.top, child: const Text('Search here'))],
+      ),
+    ],
+    colorShadow: Colors.black,
+    opacityShadow: 0.8,
+    onFinish: () => debugPrint('Tutorial finished'),
+  ).show(context: context);
+}
+
+// In the page, the key goes on the widget itself.
+IconButton(key: menuKey, icon: const Icon(Icons.menu), onPressed: openMenu);
+```
+
+```dart
+// showcase_tutorial
+ShowCaseWidget(
+  style: const ShowcaseStyle(overlayColor: Colors.black, overlayOpacity: 0.8),
+  onFinish: () => debugPrint('Tour finished'),
+  builder: const HomePage(),
+);
+
+// In HomePage, the key goes on a Showcase around the widget.
+Showcase(
+  key: menuKey,
+  description: 'Open the menu',
+  tooltipPosition: TooltipPosition.bottom,
+  child: IconButton(icon: const Icon(Icons.menu), onPressed: openMenu),
+);
+Showcase(
+  key: searchKey,
+  description: 'Search here',
+  tooltipPosition: TooltipPosition.top,
+  targetBorderRadius: BorderRadius.circular(8),
+  child: const SearchField(),
+);
+```
+
+The order of the tour is the order of the keys you pass to `startShowCase`.
+For a tutorial that spans several screens, put `ShowCaseWidget` in
+`MaterialApp.builder` (see [Tours across screens](#tours-across-screens)).
+
+**2. Starting and advancing: from a `context`.**
+
+```dart
+// tutorial_coach_mark 1.3.4
+final tutorial = TutorialCoachMark(targets: targets, initialFocus: 1)
+  ..show(context: context);
+tutorial.next();
+tutorial.previous();
+tutorial.goTo(2);
+tutorial.skip();
+```
+
+```dart
+// showcase_tutorial: any context below ShowCaseWidget
+final tour = ShowCaseWidget.of(context)
+  ..startShowCase([menuKey, searchKey, profileKey], startAt: 1);
+tour.next();
+tour.previous();
+tour.goTo(2);
+tour.dismiss(); // reports onDismiss, where tutorial_coach_mark calls onSkip
+```
+
+**3. Custom content: `TargetContent` becomes `Showcase.withWidget`.**
+
+```dart
+// tutorial_coach_mark 1.3.4
+TargetFocus(
+  keyTarget: profileKey,
+  contents: [
+    TargetContent(
+      align: ContentAlign.bottom,
+      builder: (context, controller) => Column(
+        children: [
+          const Text('Your profile'),
+          TextButton(onPressed: controller.next, child: const Text('Next')),
+        ],
+      ),
+    ),
+  ],
+);
+```
+
+```dart
+// showcase_tutorial, in the page's build method
+Showcase.withWidget(
+  key: profileKey,
+  tooltipPosition: TooltipPosition.bottom,
+  container: Column(
+    children: [
+      const Text('Your profile'),
+      TextButton(
+        onPressed: () => ShowCaseWidget.of(context).next(),
+        child: const Text('Next'),
+      ),
+    ],
+  ),
+  child: const ProfileAvatar(),
+);
+```
+
+There is no controller argument: the `container` is built with the rest of
+your page, so the page's `context` reaches the tour. For the built-in
+Previous / Next / Stop buttons, use [`actions`](#action-buttons-next--previous--stop).
+
+**4. Before a step, and the back button.**
+
+```dart
+// tutorial_coach_mark 1.3.4
+TutorialCoachMark(
+  targets: targets,
+  beforeFocus: (target) async {
+    if (target.identify == 'chart') await loadChart();
+  },
+  disableBackButton: true,
+);
+```
+
+```dart
+// showcase_tutorial
+ShowCaseWidget(
+  onBeforeStep: (index, key) async {
+    if (key == chartKey) await loadChart();
+  },
+  backButtonInteraction: BackButtonInteraction.block,
+  builder: const HomePage(),
+);
+```
+
+See [Prepare a step before it shows](#prepare-a-step-before-it-shows) and
+[Back button](#back-button).
+
+**5. The Skip button: opt in.**
+
+```dart
+// showcase_tutorial: in the tooltip
+ShowCaseWidget(
+  showSkip: true,
+  labels: const ShowcaseLabels(skip: 'SKIP'),
+  builder: const HomePage(),
+);
+
+// or pinned to a corner of the screen, like alignSkip
+ShowCaseWidget(
+  globalFloatingActionWidget: (context) => Align(
+    alignment: Alignment.bottomRight,
+    child: SafeArea(
+      child: TextButton(onPressed: ShowCaseWidget.of(context).dismiss, child: const Text('SKIP')),
+    ),
+  ),
+  builder: const HomePage(),
+);
+```
+
+### API mapping
+
+| tutorial_coach_mark 1.3.4 | showcase_tutorial |
+| --- | --- |
+| `TutorialCoachMark(targets: ...).show(context: context)` | `ShowCaseWidget(...)` above the screen, then `ShowCaseWidget.of(context).startShowCase(keys)` |
+| `show(rootOverlay: true)`, `showWithNavigatorStateKey`, `showWithOverlayState` | `ShowCaseWidget` in `MaterialApp.builder` (see [Tours across screens](#tours-across-screens)) |
+| `TargetFocus(keyTarget: key)` | `Showcase(key: key, child: yourWidget)` |
+| `TargetFocus(targetPosition: TargetPosition(size, offset))` | not available: every step wraps a widget. Closest: a `Showcase` around an empty `SizedBox` of that size, placed with `Positioned` in a `Stack` over the area |
+| `identify` | the step's `GlobalKey`; `onStart`, `onComplete` and `onBeforeStep` get its index and key |
+| `contents: [TargetContent(child: ...)]` | `Showcase(title:, description:)`, or `Showcase.withWidget(container:)` |
+| several `TargetContent`s in one target | not available: one tooltip per step. Closest: put them in one `container` (a `Column`), and pin another block to the screen with `floatingActionWidget` |
+| `TargetContent(builder: (context, controller) => ...)` | `Showcase.withWidget(container: ...)`, calling `ShowCaseWidget.of(context)` from your page |
+| `TargetContent(align: ContentAlign.top / bottom / left / right)` | `tooltipPosition: TooltipPosition.top / bottom / left / right` |
+| `ContentAlign.custom` with `customPosition` | `floatingActionWidget: Positioned(...)` (placed on the screen, not by the target) |
+| `TargetContent(padding: ...)` | `targetTooltipGap` (from the target) and `toolTipMargin` (from the screen edges) |
+| `shape: ShapeLightFocus.Circle` | `targetShapeBorder: const CircleBorder()` |
+| `shape: ShapeLightFocus.RRect`, `radius` | `targetBorderRadius: BorderRadius.circular(radius)` |
+| `borderSide` | `highlightBorderColor` and `highlightBorderWidth` |
+| `TargetFocus(color: ...)` | `Showcase.overlayColor` |
+| `paddingFocus` (tour-wide or per target, default 10) | `Showcase.targetPadding: EdgeInsets.all(10)` (per step, default zero) |
+| `enableOverlayTab: false` (the default) | `barrierInteraction: BarrierInteraction.none`, tour-wide or per step |
+| `enableOverlayTab: true` | the default here: `BarrierInteraction.next` |
+| `enableTargetTab: false` | `disposeOnTap: false, onTargetClick: () {}` (a target tap then does nothing) |
+| `onClickTarget` | `Showcase.onTargetClick` with `disposeOnTap: false`; it replaces the advance, so call `next()` in it |
+| `onClickTargetWithTapPosition` | not available: `onTargetClick` gets no position |
+| `onClickOverlay` (only with `enableOverlayTab: true`) | `onBarrierClick` tour-wide, `Showcase.onBarrierClick` per step; both fire on every background tap |
+| `beforeFocus` | `onBeforeStep: (index, key) async { ... }` |
+| `disableBackButton: true` | `backButtonInteraction: BackButtonInteraction.block`; also `.dismiss` and `.previous` |
+| `initialFocus` | `startShowCase(keys, startAt: index)` |
+| `onFinish` | `onFinish` |
+| `onSkip` | `onDismiss` |
+| `onSkip` returning `false` (go on instead of closing) | not available. Closest: a skip button of your own in `globalFloatingActionWidget` that calls `next()` or `dismiss()` |
+| `hideSkip: false` (the default: Skip shows) | `showSkip: true` (off by default) |
+| `textSkip` | `labels: ShowcaseLabels(skip: ...)` |
+| `alignSkip`, `skipWidget`, `textStyleSkip` | your own button in `globalFloatingActionWidget`, placed with `Align` |
+| `TargetFocus(alignSkip: ...)` | `Showcase.floatingActionWidget` for that step |
+| `showSkipInLastTarget: false` | `hideFloatingActionWidgetForShowcase: [lastKey]` |
+| `useSafeArea` | wrap your floating widget in a `SafeArea` |
+| `colorShadow` | `style: ShowcaseStyle(overlayColor: ...)` |
+| `opacityShadow` (default 0.8) | `style: ShowcaseStyle(overlayOpacity: ...)` (default 0.75) |
+| `imageFilter` | `blurValue`, tour-wide or per step: a blur, not any `ImageFilter` |
+| `focusAnimationDuration`, `unFocusAnimationDuration` | `enableStepTransition: true` with `stepTransitionDuration` for the highlight; `scaleAnimationDuration` for the tooltip |
+| `pulseEnable` (default `true`) | `Showcase.enablePulseAnimation: true`, per step (off by default) |
+| `pulseAnimationDuration` | `Showcase.pulseDuration` |
+| `pulseVariation` | not available: `pulseColor` and `pulseDuration` set the ring |
+| `backgroundSemanticLabel` | not available. Each step is announced to screen readers; `Showcase.semanticLabel` sets the text |
+| `next()`, `previous()`, `goTo(index)` | same, on `ShowCaseWidget.of(context)` |
+| `skip()`, `removeOverlayEntry()` | `dismiss()` |
+| `finish()` | not available as such: `dismiss()` ends the tour and reports `onDismiss`, not `onFinish` |
+| `isShowing` | `isShowcaseRunning` |
+| `TutorialCoachMarkController` | `ShowCaseWidget.of(context)` |
+
+### Behaviour that differs
+
+- **Background taps advance.** tutorial_coach_mark ignores taps on the
+  shadow unless a target sets `enableOverlayTab: true`. Here a tap on the
+  dimmed background goes to the next step. Set `barrierInteraction:
+  BarrierInteraction.none` to ignore it, as tutorial_coach_mark does.
+- **`onTargetClick` replaces the advance.** tutorial_coach_mark runs
+  `onClickTarget` and then moves on. Here a tap on the target moves on only
+  when the step has no `onTargetClick`; with one, your callback runs instead.
+  Call `ShowCaseWidget.of(context).next()` in it to move on too.
+- **A missing target waits.** tutorial_coach_mark skips a target it can't
+  find, and finishes when none is left. Here the tour waits for that step's
+  widget to appear, which is what makes [tours across
+  screens](#tours-across-screens) work. `autoSkipUnmountedSteps: true` gives
+  tutorial_coach_mark's behaviour, finishing the tour when every remaining
+  step is skipped. One difference remains: tutorial_coach_mark looks for the
+  target after `beforeFocus`, while this package decides on skipping before
+  `onBeforeStep`. A step your `onBeforeStep` brings on screen must not be
+  skipped (see [Prepare a step before it shows](#prepare-a-step-before-it-shows)).
+- **Pages and dialogs on top.** tutorial_coach_mark's overlay stays above
+  everything, including pages pushed while it shows. Here a step hides while
+  another page or a dialog covers its page, and comes back when its page is
+  on top again.
+- **The pulse is opt-in.** tutorial_coach_mark pulses every target
+  (`pulseEnable: true`). Here a step pulses only with `enablePulseAnimation:
+  true`.
+- **Skip is opt-in.** tutorial_coach_mark shows SKIP unless `hideSkip:
+  true`. Here set `showSkip: true`, or pin your own button (step 5 above).
+- **`previous()` on the first step** does nothing here. In
+  tutorial_coach_mark it finishes the tutorial and calls `onFinish`.
+- **A default tooltip.** tutorial_coach_mark draws only the content you give
+  it. Here a step with a `title` and `description` gets a tooltip styled from
+  your app's theme (see [Colours and your app's
+  theme](#colours-and-your-apps-theme)). Use `Showcase.withWidget` for content
+  of your own.
+- **Spacing.** tutorial_coach_mark pads the highlight by 10 by default; here
+  `targetPadding` is zero. Set `targetPadding: EdgeInsets.all(10)` for the
+  same look.
+- **Requirements.** This package needs Flutter 3.47 or newer and
+  [`material_ui`](https://pub.dev/packages/material_ui). tutorial_coach_mark
+  is built on `package:flutter/material.dart` and supports older Flutter
+  releases.
+
 ## Table of contents
 
 - [Migrating from 1.x to 2.0](#migrating-from-1x-to-20)
 - [Coming from showcaseview](#coming-from-showcaseview)
+- [Coming from tutorial_coach_mark](#coming-from-tutorial_coach_mark)
 - [Installation](#installation)
 - [Getting started](#getting-started)
 - [Custom tooltip](#custom-tooltip-with-showcasewithwidget)

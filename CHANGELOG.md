@@ -12,6 +12,14 @@
   setup (`ShowcaseView.register` becomes `ShowCaseWidget`), controlling the
   tour, action buttons, a table that maps each showcaseview API to its
   equivalent here, and the behaviour that differs.
+* **Docs: [Coming from tutorial_coach_mark](https://github.com/abdelrahman-abied/showcase_tutorial#coming-from-tutorial_coach_mark).**
+  A README section for apps switching from tutorial_coach_mark 1.3.4:
+  setup (a `Showcase` around each target instead of a `TargetFocus` list),
+  starting and advancing the tour, custom content (`TargetContent` becomes
+  `Showcase.withWidget`), `beforeFocus` and `disableBackButton`, the Skip
+  button, a table that maps each tutorial_coach_mark API to its equivalent
+  here (or says it is not available, with the closest workaround), and the
+  behaviour that differs.
 * **Start the tour after a delay:** `startShowCase(keys, delay: ...)`. The
   call returns at once and the tour starts when the delay ends, for example
   once a screen's entrance animation is done. An `onShouldStartShowcase`
