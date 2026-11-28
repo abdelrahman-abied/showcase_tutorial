@@ -7136,6 +7136,80 @@ void main() {
       expect(find.text('Step 1'), findsOneWidget);
     });
   });
+
+  group('the announcement follows the text direction', () {
+    Future<List<(String, int)>> announce(
+      WidgetTester tester, {
+      String? title,
+      TextDirection? titleDirection,
+      TextDirection? descriptionDirection,
+      String? semanticLabel,
+    }) async {
+      final announced = <(String, int)>[];
+      tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, (
+        dynamic message,
+      ) async {
+        if (message is Map && message['type'] == 'announce') {
+          final data = message['data'] as Map;
+          announced.add((data['message'] as String, data['textDirection'] as int));
+        }
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler(SystemChannels.accessibility, null),
+      );
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ShowCaseWidget(
+            builder: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: Showcase(
+                    key: key,
+                    title: title,
+                    titleTextDirection: titleDirection,
+                    description: 'وصف',
+                    descriptionTextDirection: descriptionDirection,
+                    semanticLabel: semanticLabel,
+                    child: const Text('t'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      ShowCaseWidget.of(tester.element(find.text('t'))).startShowCase([key]);
+      await pumpFrames(tester, 3);
+      return announced;
+    }
+
+    final ltr = TextDirection.ltr.index;
+    final rtl = TextDirection.rtl.index;
+
+    testWidgets('unset: the app direction', (tester) async {
+      expect(await announce(tester, title: 'Title'), [('Title. وصف', ltr)]);
+    });
+
+    testWidgets('the title direction leads', (tester) async {
+      expect(await announce(tester, title: 'عنوان', titleDirection: TextDirection.rtl), [('عنوان. وصف', rtl)]);
+    });
+
+    testWidgets('a title in the app direction leads over the description', (tester) async {
+      expect(await announce(tester, title: 'Title', descriptionDirection: TextDirection.rtl), [('Title. وصف', ltr)]);
+    });
+
+    testWidgets('without a title, the description direction', (tester) async {
+      expect(await announce(tester, descriptionDirection: TextDirection.rtl), [('وصف', rtl)]);
+    });
+
+    testWidgets('a semanticLabel is read in the app direction', (tester) async {
+      expect(await announce(tester, title: 'عنوان', titleDirection: TextDirection.rtl, semanticLabel: 'Profile'), [
+        ('Profile', ltr),
+      ]);
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

@@ -1590,8 +1590,10 @@ Showcase(
 
 `titleTextDirection` and `descriptionTextDirection` order that text's words
 and punctuation, and set which side `titleAlignment` / `descriptionAlignment`
-start from when it wraps. The tooltip is measured with the same direction.
-Left `null` (the default), the text follows the app.
+start from when it wraps. The tooltip is measured with the same direction,
+and the screen-reader announcement is made in the direction of the text it
+starts with (the title, or the description when there is no title). Left
+`null` (the default), the text follows the app.
 
 ## Enable or disable globally
 

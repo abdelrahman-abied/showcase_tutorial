@@ -91,8 +91,10 @@ class Showcase extends StatefulWidget {
   /// [TextAlign.start] and [TextAlign.end] are read against it when the title
   /// wraps. Where the title sits in the tooltip still follows the app's
   /// direction. The tooltip is measured with the same direction, so it is
-  /// sized and placed for the text it shows. Does not apply to
-  /// [Showcase.withWidget].
+  /// sized and placed for the text it shows. The screen-reader announcement
+  /// of the step ([ShowCaseWidget.enableAutoAnnouncements]) is made in this
+  /// direction too, unless [semanticLabel] replaces its text. Does not apply
+  /// to [Showcase.withWidget].
   final TextDirection? titleTextDirection;
 
   /// Represents summary description of target widget
@@ -102,8 +104,9 @@ class Showcase extends StatefulWidget {
   ///
   /// When `null` (the default) the description follows the ambient
   /// [Directionality], as before. See [titleTextDirection], which works the
-  /// same way for the title; the two are independent. Does not apply to
-  /// [Showcase.withWidget].
+  /// same way for the title; the two are independent. A step without a
+  /// [title] is announced to screen readers in this direction. Does not
+  /// apply to [Showcase.withWidget].
   final TextDirection? descriptionTextDirection;
 
   /// ShapeBorder of the highlighted box when target widget will be showcased.
@@ -1060,7 +1063,14 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
           widget.description,
         ].whereType<String>().map((s) => s.trim()).where((s) => s.isNotEmpty).join('. ');
     if (label.isEmpty) return;
-    final textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
+    // The announcement reads in the direction of the text it starts with: the
+    // title's own direction, or the description's when there is no title.
+    // A [Showcase.semanticLabel] is the app's own text, in the app's direction.
+    final hasTitle = widget.title?.trim().isNotEmpty ?? false;
+    final ownDirection = widget.semanticLabel != null
+        ? null
+        : (hasTitle ? widget.titleTextDirection : widget.descriptionTextDirection);
+    final textDirection = ownDirection ?? Directionality.maybeOf(context) ?? TextDirection.ltr;
     // Announce on the view this step is drawn in, so a multi-window app
     // routes it to the right one.
     SemanticsService.sendAnnouncement(View.of(context), label, textDirection);
