@@ -6016,6 +6016,231 @@ void main() {
       expect(find.text('Second home step'), findsOneWidget);
     });
   });
+
+  // Sizes the test screen like a phone. setSurfaceSize would not update
+  // MediaQuery, which the overlay is sized from.
+  void usePhone(WidgetTester tester) {
+    tester.view.physicalSize = const Size(1236, 2745);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+  }
+
+  // The tooltip animates forever, so frames are pumped instead of settling.
+  Future<void> pumpFrames(WidgetTester tester, [int count = 6]) async {
+    await tester.pump();
+    for (var i = 0; i < count; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  group('startShowCase(delay:)', () {
+    Widget delayApp(
+      List<GlobalKey> keys, {
+      FutureOr<bool> Function(String?)? guard,
+      ShowcaseStepCallback? onStart,
+      bool enableShowcase = true,
+    }) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          enableShowcase: enableShowcase,
+          onShouldStartShowcase: guard,
+          onStart: onStart,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Column(
+                children: [
+                  for (var i = 0; i < keys.length; i++)
+                    Showcase(key: keys[i], title: 'Step $i', description: 'd', child: Text('t$i')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('starts the tour once the delay has passed', (tester) async {
+      usePhone(tester);
+      final keys = [GlobalKey(), GlobalKey()];
+      final started = <int?>[];
+      await tester.pumpWidget(delayApp(keys, onStart: (index, _) => started.add(index)));
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase(keys, delay: const Duration(milliseconds: 500));
+      expect(state.isShowcaseRunning, isFalse);
+      await tester.pump(const Duration(milliseconds: 499));
+      expect(state.isShowcaseRunning, isFalse);
+      expect(find.text('Step 0'), findsNothing);
+      expect(started, isEmpty);
+
+      await tester.pump(const Duration(milliseconds: 2));
+      expect(state.isShowcaseRunning, isTrue);
+      expect(started, [0]);
+      await pumpFrames(tester);
+      expect(find.text('Step 0'), findsOneWidget);
+    });
+
+    testWidgets('a zero (or negative) delay starts within the call, as without one', (tester) async {
+      usePhone(tester);
+      final keys = [GlobalKey(), GlobalKey()];
+      await tester.pumpWidget(delayApp(keys));
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase(keys, delay: Duration.zero);
+      expect(state.isShowcaseRunning, isTrue, reason: 'no frame or timer in between');
+      state.dismiss();
+
+      state.startShowCase(keys, delay: const Duration(milliseconds: -10));
+      expect(state.isShowcaseRunning, isTrue);
+      await pumpFrames(tester);
+      expect(find.text('Step 0'), findsOneWidget);
+    });
+
+    testWidgets('the guard is consulted after the delay, not before', (tester) async {
+      usePhone(tester);
+      final keys = [GlobalKey(), GlobalKey()];
+      var allowed = true;
+      var guardCalls = 0;
+      await tester.pumpWidget(
+        delayApp(
+          keys,
+          guard: (_) {
+            guardCalls++;
+            return allowed;
+          },
+        ),
+      );
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase(keys, delay: const Duration(milliseconds: 500));
+      expect(guardCalls, 0);
+      // The user finishes the tour elsewhere while the start waits.
+      allowed = false;
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(guardCalls, 1);
+      expect(state.isShowcaseRunning, isFalse);
+
+      allowed = true;
+      state.startShowCase(keys, delay: const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(guardCalls, 2);
+      expect(state.isShowcaseRunning, isTrue);
+    });
+
+    testWidgets('an asynchronous guard is awaited after the delay, and force skips it', (tester) async {
+      usePhone(tester);
+      final keys = [GlobalKey(), GlobalKey()];
+      var guardCalls = 0;
+      await tester.pumpWidget(
+        delayApp(
+          keys,
+          guard: (_) async {
+            guardCalls++;
+            await Future<void>.delayed(const Duration(milliseconds: 200));
+            return false;
+          },
+        ),
+      );
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase(keys, delay: const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 299));
+      expect(guardCalls, 0);
+      await tester.pump(const Duration(milliseconds: 2));
+      expect(guardCalls, 1);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(state.isShowcaseRunning, isFalse);
+
+      state.startShowCase(keys, force: true, delay: const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 301));
+      expect(guardCalls, 1, reason: 'force bypasses the guard');
+      expect(state.isShowcaseRunning, isTrue);
+    });
+
+    testWidgets('dismiss() during the delay cancels the start', (tester) async {
+      usePhone(tester);
+      final keys = [GlobalKey(), GlobalKey()];
+      final started = <int?>[];
+      await tester.pumpWidget(delayApp(keys, onStart: (index, _) => started.add(index)));
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase(keys, delay: const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 200));
+      state.dismiss();
+      await tester.pump(const Duration(seconds: 1));
+      expect(state.isShowcaseRunning, isFalse);
+      expect(started, isEmpty);
+    });
+
+    testWidgets('another startShowCase during the delay replaces the waiting one', (tester) async {
+      usePhone(tester);
+      final keys = [GlobalKey(), GlobalKey()];
+      final started = <GlobalKey>[];
+      await tester.pumpWidget(delayApp(keys, onStart: (_, key) => started.add(key)));
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      // A delayed call replaced by another delayed one.
+      state.startShowCase(keys, delay: const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 200));
+      state.startShowCase([keys[1]], delay: const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 400)); // 600 ms after the first call
+      expect(state.isShowcaseRunning, isFalse, reason: 'the first start was cancelled');
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(state.ids, [keys[1]]);
+      expect(started, [keys[1]]);
+      state.dismiss();
+
+      // A delayed call replaced by an immediate one.
+      started.clear();
+      state.startShowCase(keys, delay: const Duration(milliseconds: 500));
+      state.startShowCase([keys[1]]);
+      expect(state.ids, [keys[1]]);
+      await tester.pump(const Duration(seconds: 1));
+      expect(state.ids, [keys[1]], reason: 'the delayed start never fired');
+      expect(started, [keys[1]]);
+    });
+
+    testWidgets('disposing the ShowCaseWidget during the delay cancels the start', (tester) async {
+      usePhone(tester);
+      final keys = [GlobalKey(), GlobalKey()];
+      await tester.pumpWidget(delayApp(keys));
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase(keys, delay: const Duration(seconds: 5));
+      await tester.pumpWidget(const SizedBox());
+      // No pump past the delay on purpose: the test framework fails a test
+      // that ends with a timer still pending, which a start that was not
+      // cancelled (a bare Future.delayed, say) would leave behind.
+      expect(state.mounted, isFalse);
+    });
+
+    testWidgets('turning enableShowcase off during the delay cancels the start', (tester) async {
+      usePhone(tester);
+      final keys = [GlobalKey(), GlobalKey()];
+      var enabled = true;
+      late StateSetter setOuter;
+      await tester.pumpWidget(
+        StatefulBuilder(
+          builder: (context, setState) {
+            setOuter = setState;
+            return delayApp(keys, enableShowcase: enabled);
+          },
+        ),
+      );
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase(keys, delay: const Duration(milliseconds: 500));
+      setOuter(() => enabled = false);
+      await tester.pump(const Duration(milliseconds: 100));
+      // Back on before the delay ends: the cancelled start stays cancelled.
+      setOuter(() => enabled = true);
+      await tester.pump();
+      expect(state.enableShowcase, isTrue);
+      await tester.pump(const Duration(seconds: 1));
+      expect(tester.takeException(), isNull);
+      expect(state.isShowcaseRunning, isFalse);
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

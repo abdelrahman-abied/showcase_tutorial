@@ -7,6 +7,14 @@
   setup (`ShowcaseView.register` becomes `ShowCaseWidget`), controlling the
   tour, action buttons, a table that maps each showcaseview API to its
   equivalent here, and the behaviour that differs.
+* **Start the tour after a delay:** `startShowCase(keys, delay: ...)`. The
+  call returns at once and the tour starts when the delay ends, for example
+  once a screen's entrance animation is done. An `onShouldStartShowcase`
+  guard is asked when the delay ends, so it sees whether the tour was
+  completed in the meantime. The waiting start is called off by `dismiss()`,
+  by another `startShowCase`, by turning `enableShowcase` off, or when the
+  `ShowCaseWidget` goes away. Without a delay the tour starts at once, as
+  before.
 
 ## 2.0.3
 

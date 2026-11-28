@@ -65,7 +65,8 @@ and you can run it on its own with
   Next button) shown per step or tour-wide.
 - **Auto-play**, **auto-scroll** to off-screen targets, and **background blur**.
 - **Programmatic control**: `next()`, `previous()`, `goTo()`, `goToKey()`,
-  `dismiss()`, plus live progress (`currentIndex`, `totalSteps`).
+  `dismiss()`, plus live progress (`currentIndex`, `totalSteps`), and a
+  `delay` to start the tour after a screen settles.
 - **Conditional / branching tours** — let a step decide the next step at runtime
   with `onResolveNextStep`.
 - **Lifecycle callbacks** — per-step (`onShow` / `onDismiss`) and tour-level
@@ -269,7 +270,7 @@ To translate the built-in labels once instead of per button, use
 | `ShowcaseView.get()` / `getNamed(scope)` | `ShowCaseWidget.of(context)` (the nearest one) |
 | `unregister()` | not needed |
 | `Showcase(scope: ...)` | a separate `ShowCaseWidget` for that part of the tree |
-| `startShowCase(keys, delay: d)` | `startShowCase(keys)`; no `delay`, so wrap the call in `Future.delayed(d, ...)` |
+| `startShowCase(keys, delay: d)` | same; an `onShouldStartShowcase` guard is consulted after the delay |
 | `next(force: true)` | `next()` |
 | `previous()`, `dismiss()`, `completed(key)` | same |
 | `isShowcaseRunning`, `isTargetRendered(key)` | same |
@@ -991,6 +992,10 @@ returns `false`. The guard may be synchronous or asynchronous. To force a replay
 ShowCaseWidget.of(context).startShowCase([_one, _two], force: true);
 ```
 
+With a [`delay`](#programmatic-control--progress), the guard is asked when the
+delay ends, just before the tour would start, so it sees whether the tour was
+completed in the meantime.
+
 ## Resume where the user left off
 
 If the user leaves the app in the middle of a tour, you can open the tour on
@@ -1071,6 +1076,21 @@ ShowCaseWidget.of(context).next();      // go to the next step
 ShowCaseWidget.of(context).previous();  // go to the previous step
 ShowCaseWidget.of(context).dismiss();   // stop the whole tour
 ```
+
+To let a screen finish its entrance animation before the tour covers it, start
+the tour after a `delay`:
+
+```dart
+ShowCaseWidget.of(context).startShowCase(
+  [_one, _two],
+  delay: const Duration(milliseconds: 500),
+);
+```
+
+The call returns at once and the tour starts when the delay ends. The waiting
+start is called off if `dismiss()` or another `startShowCase` is called first,
+if `enableShowcase` turns `false`, or if the `ShowCaseWidget` goes away. A
+`delay` of zero (the default) starts the tour within the call, as before.
 
 Jump to a specific step and read progress — useful for a "Step 2 of 5" indicator
 or a skip-to control:
@@ -1562,7 +1582,7 @@ ShowCaseWidget(
 
 | Member                                       | Description                                                              |
 | -------------------------------------------- | ------------------------------------------------------------------------ |
-| `startShowCase(List<GlobalKey> keys, {bool force, int startAt})` | Start the tour in key order. `force: true` bypasses `onShouldStartShowcase`; `startAt` opens it on that zero-based step (default `0`). |
+| `startShowCase(List<GlobalKey> keys, {bool force, int startAt, Duration delay})` | Start the tour in key order. `force: true` bypasses `onShouldStartShowcase`; `startAt` opens it on that zero-based step (default `0`); `delay` starts it that much later (default `Duration.zero`, at once), consulting the guard then. |
 | `next()`                                     | Advance to the next step.                                                |
 | `previous()`                                 | Go back one step.                                                        |
 | `goTo(int index)`                            | Jump to a step by its zero-based index.                                  |
