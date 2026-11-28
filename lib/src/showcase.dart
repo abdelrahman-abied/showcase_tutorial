@@ -201,10 +201,17 @@ class Showcase extends StatefulWidget {
   /// `material_ui` theme.
   final Color? overlayColor;
 
-  /// Opacity apply on [overlayColor] (which ranges from 0.0 to 1.0)
+  /// Opacity applied to [overlayColor], from `0.0` (fully see-through) to
+  /// `1.0` (opaque).
   ///
-  /// Default to 0.75
-  final double overlayOpacity;
+  /// When `null` (the default) it falls back to [ShowCaseWidget.style]
+  /// ([ShowcaseStyle.overlayOpacity]), then to `0.75`, so a tour can set it
+  /// once for every step. A value outside `0.0`–`1.0` fails an assert.
+  ///
+  /// Up to 2.0.3 this was a non-nullable `double` defaulting to `0.75`.
+  /// Passing a value works as before; code that reads it back now gets a
+  /// `double?`.
+  final double? overlayOpacity;
 
   /// Custom tooltip widget when [Showcase.withWidget] is used.
   final Widget? container;
@@ -544,7 +551,7 @@ class Showcase extends StatefulWidget {
     this.targetShapeBorder = const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
     this.highlightExactShape = false,
     this.overlayColor,
-    this.overlayOpacity = 0.75,
+    this.overlayOpacity,
     this.titleTextStyle,
     this.descTextStyle,
     this.tooltipBackgroundColor,
@@ -600,7 +607,10 @@ class Showcase extends StatefulWidget {
   }) : height = null,
        width = null,
        container = null,
-       assert(overlayOpacity >= 0.0 && overlayOpacity <= 1.0, "overlay opacity must be between 0 and 1."),
+       assert(
+         overlayOpacity == null || (overlayOpacity >= 0.0 && overlayOpacity <= 1.0),
+         "overlay opacity must be between 0 and 1.",
+       ),
        assert(onTargetClick == null || disposeOnTap != null, "disposeOnTap is required if you're using onTargetClick"),
        assert(
          disposeOnTap == null ? true : (onTargetClick == null ? false : true),
@@ -630,7 +640,7 @@ class Showcase extends StatefulWidget {
     this.pulseDuration = const Duration(milliseconds: 1500),
     this.highlightBorderColor,
     this.highlightBorderWidth,
-    this.overlayOpacity = 0.75,
+    this.overlayOpacity,
     this.scrollLoadingWidget,
     this.onTargetClick,
     this.disposeOnTap,
@@ -681,7 +691,10 @@ class Showcase extends StatefulWidget {
        tooltipPadding = const EdgeInsets.symmetric(vertical: 8),
        titlePadding = null,
        descriptionPadding = null,
-       assert(overlayOpacity >= 0.0 && overlayOpacity <= 1.0, "overlay opacity must be between 0 and 1.");
+       assert(
+         overlayOpacity == null || (overlayOpacity >= 0.0 && overlayOpacity <= 1.0),
+         "overlay opacity must be between 0 and 1.",
+       );
 
   /// Creates the mutable state for this widget.
   @override
@@ -1375,7 +1388,9 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     final scrim = SizedBox(
       width: screen.width,
       height: screen.height,
-      child: ColoredBox(color: scrimColor.withValues(alpha: widget.overlayOpacity)),
+      // [Showcase.overlayOpacity], then [ShowcaseStyle.overlayOpacity], then
+      // the default.
+      child: ColoredBox(color: scrimColor.withValues(alpha: widget.overlayOpacity ?? style.overlayOpacity ?? 0.75)),
     );
 
     final Widget overlay = Directionality(

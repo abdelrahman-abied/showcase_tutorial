@@ -6631,6 +6631,101 @@ void main() {
       expect(state.currentIndex, 1);
     });
   });
+
+  group('ShowcaseStyle.overlayOpacity', () {
+    Widget opacityApp(GlobalKey key, {double? styleOpacity, double? stepOpacity, bool withWidget = false}) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          style: ShowcaseStyle(overlayOpacity: styleOpacity),
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: withWidget
+                    ? Showcase.withWidget(
+                        key: key,
+                        overlayOpacity: stepOpacity,
+                        container: const Text('Custom'),
+                        child: const Text('target'),
+                      )
+                    : Showcase(
+                        key: key,
+                        title: 'Title',
+                        description: 'd',
+                        overlayOpacity: stepOpacity,
+                        child: const Text('target'),
+                      ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Future<double> scrimAlpha(WidgetTester tester, Widget app, GlobalKey key) async {
+      await tester.pumpWidget(app);
+      ShowCaseWidget.of(tester.element(find.text('target'))).startShowCase([key]);
+      await pumpFrames(tester, 3);
+      final scrim = tester.widget<ColoredBox>(find.descendant(of: barrier.first, matching: find.byType(ColoredBox)));
+      return scrim.color.a;
+    }
+
+    for (final withWidget in [false, true]) {
+      final ctor = withWidget ? 'Showcase.withWidget' : 'Showcase';
+      testWidgets('$ctor: unset everywhere stays 0.75', (tester) async {
+        final key = GlobalKey();
+        expect(await scrimAlpha(tester, opacityApp(key, withWidget: withWidget), key), closeTo(0.75, 0.002));
+      });
+
+      testWidgets('$ctor: the style applies when the step sets none', (tester) async {
+        final key = GlobalKey();
+        final alpha = await scrimAlpha(tester, opacityApp(key, styleOpacity: 0.4, withWidget: withWidget), key);
+        expect(alpha, closeTo(0.4, 0.002));
+      });
+
+      testWidgets('$ctor: the step wins over the style, even at 0', (tester) async {
+        final key = GlobalKey();
+        final alpha = await scrimAlpha(
+          tester,
+          opacityApp(key, styleOpacity: 0.4, stepOpacity: 0.9, withWidget: withWidget),
+          key,
+        );
+        expect(alpha, closeTo(0.9, 0.002));
+
+        final key2 = GlobalKey();
+        final zero = await scrimAlpha(
+          tester,
+          opacityApp(key2, styleOpacity: 0.4, stepOpacity: 0, withWidget: withWidget),
+          key2,
+        );
+        expect(zero, 0);
+      });
+    }
+
+    test('Showcase.overlayOpacity is null unless set', () {
+      expect(Showcase(key: GlobalKey(), child: const SizedBox()).overlayOpacity, isNull);
+      expect(
+        Showcase.withWidget(key: GlobalKey(), container: const SizedBox(), child: const SizedBox()).overlayOpacity,
+        isNull,
+      );
+      expect(Showcase(key: GlobalKey(), overlayOpacity: 0.3, child: const SizedBox()).overlayOpacity, 0.3);
+      expect(const ShowcaseStyle().overlayOpacity, isNull);
+    });
+
+    test('values outside 0 to 1 fail the assert', () {
+      expect(() => ShowcaseStyle(overlayOpacity: 1.5), throwsAssertionError);
+      expect(() => ShowcaseStyle(overlayOpacity: -0.1), throwsAssertionError);
+      expect(() => Showcase(key: GlobalKey(), overlayOpacity: 1.5, child: const SizedBox()), throwsAssertionError);
+      expect(
+        () => Showcase.withWidget(
+          key: GlobalKey(),
+          overlayOpacity: -0.1,
+          container: const SizedBox(),
+          child: const SizedBox(),
+        ),
+        throwsAssertionError,
+      );
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

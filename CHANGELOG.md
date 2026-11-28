@@ -28,6 +28,15 @@
   dimmed background is tapped while that step shows. It runs after the
   tour-wide `ShowCaseWidget.onBarrierClick`, not instead of it, and both run
   on every tap, even with `BarrierInteraction.none`.
+* **Set the dimmed background's opacity once:**
+  `ShowcaseStyle(overlayOpacity: ...)`. A step's own `overlayOpacity` still
+  wins, and with neither set it is 0.75, as before.
+
+**Types:** `Showcase.overlayOpacity` is now a `double?` (it was a `double`
+that defaulted to 0.75), so that a step that doesn't set it can use
+`ShowcaseStyle.overlayOpacity`. Passing a value works as before. Only code
+that reads `overlayOpacity` back from a `Showcase` and expects a `double`
+needs a change, for example `showcase.overlayOpacity ?? 0.75`.
 
 ## 2.0.3
 

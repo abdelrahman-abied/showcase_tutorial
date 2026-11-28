@@ -281,7 +281,7 @@ To translate the built-in labels once instead of per button, use
 | `disableBarrierInteraction: true` | `barrierInteraction: BarrierInteraction.none` (also `.dismiss`) |
 | `semanticEnable: true` | on by default: `enableAutoAnnouncements` |
 | `overlayColor` (tour-wide) | `style: ShowcaseStyle(overlayColor: ...)` |
-| `overlayOpacity` (tour-wide) | `Showcase.overlayOpacity`, per step |
+| `overlayOpacity` (tour-wide) | `style: ShowcaseStyle(overlayOpacity: ...)`; `Showcase.overlayOpacity` per step |
 | `globalTooltipActions` | `globalActions: (context) => ShowCaseDefaultActions(...)` |
 | `globalTooltipActionConfig` | `globalActionSettings` and `actionsPosition` |
 | `Showcase.tooltipActions` / `tooltipActionConfig` | `Showcase.actions` / `actionSettings` / `actionsPosition` |
@@ -854,8 +854,9 @@ Set any of these once for the whole tour via `ShowcaseStyle`, e.g.
 `ShowCaseWidget(style: ShowcaseStyle(arrowColor: ..., highlightBorderColor: ...))`.
 
 > The dimmed background's color is `Showcase.overlayColor` (or
-> `ShowcaseStyle.overlayColor` for the whole tour), and `overlayOpacity` sets
-> how see-through it is.
+> `ShowcaseStyle.overlayColor` for the whole tour), and `overlayOpacity`
+> (`Showcase.overlayOpacity`, or `ShowcaseStyle.overlayOpacity` for the whole
+> tour, default `0.75`) sets how see-through it is.
 
 ## Highlight multiple widgets in one step
 
@@ -965,6 +966,17 @@ Every colour of a tour can be set here:
 | `loadingIndicatorColor`  | The spinner shown while the tour scrolls to a target.  |
 
 Resolution order for each value: **`Showcase` → `ShowcaseStyle` → your app's theme**.
+
+`ShowcaseStyle.overlayOpacity` sets how see-through the dimmed background is
+for every step, from `0` to `1`. A step's own `Showcase.overlayOpacity` wins,
+and with neither set it is `0.75`:
+
+```dart
+ShowCaseWidget(
+  style: const ShowcaseStyle(overlayOpacity: 0.6),
+  builder: const HomePage(),
+);
+```
 
 ## Run the tour only once
 
@@ -1629,7 +1641,7 @@ ShowCaseWidget(
 | Name                      | Type                       | Default                        | Description                                                                      |
 | ------------------------- | -------------------------- | ------------------------------ | -------------------------------------------------------------------------------- |
 | builder                   | Widget                     | required                       | The subtree that contains the `Showcase` widgets (a `Builder` also works).       |
-| style                     | ShowcaseStyle              | `const ShowcaseStyle()`        | Default tooltip styling for every `Showcase` in the tree.                        |
+| style                     | ShowcaseStyle              | `const ShowcaseStyle()`        | Default tooltip styling for every `Showcase` in the tree, including `overlayOpacity`. |
 | blurValue                 | double                     | 0                              | Gaussian blur applied to the overlay.                                            |
 | autoPlay                  | bool                       | false                          | Automatically advance to the next step.                                          |
 | autoPlayDelay             | Duration                   | `Duration(milliseconds: 2000)` | Visibility time of a step when `autoPlay` is enabled.                            |
@@ -1738,7 +1750,7 @@ ShowCaseWidget(
 | arrowHeight                  | double?                | `9`                                                | Height (depth) of the default tooltip arrow.                                                |     ✅     |                       |
 | targetPadding                | EdgeInsets             | `EdgeInsets.zero`                                  | Padding around the highlight.                                                               |     ✅     |          ✅           |
 | overlayColor                 | Color?                 | `ShowcaseStyle` → app theme                        | Color of the overlay scrim.                                                                 |     ✅     |          ✅           |
-| overlayOpacity               | double                 | 0.75                                               | Opacity of the overlay scrim.                                                               |     ✅     |          ✅           |
+| overlayOpacity               | double?                | `ShowcaseStyle` → `0.75`                           | Opacity of the overlay scrim, from 0 to 1.                                                  |     ✅     |          ✅           |
 | blurValue                    | double?                | `ShowCaseWidget.blurValue`                         | Gaussian blur on the overlay.                                                               |     ✅     |          ✅           |
 | disableDefaultTargetGestures | bool                   | false                                              | Disable the default gestures on the target.                                                 |     ✅     |          ✅           |
 | disposeOnTap                 | bool?                  |                                                    | Dismiss the whole tour when the target/tooltip is tapped.                                   |     ✅     |          ✅           |
