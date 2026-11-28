@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+* **Docs: [Coming from showcaseview](https://github.com/abdelrahman-abied/showcase_tutorial#coming-from-showcaseview).**
+  A new README section for apps switching from showcaseview 5.x. It covers
+  setup (`ShowcaseView.register` becomes `ShowCaseWidget`), controlling the
+  tour, action buttons, a table that maps each showcaseview API to its
+  equivalent here, and the behaviour that differs.
+
 ## 2.0.3
 
 Three fixes. Nothing to change in your code.

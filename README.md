@@ -177,9 +177,152 @@ may need a small change:
 - If you saved progress yourself to resume a tour, use
   [`startShowCase(keys, startAt: savedIndex)`](#resume-where-the-user-left-off).
 
+## Coming from showcaseview
+
+This package started as a fork of
+[`showcaseview`](https://pub.dev/packages/showcaseview) and keeps its shape:
+a `Showcase` around each target, identified by a `GlobalKey`, and a tour you
+start with `startShowCase`, then drive with `next()`, `previous()` and
+`dismiss()`. Most `Showcase` parameters have the same names, so most of a
+switch is setup and action buttons. This section maps showcaseview 5.x to
+this package.
+
+> **Before you switch:** this package needs Flutter 3.47 or newer and is
+> built on [`material_ui`](https://pub.dev/packages/material_ui). See the
+> [Requirements](#installation) note.
+
+**1. Setup: wrap a widget instead of registering.**
+
+```dart
+// showcaseview 5.x
+@override
+void initState() {
+  super.initState();
+  ShowcaseView.register(onFinish: () => debugPrint('Tour finished'));
+}
+
+@override
+void dispose() {
+  ShowcaseView.get().unregister();
+  super.dispose();
+}
+```
+
+```dart
+// showcase_tutorial
+ShowCaseWidget(
+  onFinish: () => debugPrint('Tour finished'),
+  builder: const HomePage(),
+);
+```
+
+There is nothing to unregister: the tour goes away with the widget. For a
+tour that spans several screens, put `ShowCaseWidget` in `MaterialApp.builder`
+(see [Tours across screens](#tours-across-screens)).
+
+**2. Starting and controlling the tour: from a `context`.**
+
+```dart
+// showcaseview 5.x
+ShowcaseView.get().startShowCase([_one, _two, _three]);
+
+// showcase_tutorial: any context below ShowCaseWidget
+ShowCaseWidget.of(context).startShowCase([_one, _two, _three]);
+```
+
+**3. Steps: mostly unchanged.** `Showcase(key:, title:, description:,
+child:)` and `Showcase.withWidget(container:)` work the same way. The
+renamed parameters are in the table below.
+
+**4. Action buttons: one widget for the row.**
+
+```dart
+// showcaseview 5.x
+ShowcaseView.register(
+  globalTooltipActions: const [
+    TooltipActionButton(type: TooltipDefaultActionType.previous, name: 'Back'),
+    TooltipActionButton(type: TooltipDefaultActionType.next),
+  ],
+);
+```
+
+```dart
+// showcase_tutorial
+ShowCaseWidget(
+  globalActions: (context) => const ShowCaseDefaultActions(
+    previous: ActionButtonConfig(text: 'Back'),
+    stop: ActionButtonConfig(buttonVisible: false),
+  ),
+  builder: const HomePage(),
+);
+```
+
+To translate the built-in labels once instead of per button, use
+[`labels`](#translating-the-tour). For a button of your own (showcaseview's
+`TooltipActionButton.custom`), pass any widget as `actions`.
+
+### API mapping
+
+| showcaseview 5.x | showcase_tutorial |
+| --- | --- |
+| `ShowcaseView.register(...)` | `ShowCaseWidget(...)` |
+| `ShowcaseView.get()` / `getNamed(scope)` | `ShowCaseWidget.of(context)` (the nearest one) |
+| `unregister()` | not needed |
+| `Showcase(scope: ...)` | a separate `ShowCaseWidget` for that part of the tree |
+| `startShowCase(keys, delay: d)` | `startShowCase(keys)`; no `delay`, so wrap the call in `Future.delayed(d, ...)` |
+| `next(force: true)` | `next()` |
+| `previous()`, `dismiss()`, `completed(key)` | same |
+| `isShowcaseRunning`, `isTargetRendered(key)` | same |
+| `getActiveShowcaseKey` | `ids` and `currentIndex` (the active key is `ids![currentIndex!]` while a tour runs), plus `totalSteps` |
+| `addOnStartCallback`, `addOnCompleteCallback` | same |
+| `addOnFinishCallback`, `addOnDismissCallback` | use `onFinish` / `onDismiss` on `ShowCaseWidget` |
+| `skipIfTargetNotPresent: true` | `autoSkipUnmountedSteps: true`, or `onShouldSkipUnmountedStep` per step |
+| `disableBarrierInteraction: true` | `barrierInteraction: BarrierInteraction.none` (also `.dismiss`) |
+| `semanticEnable: true` | on by default: `enableAutoAnnouncements` |
+| `overlayColor` (tour-wide) | `style: ShowcaseStyle(overlayColor: ...)` |
+| `overlayOpacity` (tour-wide) | `Showcase.overlayOpacity`, per step |
+| `globalTooltipActions` | `globalActions: (context) => ShowCaseDefaultActions(...)` |
+| `globalTooltipActionConfig` | `globalActionSettings` and `actionsPosition` |
+| `Showcase.tooltipActions` / `tooltipActionConfig` | `Showcase.actions` / `actionSettings` / `actionsPosition` |
+| `TooltipActionButton(type: next / previous / skip)` | `ShowCaseDefaultActions(next:, previous:, stop:)` with `ActionButtonConfig` |
+| `TooltipActionButton.custom(button: ...)` | any widget as `actions` |
+| `hideActionWidgetForShowcase` (per button) | `hideActionsForShowcase` (the whole row) |
+| `FloatingActionWidget(...)` | any widget, positioned with `Align` / `Positioned` |
+| `titleTextAlign` / `descriptionTextAlign` | `titleAlignment` / `descriptionAlignment` |
+| `titleTextDirection` / `descriptionTextDirection` | not available; the text follows `Directionality` |
+| `Showcase.enableAutoScroll` (per step) | `ShowCaseWidget.enableAutoScroll` (tour-wide) |
+| `Showcase.onBarrierClick` (per step) | `ShowCaseWidget.onBarrierClick` (tour-wide) |
+| `toolTipMargin: 14` | `toolTipMargin: EdgeInsets.all(14)` |
+| `toolTipSlideEndDistance` | not available |
+
+### Behaviour that differs
+
+- **A step whose widget isn't on screen.** showcaseview ends the tour when it
+  moves on to one. Here the tour waits on that step until its widget
+  appears, which is what makes [tours across screens](#tours-across-screens)
+  work. Set `autoSkipUnmountedSteps: true` to skip such steps instead.
+- **Colours.** showcaseview's tooltip is always white with black text. Here
+  every colour you don't set comes from your app's theme, including dark
+  mode (see [Colours and your app's theme](#colours-and-your-apps-theme)).
+  For a white tooltip, set `ShowcaseStyle(tooltipBackgroundColor:
+  Colors.white, textColor: Colors.black)`.
+- **Keys.** In showcaseview 5.x the `GlobalKey` only names a step. Here it is
+  the `Showcase` widget's own key, so use each key on one `Showcase`. To
+  highlight several widgets in one step, use
+  [`keys` and `MultiView`](#highlight-multiple-widgets-in-one-step).
+- **Pages and dialogs on top.** A step hides while another page or a dialog
+  covers its page, and comes back when its page is on top again.
+- **Accessibility.** Each step is announced to screen readers by default,
+  and the tour takes keyboard focus (Esc, arrows, Enter). Turn these off
+  with `enableAutoAnnouncements: false` and `enableKeyboardNavigation:
+  false`.
+- **Spacing defaults.** The gap between target and tooltip is 0 here, against
+  10 in showcaseview. Set `targetTooltipGap: 10` for the same spacing.
+
 ## Table of contents
 
 - [Migrating from 1.x to 2.0](#migrating-from-1x-to-20)
+- [Coming from showcaseview](#coming-from-showcaseview)
 - [Installation](#installation)
 - [Getting started](#getting-started)
 - [Custom tooltip](#custom-tooltip-with-showcasewithwidget)
