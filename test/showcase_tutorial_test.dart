@@ -7045,6 +7045,97 @@ void main() {
       expect(find.text('Page step 0'), findsOneWidget);
     });
   });
+
+  group('a dismiss still running its animation', () {
+    // Steps at the top of a phone screen, so the middle is dimmed background.
+    Widget dismissApp(List<GlobalKey> keys, {required List<GlobalKey?> dismissed, bool disposeOnTap = false}) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          barrierInteraction: BarrierInteraction.dismiss,
+          showSkip: true,
+          onDismiss: dismissed.add,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Column(
+                children: [
+                  for (var i = 0; i < keys.length; i++)
+                    Showcase(
+                      key: keys[i],
+                      title: 'Step $i',
+                      description: 'd',
+                      disposeOnTap: disposeOnTap ? true : null,
+                      onTargetClick: disposeOnTap ? () {} : null,
+                      child: SizedBox(width: 120, height: 40, child: Text('t$i')),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final target = find.byWidgetPredicate((w) => w.runtimeType.toString() == '_TargetWidget');
+
+    // The target's tap area, below its centring translation.
+    final targetTapArea = find.descendant(of: target, matching: find.byType(GestureDetector));
+
+    final triggers = <String, Future<void> Function(WidgetTester)>{
+      'barrier tap': (tester) => tester.tap(barrier.first),
+      'Skip tap': (tester) => tester.tap(find.text('Skip')),
+      'Esc': (tester) => tester.sendKeyEvent(LogicalKeyboardKey.escape),
+      'disposeOnTap target tap': (tester) => tester.tap(targetTapArea.first),
+      'disposeOnTap tooltip tap': (tester) => tester.tap(find.text('Step 0')),
+    };
+
+    for (final MapEntry(key: name, value: trigger) in triggers.entries) {
+      testWidgets('a second $name does not dismiss the tour again', (tester) async {
+        usePhone(tester);
+        failOnMissedTaps();
+        final keys = [GlobalKey(), GlobalKey()];
+        final dismissed = <GlobalKey?>[];
+        final listened = <GlobalKey?>[];
+        await tester.pumpWidget(dismissApp(keys, dismissed: dismissed, disposeOnTap: name.startsWith('disposeOnTap')));
+        final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+        state.addOnDismissCallback(listened.add);
+
+        state.startShowCase(keys);
+        await pumpFrames(tester);
+        await trigger(tester);
+        await tester.pump(const Duration(milliseconds: 50));
+        await trigger(tester);
+        // In one go, so both animations end before a frame rebuilds the steps.
+        await tester.pump(const Duration(milliseconds: 500));
+        await pumpFrames(tester);
+
+        expect(state.isShowcaseRunning, isFalse);
+        expect(dismissed, [keys[0]]);
+        expect(listened, [keys[0]]);
+      });
+    }
+
+    testWidgets('does not end a delayed tour that started during it', (tester) async {
+      usePhone(tester);
+      failOnMissedTaps();
+      final keys = [GlobalKey(), GlobalKey()];
+      final dismissed = <GlobalKey?>[];
+      await tester.pumpWidget(dismissApp(keys, dismissed: dismissed));
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase([keys[0]]);
+      await pumpFrames(tester);
+      state.startShowCase([keys[1]], delay: const Duration(milliseconds: 100));
+      await tester.tap(barrier.first);
+      await tester.pump(const Duration(milliseconds: 150));
+      expect(state.ids, [keys[1]]);
+
+      await tester.pump(const Duration(milliseconds: 500));
+      await pumpFrames(tester);
+      expect(state.ids, [keys[1]], reason: 'the new tour keeps running');
+      expect(dismissed, isEmpty);
+      expect(find.text('Step 1'), findsOneWidget);
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

@@ -1218,7 +1218,8 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   Future<void> _getOnTargetTap() async {
     if (widget.disposeOnTap == true) {
       await _reverseAnimateTooltip();
-      showCaseWidgetState.dismiss();
+      if (!mounted) return;
+      _dismissIfStillActive();
       widget.onTargetClick?.call();
     } else {
       (widget.onTargetClick ?? _nextIfAny).call();
@@ -1313,17 +1314,32 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   Future<void> _getOnTooltipTap() async {
     if (widget.disposeOnTap == true) {
       await _reverseAnimateTooltip();
-      showCaseWidgetState.dismiss();
+      if (!mounted) return;
+      _dismissIfStillActive();
     }
     widget.onToolTipClick?.call();
   }
 
   /// Reverse-animates the tooltip and then dismisses the whole tour. Used when
-  /// [ShowCaseWidget.barrierInteraction] is [BarrierInteraction.dismiss].
+  /// [ShowCaseWidget.barrierInteraction] is [BarrierInteraction.dismiss], by
+  /// the Skip button and by <kbd>Esc</kbd>.
   Future<void> _dismissShowcaseTour() async {
     await _reverseAnimateTooltip();
     if (!mounted) return;
-    showCaseWidgetState.dismiss();
+    _dismissIfStillActive();
+  }
+
+  /// Dismisses the tour once the reverse animation a tap started is over,
+  /// unless the tour has left this step in the meantime.
+  ///
+  /// The tour may have moved on during the animation: a second tap already
+  /// dismissed it, or another tour (such as a delayed [startShowCase]) took
+  /// its place. Dismissing then would report a second dismissal, with no step,
+  /// or end a tour the user never closed.
+  void _dismissIfStillActive() {
+    final tour = showCaseWidgetState;
+    if (tour.activeStepKey != widget.key) return;
+    tour.dismiss();
   }
 
   /// Reverse animates the provided tooltip or

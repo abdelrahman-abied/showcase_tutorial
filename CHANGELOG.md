@@ -49,6 +49,12 @@
   `enableShowcase` was turned off (the tour then ran while disabled), or
   after a newer `startShowCase`, whose tour it then replaced. Its answer now
   only counts for the latest start, while the showcase is enabled.
+* Closing a tour twice in quick succession, such as two taps on the dimmed
+  background with `BarrierInteraction.dismiss`, or two of Skip, Esc or a
+  `disposeOnTap` tap, reported the dismissal twice: `onDismiss` was called
+  again with `null`. A tap now ends the tour only if the tour is still on
+  that step when its closing animation is done, which also keeps it from
+  ending a tour that started meanwhile.
 
 **Types:** `Showcase.overlayOpacity` is now a `double?` (it was a `double`
 that defaulted to 0.75), so that a step that doesn't set it can use
