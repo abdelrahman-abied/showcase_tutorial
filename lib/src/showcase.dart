@@ -785,6 +785,11 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
   /// [_isRouteSettled] as of the last visibility check.
   bool _wasRouteSettled = true;
 
+  /// The tour this step reported itself on screen to (see
+  /// [ShowcaseTourFocus.didShowStep]), kept so [dispose] can report it gone
+  /// without an ancestor lookup.
+  ShowCaseWidgetState? _shownOnTour;
+
   /// The theme colours for anything the developer left unset, resolved once
   /// per showing of the step rather than on every overlay build: finding out
   /// whether the app has a `material_ui` theme is a walk up the tree. Cleared
@@ -794,6 +799,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
 
   @override
   void dispose() {
+    _reportHidden();
     _unwatchRoute();
     _removeOverlayEntry();
     _releaseSnapshots();
@@ -924,10 +930,14 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
       // into a revisit of this step.
       timer?.cancel();
       timer = null;
+      _reportHidden();
       _notifyLifecycle(widget.onDismiss);
     }
 
     if (isActiveNow) {
+      // Lets the tour attach its back-button handling to this step's page
+      // (see [ShowCaseWidget.backButtonInteraction]).
+      _shownOnTour = showcaseState..didShowStep(this, _route, _dismissShowcaseTour);
       // A per-step [Showcase.enableAutoScroll] wins over the tour-wide flag.
       if (widget.enableAutoScroll ?? showcaseState.enableAutoScroll) {
         _scrollIntoView();
@@ -943,6 +953,12 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
         timer = Timer(autoPlayDelay, _nextIfAny);
       }
     }
+  }
+
+  /// Tells the tour this step is no longer on screen, if it said it was.
+  void _reportHidden() {
+    _shownOnTour?.didHideStep(this);
+    _shownOnTour = null;
   }
 
   /// Invokes a per-step lifecycle [callback] ([Showcase.onShow] /

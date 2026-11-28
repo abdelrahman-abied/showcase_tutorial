@@ -295,6 +295,7 @@ To translate the built-in labels once instead of per button, use
 | `Showcase.onBarrierClick` (per step) | same; runs after the tour-wide `ShowCaseWidget.onBarrierClick` |
 | `toolTipMargin: 14` | `toolTipMargin: EdgeInsets.all(14)` |
 | `toolTipSlideEndDistance` | not available |
+| no back-button option (back closes the page) | the same by default; `backButtonInteraction` to dismiss, step back or block instead (see [Back button](#back-button)) |
 
 ### Behaviour that differs
 
@@ -347,6 +348,7 @@ To translate the built-in labels once instead of per button, use
 - [Target interactions](#target-interactions)
 - [Step lifecycle callbacks](#step-lifecycle-callbacks)
 - [Background (barrier) tap behavior](#background-barrier-tap-behavior)
+- [Back button](#back-button)
 - [Accessibility & keyboard navigation](#accessibility--keyboard-navigation)
 - [Pointer cursor (web / desktop)](#pointer-cursor-web--desktop)
 - [Blur the background](#blur-the-background)
@@ -1399,6 +1401,49 @@ Showcase(
 );
 ```
 
+## Back button
+
+By default the system back button does what it does without a tour: it
+closes the page, and a tour on that page goes with it. Choose what back does
+while a step is showing with `backButtonInteraction`:
+
+```dart
+ShowCaseWidget(
+  backButtonInteraction: BackButtonInteraction.previous, // back → previous step
+  // BackButtonInteraction.passThrough → back closes the page (default)
+  // BackButtonInteraction.dismiss     → back ends the tour, the page stays
+  // BackButtonInteraction.block       → back does nothing while a step shows
+  builder: const HomePage(),
+);
+```
+
+| Value | Back while a step shows |
+| --- | --- |
+| `passThrough` (default) | Does what it does without a tour, usually closing the page. |
+| `dismiss` | Ends the tour, like Esc. The page stays open. |
+| `previous` | Goes to the previous step. On the first step it ends the tour, so back always gets the user out. The page stays open. |
+| `block` | Does nothing. The user leaves the tour with its own buttons. |
+
+- **It covers the Android back button and back gesture, and the browser's
+  back button.** Android's predictive back doesn't preview leaving the page
+  or the app while a step shows, because the page tells the system it
+  handles back.
+- **Only while a step is on screen.** Before and after the tour, while the
+  tour waits for a step whose page isn't open, and while a step is hidden
+  under another page or a dialog, back works as usual. A dialog over a step
+  closes on back.
+- **Wherever `ShowCaseWidget` is**, on the page or in `MaterialApp.builder`
+  for [a tour across screens](#tours-across-screens). The handling is
+  attached to the page of the step that shows. With `previous`, going back to
+  a step on the page below leaves the current page with no step, so the next
+  back closes it and the earlier step appears.
+- **Anything but `passThrough` works like `PopScope(canPop: false)` on the
+  step's page:** the iOS swipe that closes the page is off while the step
+  shows, and `Navigator.maybePop` counts as back. `Navigator.pop` still closes
+  the page.
+- **Esc is separate.** On desktop and web it keeps dismissing the tour
+  through [keyboard navigation](#accessibility--keyboard-navigation).
+
 ## Accessibility & keyboard navigation
 
 The active step is keyboard-navigable and announced to screen readers out of the
@@ -1715,6 +1760,7 @@ ShowCaseWidget(
 | barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`      | What a background tap does: `next` (advance), `dismiss` (end tour), `none`.      |
 | disableBarrierInteraction | bool                       | false                          | **Deprecated** (removed in 3.0.0): use `barrierInteraction: BarrierInteraction.none`. |
 | onBarrierClick            | VoidCallback?              |                                | Called on every barrier tap (even when `barrierInteraction` is `none`), before the step's `Showcase.onBarrierClick`. |
+| backButtonInteraction     | BackButtonInteraction      | `BackButtonInteraction.passThrough` | What the system back button does while a step shows: `passThrough` (closes the page, as without a tour), `dismiss`, `previous` (ends the tour from the first step), `block`. |
 | globalFloatingActionWidget | WidgetBuilder?            |                                | Screen-anchored widget shown above the overlay on every step (you position it).  |
 | hideFloatingActionWidgetForShowcase | `List<GlobalKey>` | `const []`                    | Steps on which the global floating widget is hidden.                             |
 | disableScaleAnimation     | bool                       | false                          | Disable the tooltip scale transition for all steps.                              |

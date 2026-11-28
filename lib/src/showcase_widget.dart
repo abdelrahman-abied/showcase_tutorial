@@ -224,6 +224,32 @@ class ShowCaseWidget extends StatefulWidget {
   /// `true`.
   final BarrierInteraction barrierInteraction;
 
+  /// What the system back button does while a step is showing.
+  ///
+  /// Defaults to [BackButtonInteraction.passThrough]: back does what it does
+  /// without a tour, usually closing the step's page. Use
+  /// [BackButtonInteraction.dismiss] to end the tour on back,
+  /// [BackButtonInteraction.previous] to step back through it (ending it from
+  /// the first step), or [BackButtonInteraction.block] to ignore back while a
+  /// step shows.
+  ///
+  /// It works wherever this [ShowCaseWidget] is: on a page, or above the
+  /// [Navigator] in `MaterialApp.builder` for a tour across screens. The
+  /// handling is attached to the page of the step that is showing, like a
+  /// `PopScope(canPop: false)` on that page, and only while it shows. While
+  /// the tour waits for a step's page, while a step is hidden because another
+  /// page or a dialog covers its page, and whenever no tour runs, back is left
+  /// alone. Because the page reports that it handles back, Android's
+  /// predictive back gesture does not preview leaving the page or the app
+  /// while a step shows.
+  ///
+  /// A step that is not on any page (outside every [Navigator]) has nothing to
+  /// attach to, and back is left alone for it. <kbd>Esc</kbd> keeps
+  /// dismissing the tour through [enableKeyboardNavigation], whatever this is.
+  ///
+  /// See [BackButtonInteraction] for each value.
+  final BackButtonInteraction backButtonInteraction;
+
   /// Provides time duration for auto scrolling when [enableAutoScroll] is true
   final Duration scrollDuration;
 
@@ -472,6 +498,7 @@ class ShowCaseWidget extends StatefulWidget {
     )
     this.disableBarrierInteraction = false,
     this.barrierInteraction = BarrierInteraction.next,
+    this.backButtonInteraction = BackButtonInteraction.passThrough,
     this.enableShowcase = true,
     this.style = const ShowcaseStyle(),
     this.showcaseId,
@@ -583,6 +610,9 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Value of [ShowCaseWidget.onBarrierClick].
   VoidCallback? get onBarrierClick => widget.onBarrierClick;
+
+  /// Value of [ShowCaseWidget.backButtonInteraction].
+  BackButtonInteraction get backButtonInteraction => widget.backButtonInteraction;
 
   /// Value of [ShowCaseWidget.globalFloatingActionWidget].
   WidgetBuilder? get globalFloatingActionWidget => widget.globalFloatingActionWidget;
@@ -700,6 +730,19 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// its start was called off, or replaced, finds a newer generation and does
   /// nothing.
   int _startGeneration = 0;
+
+  /// The step on screen right now, as reported by [ShowcaseTourFocus.didShowStep]:
+  /// its owner, the page it is on, and how it dismisses the tour.
+  Object? _shownStep;
+  ModalRoute<Object?>? _shownStepRoute;
+  VoidCallback? _dismissShownStep;
+
+  /// Handles the back button for [ShowCaseWidget.backButtonInteraction] while
+  /// it is registered on [_popEntryRoute].
+  late final _TourPopEntry _popEntry = _TourPopEntry(_handleBackButton);
+
+  /// The page [_popEntry] is registered on, or `null` when it is not.
+  ModalRoute<Object?>? _popEntryRoute;
 
   /// Whether the target widget for [key] is currently laid out on screen.
   ///
@@ -1091,15 +1134,19 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
 
   /// Completes current active showcase and starts previous one
   /// otherwise does nothing
-  void previous() {
-    if (ids == null || !mounted) return;
+  void previous() => _goBack();
+
+  /// [previous], returning whether the tour had a step to go back to.
+  bool _goBack() {
+    if (ids == null || !mounted) return false;
     final target = _nextMountedIndex((activeWidgetId ?? 0) - 1, -1);
-    if (target < 0) return;
+    if (target < 0) return false;
     setState(() {
       _onComplete();
       activeWidgetId = target;
       _onStart();
     });
+    return true;
   }
 
   /// Jumps to the step at [index] (zero-based) of the running tour.
@@ -1193,8 +1240,54 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     _previousTargetRect = null;
   }
 
+  /// Answers a back press for [ShowCaseWidget.backButtonInteraction]. Only
+  /// reached while a step shows and the value is not
+  /// [BackButtonInteraction.passThrough], which registers nothing.
+  void _handleBackButton() {
+    if (!mounted || ids == null) return;
+    switch (backButtonInteraction) {
+      case BackButtonInteraction.passThrough:
+      case BackButtonInteraction.block:
+        return;
+      case BackButtonInteraction.previous:
+        // From the first step there is nowhere to go back to, so back leaves
+        // the tour instead: the user can always get out of it with back.
+        if (_goBack()) return;
+        _dismissFromBack();
+      case BackButtonInteraction.dismiss:
+        _dismissFromBack();
+    }
+  }
+
+  /// Dismisses the tour the way <kbd>Esc</kbd> does: through the step on
+  /// screen, so its tooltip animates out first.
+  void _dismissFromBack() {
+    final dismissStep = _dismissShownStep;
+    if (dismissStep != null) {
+      dismissStep();
+    } else {
+      dismiss();
+    }
+  }
+
+  /// Registers [_popEntry] on the page of the step on screen, or takes it
+  /// off, to match [ShowCaseWidget.backButtonInteraction].
+  void _syncPopEntry() {
+    final route = (mounted && backButtonInteraction != BackButtonInteraction.passThrough) ? _shownStepRoute : null;
+    if (identical(route, _popEntryRoute)) return;
+    _popEntryRoute?.unregisterPopEntry(_popEntry);
+    _popEntryRoute = route;
+    route?.registerPopEntry(_popEntry);
+  }
+
   @override
   void dispose() {
+    _shownStep = null;
+    _shownStepRoute = null;
+    _dismissShownStep = null;
+    _popEntryRoute?.unregisterPopEntry(_popEntry);
+    _popEntryRoute = null;
+    _popEntry.dispose();
     _cancelPendingStart();
     _onStartCallbacks.clear();
     _onCompleteCallbacks.clear();
@@ -1210,6 +1303,7 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
     // A start still waiting on its `delay` is called off too: the tour is not
     // to start while the showcase is disabled.
     if (!widget.enableShowcase) _cancelPendingStart();
+    if (oldWidget.backButtonInteraction != widget.backButtonInteraction) _syncPopEntry();
     // A running tour cannot survive being disabled: [startShowCase] refuses to
     // run at all while [ShowCaseWidget.enableShowcase] is false, so leaving the
     // tour half-alive would be a state the API cannot otherwise reach. Ending it
@@ -1273,9 +1367,60 @@ class _InheritedShowCaseView extends InheritedModel<GlobalKey> {
   }
 }
 
+/// The back-button handler [ShowCaseWidgetState] attaches to the page of the
+/// step on screen (see [ShowCaseWidget.backButtonInteraction]).
+///
+/// It is what a `PopScope(canPop: false)` on that page would register, added
+/// and removed with the step rather than built into the page: the tour may sit
+/// above the [Navigator], where no `PopScope` of its own could reach the page.
+class _TourPopEntry extends PopEntry<Object?> {
+  _TourPopEntry(this._onBack);
+
+  final VoidCallback _onBack;
+
+  /// Always `false` while registered: the page does not pop on back, and
+  /// reports that it handles back, which also keeps Android's predictive back
+  /// from previewing a pop.
+  @override
+  final ValueNotifier<bool> canPopNotifier = ValueNotifier<bool>(false);
+
+  @override
+  void onPopInvokedWithResult(bool didPop, Object? result) {
+    // `didPop` is true when the page closed anyway, through `Navigator.pop`:
+    // that is not a back press for the tour.
+    if (!didPop) _onBack();
+  }
+
+  void dispose() => canPopNotifier.dispose();
+}
+
 /// Gives [Showcase] the parts of [ShowCaseWidgetState] that are not public
 /// API. Hidden from the package's public library.
 extension ShowcaseTourFocus on ShowCaseWidgetState {
+  /// Reports that the step [owner] is on screen, on [route], and dismisses the
+  /// tour through [dismissStep] (with its closing animation).
+  ///
+  /// Called each time the step's visibility is checked while it shows, so it
+  /// returns early when nothing changed.
+  void didShowStep(Object owner, ModalRoute<Object?>? route, VoidCallback dismissStep) {
+    _dismissShownStep = dismissStep;
+    if (identical(owner, _shownStep) && identical(route, _shownStepRoute)) return;
+    _shownStep = owner;
+    _shownStepRoute = route;
+    _syncPopEntry();
+  }
+
+  /// Reports that the step [owner] has left the screen. Ignored when another
+  /// step has reported itself on screen since: when the tour moves on, the
+  /// step being entered may be checked before the step being left.
+  void didHideStep(Object owner) {
+    if (!identical(owner, _shownStep)) return;
+    _shownStep = null;
+    _shownStepRoute = null;
+    _dismissShownStep = null;
+    _syncPopEntry();
+  }
+
   /// The focus node of the active step's overlay, which a hardware keyboard
   /// drives the tour through.
   ///

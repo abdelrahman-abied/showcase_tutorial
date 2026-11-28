@@ -47,6 +47,17 @@
   before.
 * These cover the showcaseview 5.x features the "Coming from showcaseview"
   table listed as missing, under the same names.
+* **Choose what the back button does during a step:**
+  `ShowCaseWidget.backButtonInteraction`, with the new
+  `BackButtonInteraction` enum. `passThrough`, the default, leaves back as it
+  is today: it closes the page. `dismiss` ends the tour and keeps the page
+  open, `previous` goes to the previous step (and ends the tour from the
+  first step), and `block` ignores back. It covers the Android back button
+  and gesture, predictive back included, and the browser's back button. It
+  only acts while a step is on screen, not while the tour waits for a page
+  or a step is hidden under another page or a dialog, and it works with
+  `ShowCaseWidget` on a page or in `MaterialApp.builder`. Esc still
+  dismisses the tour through keyboard navigation.
 
 **Fixed:**
 
