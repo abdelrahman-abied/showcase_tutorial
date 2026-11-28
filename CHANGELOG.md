@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+* **Docs fix:** the "Listening from anywhere in the tree" example called
+  `ShowCaseWidget.of(context)` in `dispose`, which throws in debug builds, and
+  registered its listener again on every dependency change. It now keeps the
+  controller from `initState` and uses it in `dispose`. The listener methods'
+  docs say the same.
 * **Docs: [Coming from showcaseview](https://github.com/abdelrahman-abied/showcase_tutorial#coming-from-showcaseview).**
   A new README section for apps switching from showcaseview 5.x. It covers
   setup (`ShowcaseView.register` becomes `ShowCaseWidget`), controlling the

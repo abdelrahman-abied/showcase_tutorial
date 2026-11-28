@@ -1287,19 +1287,26 @@ analytics service deeper in the tree — register it on the controller instead:
 
 ```dart
 class _StepCounterState extends State<StepCounter> {
+  late final ShowCaseWidgetState _tour;
+  int? _index;
+
   void _onStep(int? index, GlobalKey key) => setState(() => _index = index);
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    ShowCaseWidget.of(context).addOnStartCallback(_onStep);
+  void initState() {
+    super.initState();
+    _tour = ShowCaseWidget.of(context)..addOnStartCallback(_onStep);
   }
 
   @override
   void dispose() {
-    ShowCaseWidget.of(context).removeOnStartCallback(_onStep);
+    // Use the controller kept in initState: looking it up in dispose throws.
+    _tour.removeOnStartCallback(_onStep);
     super.dispose();
   }
+
+  @override
+  Widget build(BuildContext context) => Text('Step ${(_index ?? 0) + 1}');
 }
 ```
 

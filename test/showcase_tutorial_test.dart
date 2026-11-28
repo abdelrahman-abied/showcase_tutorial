@@ -14,6 +14,36 @@ import 'package:showcase_tutorial/src/get_position.dart';
 import 'package:showcase_tutorial/src/measure_size.dart';
 import 'package:showcase_tutorial/src/shape_clipper.dart';
 
+/// The README's "Listening from anywhere in the tree" pattern: keep the
+/// controller from initState and use it in dispose.
+class _StepCounter extends StatefulWidget {
+  const _StepCounter();
+  @override
+  State<_StepCounter> createState() => _StepCounterState();
+}
+
+class _StepCounterState extends State<_StepCounter> {
+  late final ShowCaseWidgetState _tour;
+  int? _index;
+
+  void _onStep(int? index, GlobalKey key) => setState(() => _index = index);
+
+  @override
+  void initState() {
+    super.initState();
+    _tour = ShowCaseWidget.of(context)..addOnStartCallback(_onStep);
+  }
+
+  @override
+  void dispose() {
+    _tour.removeOnStartCallback(_onStep);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Text('Step ${(_index ?? 0) + 1}');
+}
+
 void main() {
   // Builds a single-step showcase and returns the GlobalKey of the target.
   Widget buildApp(GlobalKey targetKey) {
@@ -7209,6 +7239,53 @@ void main() {
         ('Profile', ltr),
       ]);
     });
+  });
+  testWidgets('the README listener pattern registers once and unregisters without an error', (tester) async {
+    final key0 = GlobalKey(), key1 = GlobalKey();
+    final showCounter = ValueNotifier(true);
+    late BuildContext ctx;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          builder: Builder(
+            builder: (context) {
+              ctx = context;
+              return Scaffold(
+                body: Column(
+                  children: [
+                    ValueListenableBuilder<bool>(
+                      valueListenable: showCounter,
+                      builder: (_, show, _) => show ? const _StepCounter() : const SizedBox(),
+                    ),
+                    Showcase(key: key0, description: 'zero', child: const Text('a')),
+                    Showcase(key: key1, description: 'one', child: const Text('b')),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    final tour = ShowCaseWidget.of(ctx);
+    tour.startShowCase([key0, key1]);
+    await tester.pump();
+    expect(find.text('Step 1'), findsOneWidget);
+    tour.next();
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Step 2'), findsOneWidget);
+
+    // Removing the counter unregisters it in dispose without looking up an
+    // ancestor (which would throw), and it is no longer called.
+    showCounter.value = false;
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(tour.removeOnStartCallback((_, _) {}), isFalse);
+    tour.dismiss();
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
   });
 }
 

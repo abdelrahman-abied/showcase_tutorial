@@ -733,8 +733,26 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// Unlike the widget-level callback — which is fixed when the
   /// [ShowCaseWidget] is built — listeners registered here can come and go at
   /// runtime, so a screen, controller, or analytics service deeper in the tree
-  /// can observe the tour for as long as it lives. Register in `initState` and
-  /// pair with [removeOnStartCallback] in `dispose`.
+  /// can observe the tour for as long as it lives. Register in `initState`,
+  /// keeping the controller, and pair with [removeOnStartCallback] on that
+  /// same controller in `dispose`. Don't call [ShowCaseWidget.of] in
+  /// `dispose`: looking up an ancestor there throws.
+  ///
+  /// ```dart
+  /// late final ShowCaseWidgetState _tour;
+  ///
+  /// @override
+  /// void initState() {
+  ///   super.initState();
+  ///   _tour = ShowCaseWidget.of(context)..addOnStartCallback(_onStep);
+  /// }
+  ///
+  /// @override
+  /// void dispose() {
+  ///   _tour.removeOnStartCallback(_onStep);
+  ///   super.dispose();
+  /// }
+  /// ```
   ///
   /// Adding the same callback twice invokes it twice. Listeners run after
   /// [ShowCaseWidget.onStart], in registration order; removing one during
@@ -752,7 +770,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   ///
   /// The dynamic counterpart of [ShowCaseWidget.onComplete] — see
   /// [addOnStartCallback] for the registration contract. Pair with
-  /// [removeOnCompleteCallback] in `dispose`.
+  /// [removeOnCompleteCallback] in `dispose`, on the controller kept
+  /// from `initState` (see [addOnStartCallback]).
   void addOnCompleteCallback(ShowcaseStepCallback callback) => _onCompleteCallbacks.add(callback);
 
   /// Unregisters a listener added with [addOnCompleteCallback].
@@ -770,7 +789,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// order, and removing one during dispatch is safe and takes effect from
   /// the next finish. Like [ShowCaseWidget.onFinish], it is not called when
   /// the tour is dismissed early: see [addOnDismissCallback]. Pair with
-  /// [removeOnFinishCallback] in `dispose`.
+  /// [removeOnFinishCallback] in `dispose`, on the controller kept
+  /// from `initState` (see [addOnStartCallback]).
   void addOnFinishCallback(VoidCallback callback) => _onFinishCallbacks.add(callback);
 
   /// Unregisters a listener added with [addOnFinishCallback].
@@ -791,7 +811,8 @@ class ShowCaseWidgetState extends State<ShowCaseWidget> {
   /// callback twice invokes it twice, listeners run after
   /// [ShowCaseWidget.onDismiss] in registration order, and removing one during
   /// dispatch is safe and takes effect from the next dismissal. Pair with
-  /// [removeOnDismissCallback] in `dispose`.
+  /// [removeOnDismissCallback] in `dispose`, on the controller kept
+  /// from `initState` (see [addOnStartCallback]).
   void addOnDismissCallback(void Function(GlobalKey? dismissedAt) callback) => _onDismissCallbacks.add(callback);
 
   /// Unregisters a listener added with [addOnDismissCallback].
