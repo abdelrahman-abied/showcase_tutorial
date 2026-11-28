@@ -43,6 +43,11 @@ pubspec.lock
 # Maintainer-only helper for authenticating `dart pub publish` in CI.
 pub_login.sh
 
+# The placement sweep test and the recorded placements it compares
+# against. The test needs its fixture, so neither ships.
+test/fixtures/
+test/tooltip_placement_sweep_test.dart
+
 # Internal planning notes — not useful to package consumers.
 ROADMAP.md
 

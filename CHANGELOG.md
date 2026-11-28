@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.0.3
+
+Three fixes. Nothing to change in your code.
+
+* **Fixed:** tapping the target of a step with `disposeOnTap: true` and no
+  `onTargetClick` threw a null-check error. It happened with
+  `Showcase.withWidget` in every build, and with `Showcase` in release builds
+  (debug builds stopped it earlier with an assert). The tap now ends the tour,
+  as `disposeOnTap` describes. This bug dates back to the package's origins.
+* **`Showcase.withWidget` no longer needs `height` and `width`.** Leave them
+  out and the container is placed by its own laid-out size: above or below
+  the target by its height, within `toolTipMargin` by its width. It is
+  measured before it is shown, so it never appears in the wrong place first.
+  Code that passes them works as before, and the container lands exactly
+  where it did.
+* **A tooltip that does not fit moves to where it does.** A `tooltipPosition`
+  the tooltip does not fit on, off screen or over the target, gives way to
+  the opposite side when it fits there: `top` and `bottom` swap, as do `left`
+  and `right`. With no position set, a default tooltip that fits neither
+  above nor below its target, such as next to a tall one, goes to its left or
+  right. It only moves to a side where all of it, buttons included, fits on
+  the screen above the keyboard. A tooltip that fits stays exactly where it
+  was (a test checks this across thousands of placements, on small screens,
+  with large text and with the keyboard open), and one that fits nowhere is
+  placed as before. A `Showcase.withWidget` container moves only when it is
+  measured: with a `height` it stays on the side you ask for, as before.
+  Buttons inside the tooltip count toward whether it fits where it is only
+  with `ActionsSettings.containerHeight` set, so without it a tooltip that
+  misses by less than its button row may stay where it is.
+
 ## 2.0.2
 
 Fixes the pub.dev score. Nothing changes in the package or your code.

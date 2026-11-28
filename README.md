@@ -221,7 +221,7 @@ may need a small change:
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^2.0.2
+     showcase_tutorial: ^2.0.3
    ```
 
    Or from the command line:
@@ -357,8 +357,6 @@ When the default title/description tooltip isn't enough, build your own with
 ```dart
 Showcase.withWidget(
   key: _three,
-  height: 80,
-  width: 140,
   targetShapeBorder: const CircleBorder(),
   container: Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -371,6 +369,11 @@ Showcase.withWidget(
   child: const Icon(Icons.star),
 );
 ```
+
+The container is placed by its own laid-out size: it goes above or below the
+target by its height, and is kept within `toolTipMargin` by its width. It is
+measured before it is shown, so it never appears in the wrong place first.
+Pass `height` and `width` to place it by sizes of your own instead.
 
 ## Action buttons (Next / Previous / Stop)
 
@@ -1256,7 +1259,17 @@ Showcase(
 ```
 
 > `left` / `right` use the default title/description tooltip; custom `container`
-> tooltips and action buttons keep top/bottom placement.
+> tooltips and action buttons outside the tooltip keep top/bottom placement.
+
+A tooltip that does not fit on its side moves to the opposite one when it fits
+there: `top` and `bottom` swap, as do `left` and `right` (a side fits when the
+tooltip is on screen there and clear of the target). With no position set, a
+tooltip that fits neither above nor below the target, such as next to a tall
+target, goes to its left or right instead. It only moves where all of it,
+buttons included, fits on the screen above the keyboard. A tooltip that fits
+stays exactly where it was, and one that fits nowhere is placed as before. A
+`Showcase.withWidget` container moves only when it is measured; with a `height`
+it stays on the side you ask for.
 
 Add extra space between the target and the tooltip with `targetTooltipGap`
 (logical pixels, default `0`). It applies to every side:
@@ -1497,8 +1510,8 @@ ShowCaseWidget(
 | title                        | String?                |                                                    | Title of the default tooltip.                                                               |     ✅     |                       |
 | description                  | String?                |                                                    | Description of the default tooltip (optional).                                              |     ✅     |                       |
 | container                    | Widget?                |                                                    | A fully custom tooltip widget.                                                              |            |          ✅           |
-| height                       | double?                |                                                    | Height of the custom tooltip.                                                               |            |          ✅           |
-| width                        | double?                |                                                    | Width of the custom tooltip.                                                                |            |          ✅           |
+| height                       | double?                | its laid-out height                                | Height of the custom tooltip, for placing it. Measured when unset.                          |            |          ✅           |
+| width                        | double?                | its laid-out width                                 | Width of the custom tooltip, for placing it. Measured when unset.                           |            |          ✅           |
 | titleTextStyle               | TextStyle?             | `ShowcaseStyle`                                    | Text style of the title.                                                                    |     ✅     |                       |
 | descTextStyle                | TextStyle?             | `ShowcaseStyle`                                    | Text style of the description.                                                              |     ✅     |                       |
 | titleAlignment               | TextAlign              | `TextAlign.start`                                  | Alignment of the title.                                                                     |     ✅     |                       |
@@ -1510,7 +1523,7 @@ ShowCaseWidget(
 | titlePadding                 | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the title.                                                                   |     ✅     |                       |
 | descriptionPadding           | EdgeInsets?            | `EdgeInsets.zero`                                  | Padding around the description.                                                             |     ✅     |                       |
 | showArrow                    | bool                   | true                                               | Show the tooltip arrow pointing at the target.                                              |     ✅     |                       |
-| tooltipPosition              | TooltipPosition?       |                                                    | Force the tooltip to a side (`top` / `bottom` / `left` / `right`).                          |     ✅     |          ✅           |
+| tooltipPosition              | TooltipPosition?       |                                                    | Side of the tooltip (`top` / `bottom` / `left` / `right`), swapped if it does not fit.      |     ✅     |          ✅           |
 | actions                      | Widget?                |                                                    | Action buttons widget (e.g. `ShowCaseDefaultActions`).                                      |     ✅     |          ✅           |
 | actionSettings               | ActionsSettings?       | `const ActionsSettings()`                          | Container styling for the action buttons.                                                   |     ✅     |          ✅           |
 | actionButtonsPosition        | ActionButtonsPosition? |                                                    | Manual position for the action buttons.                                                     |     ✅     |          ✅           |

@@ -24,7 +24,12 @@
 /// The side of the target on which a [Showcase] tooltip is placed.
 ///
 /// Set it on [Showcase.tooltipPosition]. When left unset the tooltip is placed
-/// wherever vertical space is available.
+/// wherever vertical space is available, or beside the target when it fits
+/// neither above nor below it.
+///
+/// A side the tooltip does not fit on gives way to the opposite one when the
+/// tooltip fits there: [top] to [bottom], [left] to [right], and back. Where
+/// neither fits, it stays on the side asked for.
 enum TooltipPosition {
   /// Place the tooltip above the target.
   top,

@@ -240,10 +240,19 @@ class Showcase extends StatefulWidget {
   /// Default to `true`
   final bool showArrow;
 
-  /// Height of [container]
+  /// Height of [container], used to choose whether it goes above or below
+  /// the target.
+  ///
+  /// Optional. When `null`, the container's laid-out height is used instead:
+  /// it is measured before it is shown, so it never appears in the wrong
+  /// place. Set it to place the container by a height of your choosing.
   final double? height;
 
-  /// Width of [container]
+  /// Width of [container], used to centre it on the target and keep it within
+  /// [toolTipMargin].
+  ///
+  /// Optional. When `null`, the container's laid-out width is used instead,
+  /// as for [height].
   final double? width;
 
   /// The duration of time the bouncing animation of tooltip should last.
@@ -384,9 +393,22 @@ class Showcase extends StatefulWidget {
   /// `null` (use the tour-wide value).
   final TooltipActionPosition? actionsPosition;
 
-  /// Defines vertical position of tooltip respective to Target widget
+  /// The side of the target the tooltip goes on.
   ///
-  /// Defaults to adaptive into available space.
+  /// A tooltip that does not fit on screen on this side, or would cover the
+  /// target, goes on the opposite side instead when it fits there
+  /// ([TooltipPosition.top] and [TooltipPosition.bottom],
+  /// [TooltipPosition.left] and [TooltipPosition.right]), buttons included.
+  /// Where neither fits, it stays on this side. A [container] with a
+  /// [height] always stays on this side, as it is placed by that height.
+  ///
+  /// Defaults to `null`: below or above the target, whichever has room. A
+  /// default tooltip that fits neither above nor below goes to its left or
+  /// right instead, where it fits.
+  ///
+  /// [TooltipPosition.left] and [TooltipPosition.right] apply to the default
+  /// tooltip; a [container] and [actions] placed outside the tooltip keep
+  /// it above or below.
   final TooltipPosition? tooltipPosition;
 
   /// Provides padding around the title. Default padding is zero.
@@ -566,15 +588,16 @@ class Showcase extends StatefulWidget {
   /// Creates a showcase step with a fully custom tooltip widget.
   ///
   /// Unlike the default [Showcase] constructor, the tooltip is the supplied
-  /// [container] sized by [height] and [width]; [title]/[description] and the
-  /// default tooltip styling do not apply.
+  /// [container]; [title]/[description] and the default tooltip styling do
+  /// not apply. It is placed by its own laid-out size, or by [height] and
+  /// [width] when they are given.
   const Showcase.withWidget({
     required this.key,
     this.keys,
     required this.child,
     required this.container,
-    required this.height,
-    required this.width,
+    this.height,
+    this.width,
     this.targetShapeBorder = const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
     this.highlightExactShape = false,
     this.overlayColor,
@@ -1132,7 +1155,7 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     if (widget.disposeOnTap == true) {
       await _reverseAnimateTooltip();
       showCaseWidgetState.dismiss();
-      widget.onTargetClick!();
+      widget.onTargetClick?.call();
     } else {
       (widget.onTargetClick ?? _nextIfAny).call();
     }

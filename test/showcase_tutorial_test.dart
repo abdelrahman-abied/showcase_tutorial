@@ -3423,6 +3423,260 @@ void main() {
     expect(tester.getTopLeft(find.text('Box')).dx, closeTo(50, 1));
   });
 
+  group('Showcase.withWidget without a width or height', () {
+    // The container is measured and placed by its own size. Until it is
+    // measured it is kept off stage, so it never shows in the wrong place.
+    const containerKey = ValueKey('container');
+
+    void usePhoneScreen(WidgetTester tester) {
+      tester.view.physicalSize = const Size(1236, 2745);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+    }
+
+    Future<void> showStep(
+      WidgetTester tester, {
+      required Alignment alignment,
+      required Size containerSize,
+      double? width,
+      double? height,
+      Size targetSize = const Size(40, 40),
+      TooltipPosition? tooltipPosition,
+    }) async {
+      final key = GlobalKey();
+      late BuildContext pageContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          key: UniqueKey(),
+          home: ShowCaseWidget(
+            disableMovingAnimation: true,
+            disableScaleAnimation: true,
+            builder: Builder(
+              builder: (context) {
+                pageContext = context;
+                return Scaffold(
+                  body: Align(
+                    alignment: alignment,
+                    child: Showcase.withWidget(
+                      key: key,
+                      width: width,
+                      height: height,
+                      tooltipPosition: tooltipPosition,
+                      container: SizedBox.fromSize(key: containerKey, size: containerSize),
+                      child: SizedBox.fromSize(size: targetSize, child: const Text('target')),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      ShowCaseWidget.of(pageContext).startShowCase([key]);
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    testWidgets('is placed as if its real size had been passed', (tester) async {
+      usePhoneScreen(tester);
+      for (final containerSize in const [Size(140, 80), Size(320, 260), Size(60, 400)]) {
+        for (final y in const [-1.0, -0.5, 0.0, 0.5, 1.0]) {
+          for (final x in const [-1.0, 0.0, 1.0]) {
+            final alignment = Alignment(x, y);
+            await showStep(
+              tester,
+              alignment: alignment,
+              containerSize: containerSize,
+              width: containerSize.width,
+              height: containerSize.height,
+            );
+            final declared = tester.getRect(find.byKey(containerKey));
+            await showStep(tester, alignment: alignment, containerSize: containerSize);
+            expect(tester.getRect(find.byKey(containerKey)), declared, reason: '$containerSize at $alignment');
+            // Only the width, or only the height, measures the other.
+            await showStep(tester, alignment: alignment, containerSize: containerSize, width: containerSize.width);
+            expect(tester.getRect(find.byKey(containerKey)), declared, reason: 'width only, $alignment');
+            await showStep(tester, alignment: alignment, containerSize: containerSize, height: containerSize.height);
+            expect(tester.getRect(find.byKey(containerKey)), declared, reason: 'height only, $alignment');
+          }
+        }
+      }
+    });
+
+    testWidgets('is kept within toolTipMargin by its measured width', (tester) async {
+      usePhoneScreen(tester);
+      const containerSize = Size(200, 80);
+      await showStep(tester, alignment: Alignment.centerLeft, containerSize: containerSize);
+      expect(tester.getRect(find.byKey(containerKey)).left, 20);
+      await showStep(tester, alignment: Alignment.centerRight, containerSize: containerSize);
+      expect(tester.getRect(find.byKey(containerKey)).right, 412 - 20);
+      // Centred on a target away from the edges.
+      await showStep(tester, alignment: Alignment.center, containerSize: containerSize);
+      expect(tester.getRect(find.byKey(containerKey)).center.dx, closeTo(206, 0.01));
+    });
+
+    testWidgets('goes above or below by its measured height', (tester) async {
+      usePhoneScreen(tester);
+      // The 40px target sits 150px from the bottom of the 915px screen.
+      const alignment = Alignment(0, (915 - 150 - 40) / (915 - 40) * 2 - 1);
+      const targetTop = 915 - 150 - 40.0;
+
+      // 200px does not fit in the 150px below, so it goes above. Placed as the
+      // 120px it was assumed to be without a height, it would go below.
+      await showStep(tester, alignment: alignment, containerSize: const Size(100, 200));
+      expect(tester.getRect(find.text('target')).top, closeTo(targetTop, 0.01));
+      expect(tester.getRect(find.byKey(containerKey)).bottom, lessThan(targetTop));
+
+      // A 60px container fits below.
+      await showStep(tester, alignment: alignment, containerSize: const Size(100, 60));
+      expect(tester.getRect(find.byKey(containerKey)).top, greaterThan(targetTop + 40));
+    });
+
+    testWidgets('goes below by its measured height where 120px would not fit', (tester) async {
+      usePhoneScreen(tester);
+      // 100px below the target: a 60px container fits there, but 120px only
+      // fits above.
+      const alignment = Alignment(0, (915 - 100 - 40) / (915 - 40) * 2 - 1);
+      await showStep(tester, alignment: alignment, containerSize: const Size(100, 60));
+      expect(tester.getRect(find.text('target')).bottom, closeTo(915 - 100, 0.01));
+      expect(tester.getRect(find.byKey(containerKey)).top, greaterThan(915 - 100));
+    });
+
+    for (final tooltipPosition in [null, TooltipPosition.top, TooltipPosition.bottom]) {
+      testWidgets('never shows in the wrong place (${tooltipPosition?.name ?? 'auto'})', (tester) async {
+        usePhoneScreen(tester);
+        final key = GlobalKey();
+        late BuildContext pageContext;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: ShowCaseWidget(
+              disableMovingAnimation: true,
+              disableScaleAnimation: true,
+              builder: Builder(
+                builder: (context) {
+                  pageContext = context;
+                  return Scaffold(
+                    body: Align(
+                      alignment: const Alignment(0.8, 0.9),
+                      child: Showcase.withWidget(
+                        key: key,
+                        tooltipPosition: tooltipPosition,
+                        container: const SizedBox(key: containerKey, width: 260, height: 200),
+                        child: const SizedBox(width: 40, height: 40, child: Text('target')),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+        ShowCaseWidget.of(pageContext).startShowCase([key]);
+        // One entry per frame: where the container was painted, or null
+        // while it was not.
+        final frames = <Rect?>[];
+        for (var i = 0; i < 12; i++) {
+          await tester.pump();
+          final shown = find.byKey(containerKey);
+          frames.add(shown.evaluate().isEmpty ? null : tester.getRect(shown));
+        }
+        final settled = frames.last;
+        expect(settled, isNotNull);
+        expect(frames.whereType<Rect>(), everyElement(settled), reason: 'frames: $frames');
+        expect(frames.first, isNull, reason: 'it was laid out off stage before it was measured');
+      });
+    }
+
+    // Taps on the buttons in a measured container, which goes above a target
+    // near the bottom and below one near the top. A tap that missed would
+    // fall through to the dimmed background and move the tour on.
+    for (final rtl in [false, true]) {
+      for (final above in [true, false]) {
+        testWidgets('its buttons are tappable ${above ? 'above' : 'below'} the target (${rtl ? 'RTL' : 'LTR'})', (
+          tester,
+        ) async {
+          usePhoneScreen(tester);
+          final previousWarning = WidgetController.hitTestWarningShouldBeFatal;
+          WidgetController.hitTestWarningShouldBeFatal = true;
+          addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = previousWarning);
+          final keys = [GlobalKey(), GlobalKey()];
+          var gotIt = 0;
+          var finished = false;
+          late BuildContext pageContext;
+          await tester.pumpWidget(
+            MaterialApp(
+              builder: (context, child) =>
+                  Directionality(textDirection: rtl ? TextDirection.rtl : TextDirection.ltr, child: child!),
+              home: ShowCaseWidget(
+                onFinish: () => finished = true,
+                builder: Builder(
+                  builder: (context) {
+                    pageContext = context;
+                    return Scaffold(
+                      body: Column(
+                        mainAxisAlignment: above ? MainAxisAlignment.end : MainAxisAlignment.start,
+                        children: [
+                          for (var i = 0; i < keys.length; i++)
+                            Showcase.withWidget(
+                              key: keys[i],
+                              container: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('Custom step $i', style: const TextStyle(color: Colors.white)),
+                                  FilledButton(onPressed: () => gotIt++, child: Text('Got it $i')),
+                                  OutlinedButton(
+                                    onPressed: () => ShowCaseWidget.of(pageContext).previous(),
+                                    child: Text('Back $i'),
+                                  ),
+                                ],
+                              ),
+                              child: SizedBox(height: 56, width: 200, child: Text('target $i')),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+
+          Future<void> settle() async {
+            for (var i = 0; i < 10; i++) {
+              await tester.pump(const Duration(milliseconds: 100));
+            }
+          }
+
+          ShowCaseWidget.of(pageContext).startShowCase(keys);
+          await settle();
+          ShowCaseWidget.of(pageContext).next();
+          await settle();
+          final button = find.text('Got it 1');
+          expect(button, findsOneWidget);
+          final target = tester.getRect(find.text('target 1'));
+          if (above) {
+            expect(tester.getRect(find.text('Back 1')).bottom, lessThan(target.top));
+          } else {
+            expect(tester.getRect(find.text('Custom step 1')).top, greaterThan(target.bottom));
+          }
+
+          await tester.tap(button);
+          await settle();
+          expect(gotIt, 1);
+          expect(finished, isFalse, reason: 'the tap did not fall through to the dimmed background');
+          expect(find.text('Got it 1'), findsOneWidget);
+
+          await tester.tap(find.text('Back 1'));
+          await settle();
+          expect(find.text('Custom step 0'), findsOneWidget, reason: 'Back went back rather than forward');
+          expect(finished, isFalse);
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+  });
+
   testWidgets('scrollAlignment controls where auto-scroll lands the target', (tester) async {
     // A target sandwiched between two tall spacers in a scroll view. Auto-scroll
     // reveals it; the resting scroll offset depends on the alignment fraction.
@@ -4433,6 +4687,53 @@ void main() {
       expect(taps, 1);
       expect(finished, isFalse, reason: 'the tap did not fall through to the dimmed background');
     });
+  });
+
+  testWidgets('disposeOnTap without onTargetClick ends the tour instead of throwing', (tester) async {
+    // Showcase.withWidget has no assert for this combination, so it reached
+    // `onTargetClick!()` and threw when the target was tapped. The default
+    // constructor asserts in debug only, so release builds threw there too.
+    final key = GlobalKey();
+    var dismissed = false;
+    late BuildContext pageContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ShowCaseWidget(
+          onDismiss: (_) => dismissed = true,
+          builder: Builder(
+            builder: (context) {
+              pageContext = context;
+              return Scaffold(
+                body: Center(
+                  child: Showcase.withWidget(
+                    key: key,
+                    width: 120,
+                    height: 40,
+                    disposeOnTap: true,
+                    container: const Text('Custom tip'),
+                    child: const SizedBox(width: 80, height: 40, child: Text('target')),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    ShowCaseWidget.of(pageContext).startShowCase([key]);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.text('Custom tip'), findsOneWidget);
+
+    await tester.tap(find.text('target'), warnIfMissed: false);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(tester.takeException(), isNull);
+    expect(dismissed, isTrue);
+    expect(find.text('Custom tip'), findsNothing);
   });
 
   group('built-in buttons respond to taps', () {
