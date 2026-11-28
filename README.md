@@ -291,8 +291,8 @@ To translate the built-in labels once instead of per button, use
 | `FloatingActionWidget(...)` | any widget, positioned with `Align` / `Positioned` |
 | `titleTextAlign` / `descriptionTextAlign` | `titleAlignment` / `descriptionAlignment` |
 | `titleTextDirection` / `descriptionTextDirection` | not available; the text follows `Directionality` |
-| `Showcase.enableAutoScroll` (per step) | `ShowCaseWidget.enableAutoScroll` (tour-wide) |
-| `Showcase.onBarrierClick` (per step) | `ShowCaseWidget.onBarrierClick` (tour-wide) |
+| `Showcase.enableAutoScroll` (per step) | same; `ShowCaseWidget.enableAutoScroll` tour-wide |
+| `Showcase.onBarrierClick` (per step) | same; runs after the tour-wide `ShowCaseWidget.onBarrierClick` |
 | `toolTipMargin: 14` | `toolTipMargin: EdgeInsets.all(14)` |
 | `toolTipSlideEndDistance` | not available |
 
@@ -1330,6 +1330,22 @@ Showcase(
 The per-step value wins over the tour-wide `barrierInteraction`.
 `onBarrierClick` still fires either way.
 
+A step can have its own `onBarrierClick` too, for a tap while that step is
+showing. It runs **in addition to** the tour-wide one: first
+`ShowCaseWidget.onBarrierClick`, then the step's, then whatever
+`barrierInteraction` does. Both fire on every barrier tap, `.none` included:
+
+```dart
+Showcase(
+  key: _two,
+  title: 'Try it',
+  description: 'Tap the switch to continue',
+  barrierInteraction: BarrierInteraction.none,
+  onBarrierClick: () => _nudgeSwitch(), // only while this step shows
+  child: const FeatureSwitch(),
+);
+```
+
 ## Accessibility & keyboard navigation
 
 The active step is keyboard-navigable and announced to screen readers out of the
@@ -1560,6 +1576,11 @@ Showcase(
 );
 ```
 
+Turn auto-scroll on or off for a single step with `Showcase.enableAutoScroll`:
+`true` scrolls to that step's target even when the tour does not auto-scroll,
+`false` leaves the scroll position alone for that step, and `null` (the
+default) follows `ShowCaseWidget.enableAutoScroll`.
+
 If you have a small number of children, prefer `SingleChildScrollView`. Otherwise,
 assign a `ScrollController` and scroll to the target manually inside `onStart`:
 
@@ -1613,12 +1634,12 @@ ShowCaseWidget(
 | autoPlay                  | bool                       | false                          | Automatically advance to the next step.                                          |
 | autoPlayDelay             | Duration                   | `Duration(milliseconds: 2000)` | Visibility time of a step when `autoPlay` is enabled.                            |
 | enableAutoPlayLock        | bool                       | false                          | Block user interaction on the overlay while auto-playing.                        |
-| enableAutoScroll          | bool                       | false                          | Auto-scroll so the next target becomes visible.                                  |
+| enableAutoScroll          | bool                       | false                          | Auto-scroll so the next target becomes visible (`Showcase.enableAutoScroll` overrides it per step). |
 | scrollDuration            | Duration                   | `Duration(milliseconds: 300)`  | Duration of the auto-scroll animation.                                           |
 | scrollAlignment           | double                     | `0.5`                          | Where an auto-scrolled target rests (0 = leading, 0.5 = center, 1 = trailing).   |
 | barrierInteraction        | BarrierInteraction         | `BarrierInteraction.next`      | What a background tap does: `next` (advance), `dismiss` (end tour), `none`.      |
 | disableBarrierInteraction | bool                       | false                          | **Deprecated** (removed in 3.0.0): use `barrierInteraction: BarrierInteraction.none`. |
-| onBarrierClick            | VoidCallback?              |                                | Called on every barrier tap (even when `barrierInteraction` is `none`).          |
+| onBarrierClick            | VoidCallback?              |                                | Called on every barrier tap (even when `barrierInteraction` is `none`), before the step's `Showcase.onBarrierClick`. |
 | globalFloatingActionWidget | WidgetBuilder?            |                                | Screen-anchored widget shown above the overlay on every step (you position it).  |
 | hideFloatingActionWidgetForShowcase | `List<GlobalKey>` | `const []`                    | Steps on which the global floating widget is hidden.                             |
 | disableScaleAnimation     | bool                       | false                          | Disable the tooltip scale transition for all steps.                              |
@@ -1701,7 +1722,9 @@ ShowCaseWidget(
 | targetTooltipGap             | double                 | `0`                                                | Extra space (logical px) between the target and the tooltip; applies to all sides.          |     ✅     |          ✅           |
 | toolTipMargin                | EdgeInsets             | `EdgeInsets.all(20)`                               | Minimum margin between the tooltip and the screen edges (also caps its size).               |     ✅     |          ✅           |
 | scrollAlignment              | double?                | `ShowCaseWidget.scrollAlignment`                   | Where this step's target rests when auto-scrolled (0 = leading, 0.5 = center, 1 = trailing).|     ✅     |          ✅           |
+| enableAutoScroll             | bool?                  | `ShowCaseWidget.enableAutoScroll`                  | Whether this step scrolls its target into view; overrides the tour-wide value.              |     ✅     |          ✅           |
 | barrierInteraction           | BarrierInteraction?    | `ShowCaseWidget.barrierInteraction`                | What a background tap does on this step; overrides the tour-wide value.                     |     ✅     |          ✅           |
+| onBarrierClick               | VoidCallback?          |                                                    | Called on a background tap during this step, after `ShowCaseWidget.onBarrierClick`.         |     ✅     |          ✅           |
 | targetShapeBorder            | ShapeBorder            | `RoundedRectangleBorder(...)`                      | Shape applied to the highlight (used when `targetBorderRadius` is null).                    |     ✅     |          ✅           |
 | highlightExactShape          | bool                   | false                                              | Highlight the target by its actual painted shape (snapshot) instead of `targetShapeBorder`. |     ✅     |          ✅           |
 | targetBorderRadius           | BorderRadius?          |                                                    | Border radius of the highlight.                                                             |     ✅     |          ✅           |

@@ -20,6 +20,14 @@
   `removeOnDismissCallback` on `ShowCaseWidget.of(context)`. They work like
   `addOnStartCallback`: they run after `onFinish` / `onDismiss`, in the order
   they were added, and a listener can remove itself while it runs.
+* **Auto-scroll per step:** `Showcase.enableAutoScroll`. `true` scrolls to
+  that step's target even when the tour doesn't auto-scroll, `false` leaves
+  the page where it is for that step. Unset, it follows
+  `ShowCaseWidget.enableAutoScroll`, as before.
+* **Background taps per step:** `Showcase.onBarrierClick`, called when the
+  dimmed background is tapped while that step shows. It runs after the
+  tour-wide `ShowCaseWidget.onBarrierClick`, not instead of it, and both run
+  on every tap, even with `BarrierInteraction.none`.
 
 ## 2.0.3
 

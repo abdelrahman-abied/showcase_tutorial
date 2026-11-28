@@ -227,8 +227,9 @@ class Showcase extends StatefulWidget {
   /// an app without a `material_ui` theme it is black.
   final Color? textColor;
 
-  /// If [ShowCaseWidget.enableAutoScroll] is sets to `true`, this widget will be shown above
-  /// the overlay until the target widget is visible in the viewport.
+  /// While auto-scroll ([enableAutoScroll], or [ShowCaseWidget.enableAutoScroll])
+  /// brings the target into view, this widget is shown above the overlay
+  /// until the target widget is visible in the viewport.
   ///
   /// When `null` (the default) it is a [CircularProgressIndicator] coloured
   /// with [ShowcaseStyle.loadingIndicatorColor], or else white or black,
@@ -458,6 +459,16 @@ class Showcase extends StatefulWidget {
   /// [ShowCaseWidget.scrollAlignment].
   final double? scrollAlignment;
 
+  /// Overrides [ShowCaseWidget.enableAutoScroll] for this step: whether an
+  /// off-screen target is scrolled into view when the step starts.
+  ///
+  /// `true` scrolls to this step's target even when the tour does not
+  /// auto-scroll, and `false` leaves the scroll position alone for this step
+  /// even when it does. Defaults to `null`, which uses the tour-wide
+  /// [ShowCaseWidget.enableAutoScroll]. [ShowCaseWidget.scrollDuration] and
+  /// [scrollAlignment] apply as for the tour-wide setting.
+  final bool? enableAutoScroll;
+
   /// Called while this step is active whenever the highlighted target's bounds
   /// change — for example after a scroll, a rotation, the keyboard opening, or
   /// the target itself resizing.
@@ -482,9 +493,19 @@ class Showcase extends StatefulWidget {
   ///
   /// Takes precedence over the tour-wide setting, including the deprecated
   /// `ShowCaseWidget.disableBarrierInteraction` flag. Does not suppress
-  /// [ShowCaseWidget.onBarrierClick], which still fires on every barrier tap.
-  /// Defaults to `null`, which uses the tour-wide behaviour.
+  /// [ShowCaseWidget.onBarrierClick] or [onBarrierClick], which still fire on
+  /// every barrier tap. Defaults to `null`, which uses the tour-wide behaviour.
   final BarrierInteraction? barrierInteraction;
+
+  /// Called whenever the dimmed background (the barrier) is tapped while
+  /// **this** step is active.
+  ///
+  /// Runs in addition to the tour-wide [ShowCaseWidget.onBarrierClick], not
+  /// instead of it: on a barrier tap the tour-wide callback runs first, then
+  /// this one, then the tap does what [barrierInteraction] says (advance,
+  /// dismiss or nothing). Both fire on every barrier tap, including with
+  /// [BarrierInteraction.none]. Defaults to `null`.
+  final VoidCallback? onBarrierClick;
 
   /// Mouse cursor shown while hovering this step's highlighted target on
   /// web/desktop.
@@ -570,8 +591,10 @@ class Showcase extends StatefulWidget {
     this.targetTooltipGap = 0.0,
     this.toolTipMargin = const EdgeInsets.all(20),
     this.scrollAlignment,
+    this.enableAutoScroll,
     this.onTargetRectUpdate,
     this.barrierInteraction,
+    this.onBarrierClick,
     this.targetMouseCursor,
     this.tooltipMouseCursor,
   }) : height = null,
@@ -631,8 +654,10 @@ class Showcase extends StatefulWidget {
     this.targetTooltipGap = 0.0,
     this.toolTipMargin = const EdgeInsets.all(20),
     this.scrollAlignment,
+    this.enableAutoScroll,
     this.onTargetRectUpdate,
     this.barrierInteraction,
+    this.onBarrierClick,
     this.targetMouseCursor,
     this.tooltipMouseCursor,
   }) : showArrow = false,
@@ -862,7 +887,8 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
     }
 
     if (isActiveNow) {
-      if (showcaseState.enableAutoScroll) {
+      // A per-step [Showcase.enableAutoScroll] wins over the tour-wide flag.
+      if (widget.enableAutoScroll ?? showcaseState.enableAutoScroll) {
         _scrollIntoView();
       }
 
@@ -1361,9 +1387,11 @@ class _ShowcaseState extends State<Showcase> with SingleTickerProviderStateMixin
           children: [
             GestureDetector(
               onTap: () {
-                // Notify the barrier-tap listener first, regardless of what the
-                // tap is configured to do (it fires even for `.none`).
+                // Notify the barrier-tap listeners first, the tour-wide one
+                // then this step's, regardless of what the tap is configured to
+                // do (they fire even for `.none`).
                 showcaseState.onBarrierClick?.call();
+                widget.onBarrierClick?.call();
                 switch (barrierInteraction) {
                   case BarrierInteraction.next:
                     _nextIfAny();

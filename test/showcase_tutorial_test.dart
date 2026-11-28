@@ -6414,6 +6414,223 @@ void main() {
       expect(calls, ['finish-once', 'finish', 'dismiss-once', 'dismiss', 'finish', 'dismiss']);
     });
   });
+
+  group('Showcase.enableAutoScroll', () {
+    // A target 2000 px down a scroll view, off a phone screen.
+    Widget scrollApp(
+      GlobalKey key,
+      ScrollController controller, {
+      required bool tourAutoScroll,
+      bool? stepAutoScroll,
+      bool withWidget = false,
+    }) {
+      const target = SizedBox(height: 40, width: 100, child: Text('target'));
+      return MaterialApp(
+        home: ShowCaseWidget(
+          enableAutoScroll: tourAutoScroll,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: SingleChildScrollView(
+                controller: controller,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 2000),
+                    if (withWidget)
+                      Showcase.withWidget(
+                        key: key,
+                        enableAutoScroll: stepAutoScroll,
+                        container: const Text('Custom'),
+                        child: target,
+                      )
+                    else
+                      Showcase(
+                        key: key,
+                        title: 'Far',
+                        description: 'd',
+                        enableAutoScroll: stepAutoScroll,
+                        child: target,
+                      ),
+                    const SizedBox(height: 400),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    for (final (tour, step, scrolls) in [
+      (false, true, true),
+      (true, false, false),
+      (true, null, true),
+      (false, null, false),
+    ]) {
+      testWidgets('tour-wide $tour, step $step: ${scrolls ? 'scrolls' : 'stays put'}', (tester) async {
+        usePhone(tester);
+        final key = GlobalKey();
+        final controller = ScrollController();
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(scrollApp(key, controller, tourAutoScroll: tour, stepAutoScroll: step));
+
+        ShowCaseWidget.of(tester.element(find.byType(SingleChildScrollView))).startShowCase([key]);
+        await pumpFrames(tester);
+        expect(controller.offset, scrolls ? greaterThan(1000) : 0);
+      });
+    }
+
+    testWidgets('works on Showcase.withWidget too', (tester) async {
+      usePhone(tester);
+      final key = GlobalKey();
+      final controller = ScrollController();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        scrollApp(key, controller, tourAutoScroll: false, stepAutoScroll: true, withWidget: true),
+      );
+
+      ShowCaseWidget.of(tester.element(find.byType(SingleChildScrollView))).startShowCase([key]);
+      await pumpFrames(tester);
+      expect(controller.offset, greaterThan(1000));
+    });
+  });
+
+  group('Showcase.onBarrierClick', () {
+    // A two-step tour whose targets sit at the top of a phone screen, so the
+    // middle of the screen is dimmed background and nothing else.
+    Widget stepBarrierApp(
+      List<GlobalKey> keys, {
+      VoidCallback? tourClick,
+      VoidCallback? stepClick,
+      BarrierInteraction? stepInteraction,
+      bool withWidget = false,
+    }) {
+      return MaterialApp(
+        home: ShowCaseWidget(
+          onBarrierClick: tourClick,
+          builder: Builder(
+            builder: (context) => Scaffold(
+              body: Column(
+                children: [
+                  if (withWidget)
+                    Showcase.withWidget(
+                      key: keys[0],
+                      onBarrierClick: stepClick,
+                      barrierInteraction: stepInteraction,
+                      container: const Text('Custom'),
+                      child: const Text('t0'),
+                    )
+                  else
+                    Showcase(
+                      key: keys[0],
+                      title: 'Step 0',
+                      description: 'd',
+                      onBarrierClick: stepClick,
+                      barrierInteraction: stepInteraction,
+                      child: const Text('t0'),
+                    ),
+                  Showcase(key: keys[1], title: 'Step 1', description: 'd', child: const Text('t1')),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    testWidgets('runs after the tour-wide callback, only on its own step', (tester) async {
+      usePhone(tester);
+      failOnMissedTaps();
+      final keys = [GlobalKey(), GlobalKey()];
+      final events = <String>[];
+      await tester.pumpWidget(
+        stepBarrierApp(keys, tourClick: () => events.add('tour'), stepClick: () => events.add('step')),
+      );
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase(keys);
+      await pumpFrames(tester);
+      await tester.tap(barrier.first);
+      await pumpFrames(tester);
+      expect(events, ['tour', 'step']);
+      expect(state.currentIndex, 1, reason: 'the barrier still advances the tour');
+
+      // The second step has no callback of its own.
+      await tester.tap(barrier.first);
+      await pumpFrames(tester);
+      expect(events, ['tour', 'step', 'tour']);
+    });
+
+    testWidgets('fires on every tap with BarrierInteraction.none', (tester) async {
+      usePhone(tester);
+      failOnMissedTaps();
+      final keys = [GlobalKey(), GlobalKey()];
+      var tourClicks = 0;
+      var stepClicks = 0;
+      await tester.pumpWidget(
+        stepBarrierApp(
+          keys,
+          tourClick: () => tourClicks++,
+          stepClick: () => stepClicks++,
+          stepInteraction: BarrierInteraction.none,
+        ),
+      );
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase(keys);
+      await pumpFrames(tester);
+      await tester.tap(barrier.first);
+      await pumpFrames(tester, 2);
+      await tester.tap(barrier.first);
+      await pumpFrames(tester, 2);
+      expect(tourClicks, 2);
+      expect(stepClicks, 2);
+      expect(state.currentIndex, 0);
+    });
+
+    testWidgets('fires before a dismissing tap ends the tour, without a tour-wide callback', (tester) async {
+      usePhone(tester);
+      failOnMissedTaps();
+      final keys = [GlobalKey(), GlobalKey()];
+      var stepClicks = 0;
+      var wasRunning = false;
+      late ShowCaseWidgetState state;
+      await tester.pumpWidget(
+        stepBarrierApp(
+          keys,
+          stepClick: () {
+            stepClicks++;
+            wasRunning = state.isShowcaseRunning;
+          },
+          stepInteraction: BarrierInteraction.dismiss,
+        ),
+      );
+      state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase(keys);
+      await pumpFrames(tester);
+      await tester.tap(barrier.first);
+      await pumpFrames(tester);
+      expect(stepClicks, 1);
+      expect(wasRunning, isTrue);
+      expect(state.isShowcaseRunning, isFalse);
+    });
+
+    testWidgets('works on Showcase.withWidget too', (tester) async {
+      usePhone(tester);
+      failOnMissedTaps();
+      final keys = [GlobalKey(), GlobalKey()];
+      var stepClicks = 0;
+      await tester.pumpWidget(stepBarrierApp(keys, stepClick: () => stepClicks++, withWidget: true));
+      final state = ShowCaseWidget.of(tester.element(find.text('t0')));
+
+      state.startShowCase(keys);
+      await pumpFrames(tester);
+      await tester.tap(barrier.first);
+      await pumpFrames(tester);
+      expect(stepClicks, 1);
+      expect(state.currentIndex, 1);
+    });
+  });
 }
 
 /// Host whose [Showcase.onShow]/[Showcase.onDismiss] call `setState` on this

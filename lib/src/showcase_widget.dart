@@ -115,6 +115,9 @@ class ShowCaseWidget extends StatefulWidget {
   /// nudge, a sound, or analytics — without changing what the tap does. When
   /// [barrierInteraction] is `.next` or `.dismiss` this runs first, then the
   /// configured action follows.
+  ///
+  /// A step's own [Showcase.onBarrierClick] runs right after this one, for
+  /// taps while that step is active.
   final VoidCallback? onBarrierClick;
 
   /// A screen-anchored widget shown above the overlay for **every** step of the
@@ -241,6 +244,8 @@ class ShowCaseWidget extends StatefulWidget {
 
   /// While target widget is out viewport then
   /// whether enabling auto scroll so as to make the target widget visible.
+  ///
+  /// Overridden for a single step by [Showcase.enableAutoScroll].
   final bool enableAutoScroll;
 
   /// Enable/disable showcase globally. Enabled by default.
