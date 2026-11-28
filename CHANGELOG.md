@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 2.0.3
+
+Three fixes. Nothing to change in your code.
 
 * **Fixed:** tapping the target of a step with `disposeOnTap: true` and no
   `onTargetClick` threw a null-check error. It happened with

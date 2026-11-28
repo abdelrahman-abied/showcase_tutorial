@@ -221,7 +221,7 @@ may need a small change:
 
    ```yaml
    dependencies:
-     showcase_tutorial: ^2.0.2
+     showcase_tutorial: ^2.0.3
    ```
 
    Or from the command line:
